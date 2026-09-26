@@ -1,0 +1,1656 @@
+<div class="container-fluid px-4 py-3">
+
+  <!-- Toast Notifications -->
+  <div *ngIf="successMsg" class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-3 shadow-sm border-0" role="alert">
+    <i class="bi bi-check-circle-fill me-2 fs-5 text-success"></i>
+    <div class="fw-medium">{{ successMsg }}</div>
+    <button type="button" class="btn-close" (click)="successMsg = ''"></button>
+  </div>
+  <div *ngIf="errorMsg" class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-3 shadow-sm border-0" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2 fs-5 text-danger"></i>
+    <div class="fw-medium">{{ errorMsg }}</div>
+    <button type="button" class="btn-close" (click)="errorMsg = ''"></button>
+  </div>
+
+  <!-- Header & Action Bar -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-3 border-bottom gap-3">
+    <div class="d-flex align-items-center">
+      <div>
+        <h3 class="mb-0 fw-bold text-dark tracking-tight">Awarded Sites Directory</h3>
+      </div>
+    </div>
+
+    <!-- Sales Pill Navigation Tabs (Awarded sites active) -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/sales/campaigns" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-megaphone me-1" style="color: #8b5cf6;"></i> Campaigns
+      </a>
+      <a routerLink="/sales/leads" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-person-lines-fill me-1" style="color: #0f766e;"></i> Leads
+      </a>
+      <a routerLink="/sales/oppurtunity" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-lightning-charge-fill me-1 text-warning"></i> Oppurtunities
+      </a>
+      <a routerLink="/awarded-sites" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-building-check me-1 text-success"></i> Awarded sites
+        <span class="badge rounded-pill ms-1" style="background-color: #dcfce7; color: #15803d;">{{ projects.length }}</span>
+      </a>
+    </div>
+
+    <div class="d-flex gap-2 mt-2 mt-md-0">
+      <button class="btn btn-primary btn-sm px-3 shadow-sm d-flex align-items-center gap-1" 
+              *ngIf="canAdd()"
+              style="background-color: #15803d; border-color: #15803d;" 
+              (click)="openAddModal()" 
+              title="Add a new client/project to Awarded Sites">
+        <i class="bi bi-plus-circle"></i> + Add Award
+      </button>
+      <button class="btn btn-outline-danger btn-sm px-3 shadow-sm d-flex align-items-center" (click)="exportToPdf()">
+        <i class="bi bi-file-earmark-pdf me-1"></i> Export PDF
+      </button>
+      <button class="btn btn-outline-success btn-sm px-3 shadow-sm d-flex align-items-center" (click)="exportToCsv()">
+        <i class="bi bi-file-earmark-excel me-1"></i> Export CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Summary Cards -->
+  <div class="row g-3 mb-4" *ngIf="metrics">
+    <!-- Total Projects -->
+    <div class="col-12 col-sm-6 col-xl">
+      <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-4 border-primary">
+        <div class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem;">Total Projects</div>
+        <div class="fs-4 fw-bold text-dark mt-1">{{ metrics.totalProjects }}</div>
+        <div class="text-muted" style="font-size: 0.75rem;">
+          <span class="text-success fw-semibold">{{ metrics.completedCount }} Done</span> &bull; 
+          <span class="text-warning fw-semibold">{{ metrics.wipCount }} In Progress</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Site Value -->
+    <div class="col-12 col-sm-6 col-xl">
+      <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-4 border-info">
+        <div class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem;">Total Site Value</div>
+        <div class="fs-4 fw-bold text-dark mt-1">₹{{ metrics.totalSiteValue | number:'1.0-0' }}</div>
+        <div class="text-muted" style="font-size: 0.75rem;">Awarded Value</div>
+      </div>
+    </div>
+
+    <!-- Total Received -->
+    <div class="col-12 col-sm-6 col-xl">
+      <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-4 border-success">
+        <div class="text-muted text-uppercase fw-semibold d-flex justify-content-between align-items-center" style="font-size: 0.72rem;">
+          <span>Received</span>
+          <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.65rem;">Ledger</span>
+        </div>
+        <div class="fs-4 fw-bold text-success mt-1">₹{{ metrics.totalReceived | number:'1.0-0' }}</div>
+        <div class="text-muted" style="font-size: 0.75rem;">Client Payments</div>
+      </div>
+    </div>
+
+    <!-- Total Due -->
+    <div class="col-12 col-sm-6 col-xl">
+      <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-4 border-danger">
+        <div class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem;">Total Due</div>
+        <div class="fs-4 fw-bold text-danger mt-1">₹{{ metrics.totalDue | number:'1.0-0' }}</div>
+        <div class="text-muted" style="font-size: 0.75rem;">(Site Value - Received)</div>
+      </div>
+    </div>
+
+    <!-- Total Margin -->
+    <div class="col-12 col-sm-6 col-xl">
+      <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-4 border-warning">
+        <div class="text-muted text-uppercase fw-semibold d-flex justify-content-between align-items-center" style="font-size: 0.72rem;">
+          <span>Margin</span>
+          <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;">Exp: ₹{{ metrics.totalExpenses | number:'1.0-0' }}</span>
+        </div>
+        <div class="fs-4 fw-bold text-dark mt-1">₹{{ metrics.totalMargin | number:'1.0-0' }}</div>
+        <div class="text-muted" style="font-size: 0.75rem;">(Site Value - Expenses)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Search Toolbar -->
+  <div class="card border-0 shadow-sm rounded-3 mb-3 p-3 bg-white">
+    <div class="row g-2 align-items-center">
+      <!-- Search Input -->
+      <div class="col-12 col-xl-3 col-lg-3">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <input type="text" class="form-control bg-light border-start-0 ps-0 shadow-none" placeholder="Search ID, Client, Location..." [(ngModel)]="searchTerm" (input)="applyFilters()">
+        </div>
+      </div>
+
+      <!-- Site Type Filter Popover Button (Residential, Industrial, Ground Mount) -->
+      <div class="col-6 col-sm-4 col-md col-lg filter-container position-relative">
+        <button class="btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center text-truncate shadow-none" (click)="toggleFilter('siteType', $event)">
+          <span><i class="bi bi-funnel me-1"></i> Site Type</span>
+          <i class="bi bi-chevron-down small ms-1"></i>
+        </button>
+        <!-- Site Type Filter Popup -->
+        <div *ngIf="siteTypeFilterOpen" class="filter-popup-menu shadow">
+          <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+            <span class="fw-semibold small text-muted">Site Type</span>
+            <span class="badge bg-light text-muted border" style="font-size: 0.68rem;">Filter</span>
+          </div>
+          <div class="mb-2">
+            <input type="text" class="form-control form-control-sm shadow-none" placeholder="Search" [(ngModel)]="siteTypeSearch">
+          </div>
+          <div class="filter-list" style="max-height: 180px; overflow-y: auto;">
+            <div class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" id="siteTypeAll" [checked]="isAllSelected(siteTypeOptions)" (change)="toggleSelectAll(siteTypeOptions)">
+              <label class="form-check-label small fw-medium" for="siteTypeAll">Select All</label>
+            </div>
+            <div *ngFor="let opt of filteredOptions(siteTypeOptions, siteTypeSearch)" class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" [id]="'st_' + opt.label" [(ngModel)]="opt.selected" (change)="onFilterCheckboxChange()">
+              <label class="form-check-label small" [for]="'st_' + opt.label">{{ opt.label }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Type Filter Popover Button (Ongrid, offgrid, Hybrid) -->
+      <div class="col-6 col-sm-4 col-md col-lg filter-container position-relative">
+        <button class="btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center text-truncate shadow-none" (click)="toggleFilter('systemType', $event)">
+          <span><i class="bi bi-funnel me-1"></i> System Type</span>
+          <i class="bi bi-chevron-down small ms-1"></i>
+        </button>
+        <!-- System Type Filter Popup -->
+        <div *ngIf="systemTypeFilterOpen" class="filter-popup-menu shadow">
+          <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+            <span class="fw-semibold small text-muted">System Type</span>
+            <span class="badge bg-light text-muted border" style="font-size: 0.68rem;">Filter</span>
+          </div>
+          <div class="mb-2">
+            <input type="text" class="form-control form-control-sm shadow-none" placeholder="Search" [(ngModel)]="systemTypeSearch">
+          </div>
+          <div class="filter-list" style="max-height: 180px; overflow-y: auto;">
+            <div class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" id="systemTypeAll" [checked]="isAllSelected(systemTypeOptions)" (change)="toggleSelectAll(systemTypeOptions)">
+              <label class="form-check-label small fw-medium" for="systemTypeAll">Select All</label>
+            </div>
+            <div *ngFor="let opt of filteredOptions(systemTypeOptions, systemTypeSearch)" class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" [id]="'syst_' + opt.label" [(ngModel)]="opt.selected" (change)="onFilterCheckboxChange()">
+              <label class="form-check-label small" [for]="'syst_' + opt.label">{{ opt.label }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Site Category Filter Popover Button (TATA SPG, Waree, Premier, Other) -->
+      <div class="col-6 col-sm-4 col-md col-lg filter-container position-relative">
+        <button class="btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center text-truncate shadow-none" (click)="toggleFilter('siteCategory', $event)">
+          <span><i class="bi bi-funnel me-1"></i> Site Category</span>
+          <i class="bi bi-chevron-down small ms-1"></i>
+        </button>
+        <!-- Site Category Filter Popup -->
+        <div *ngIf="siteCategoryFilterOpen" class="filter-popup-menu shadow">
+          <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+            <span class="fw-semibold small text-muted">Site Category</span>
+            <span class="badge bg-light text-muted border" style="font-size: 0.68rem;">Filter</span>
+          </div>
+          <div class="mb-2">
+            <input type="text" class="form-control form-control-sm shadow-none" placeholder="Search" [(ngModel)]="siteCategorySearch">
+          </div>
+          <div class="filter-list" style="max-height: 180px; overflow-y: auto;">
+            <div class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" id="siteCategoryAll" [checked]="isAllSelected(siteCategoryOptions)" (change)="toggleSelectAll(siteCategoryOptions)">
+              <label class="form-check-label small fw-medium" for="siteCategoryAll">Select All</label>
+            </div>
+            <div *ngFor="let opt of filteredOptions(siteCategoryOptions, siteCategorySearch)" class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" [id]="'sc_' + opt.label" [(ngModel)]="opt.selected" (change)="onFilterCheckboxChange()">
+              <label class="form-check-label small" [for]="'sc_' + opt.label">{{ opt.label }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Client Type Filter Popover Button (Individual, Company, Institutional) -->
+      <div class="col-6 col-sm-4 col-md col-lg filter-container position-relative">
+        <button class="btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center text-truncate shadow-none" (click)="toggleFilter('clientType', $event)">
+          <span><i class="bi bi-funnel me-1"></i> Client Type</span>
+          <i class="bi bi-chevron-down small ms-1"></i>
+        </button>
+        <!-- Client Type Filter Popup -->
+        <div *ngIf="clientTypeFilterOpen" class="filter-popup-menu shadow">
+          <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+            <span class="fw-semibold small text-muted">Client Type</span>
+            <span class="badge bg-light text-muted border" style="font-size: 0.68rem;">Filter</span>
+          </div>
+          <div class="mb-2">
+            <input type="text" class="form-control form-control-sm shadow-none" placeholder="Search" [(ngModel)]="clientTypeSearch">
+          </div>
+          <div class="filter-list" style="max-height: 180px; overflow-y: auto;">
+            <div class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" id="clientTypeAll" [checked]="isAllSelected(clientTypeOptions)" (change)="toggleSelectAll(clientTypeOptions)">
+              <label class="form-check-label small fw-medium" for="clientTypeAll">Select All</label>
+            </div>
+            <div *ngFor="let opt of filteredOptions(clientTypeOptions, clientTypeSearch)" class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" [id]="'ct_' + opt.label" [(ngModel)]="opt.selected" (change)="onFilterCheckboxChange()">
+              <label class="form-check-label small" [for]="'ct_' + opt.label">{{ opt.label }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Order By Filter Popover Button -->
+      <div class="col-6 col-sm-4 col-md col-lg filter-container position-relative">
+        <button class="btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center text-truncate shadow-none" (click)="toggleFilter('orderBy', $event)">
+          <span><i class="bi bi-funnel me-1"></i> Order By</span>
+          <i class="bi bi-chevron-down small ms-1"></i>
+        </button>
+        <!-- Order By Filter Popup -->
+        <div *ngIf="orderByFilterOpen" class="filter-popup-menu shadow">
+          <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+            <span class="fw-semibold small text-muted">Order By</span>
+            <span class="badge bg-light text-muted border" style="font-size: 0.68rem;">Filter</span>
+          </div>
+          <div class="mb-2">
+            <input type="text" class="form-control form-control-sm shadow-none" placeholder="Search" [(ngModel)]="orderBySearch">
+          </div>
+          <div class="filter-list" style="max-height: 180px; overflow-y: auto;">
+            <div class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" id="orderByAll" [checked]="isAllSelected(orderByOptions)" (change)="toggleSelectAll(orderByOptions)">
+              <label class="form-check-label small fw-medium" for="orderByAll">Select All</label>
+            </div>
+            <div *ngFor="let opt of filteredOptions(orderByOptions, orderBySearch)" class="form-check mb-1">
+              <input class="form-check-input shadow-none" type="checkbox" [id]="'ob_' + opt.label" [(ngModel)]="opt.selected" (change)="onFilterCheckboxChange()">
+              <label class="form-check-label small" [for]="'ob_' + opt.label">{{ opt.label }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reset Filter Button (Active when filters are applied) -->
+      <div class="col-12 col-sm-auto" *ngIf="hasActiveFilters">
+        <button type="button" class="btn btn-sm btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-1 shadow-none" (click)="resetAllFilters()" title="Reset all search and filters">
+          <i class="bi bi-arrow-counterclockwise"></i> Reset
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Data Table Card (All 27 Fields) -->
+  <div class="table-card border-0 shadow-sm rounded-3 bg-white mb-4 overflow-hidden">
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light border-bottom flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="small fw-semibold text-secondary">
+          Showing <span class="text-dark fw-bold">{{ displayStartRecord }}-{{ displayEndRecord }}</span> of <span class="text-dark fw-bold">{{ filteredProjects.length }}</span> Records
+          <span *ngIf="filteredProjects.length !== projects.length" class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1" style="font-size: 0.72rem;">
+            Filtered from {{ projects.length }} total
+          </span>
+        </div>
+
+        <div class="d-flex align-items-center gap-1 small text-muted">
+          <label for="pageSizeSelect" class="fw-semibold text-dark mb-0 text-nowrap">Show:</label>
+          <select id="pageSizeSelect" class="form-select form-select-sm py-0 px-2 fw-bold font-mono border shadow-xs bg-white text-dark" style="width: 82px; height: 29px; font-size: 0.82rem;" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+            <option [ngValue]="100">100</option>
+            <option value="All">All</option>
+          </select>
+          <span class="small text-muted text-nowrap">per page</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP HORIZONTAL SCROLLBAR (Synchronized with table) -->
+    <div #topScrollContainer class="top-scrollbar-wrapper" (scroll)="onTopScroll()" title="Scroll horizontally across all 29 columns">
+      <div class="top-scrollbar-dummy" [style.width.px]="tableScrollWidth"></div>
+    </div>
+
+    <div #tableContainer class="table-responsive table-no-bottom-scroll" (scroll)="onTableScroll()" style="max-height: 650px; overflow-x: auto;">
+      <table #dataTable class="table custom-table table-hover align-middle mb-0" style="min-width: 4600px;">
+        <thead>
+          <tr>
+            <th>Awarded Date</th>
+            <th class="cursor-pointer user-select-none text-nowrap" (click)="toggleSiteIdSort()" title="Click to sort Site ID: Small to Big / Big to Small" style="cursor: pointer;">
+              <div class="d-inline-flex align-items-center gap-1.5">
+                <span>Site ID</span>
+                <i class="bi fs-7" [ngClass]="siteIdSortDirection === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : (siteIdSortDirection === 'desc' ? 'bi-sort-numeric-down-alt text-primary fw-bold' : 'bi-arrow-down-up text-muted opacity-50')"></i>
+              </div>
+            </th>
+            <th style="min-width: 280px; max-width: 420px;">Client Name</th>
+            <th>Location</th>
+            <th>Contact No</th>
+            <th>Email ID</th>
+            <th>Address</th>
+            <th>Site Capacity</th>
+            <th class="text-end">Site Value</th>
+            <th>Site Type</th>
+            <th>System Type</th>
+            <th>Site Category</th>
+            <th>Client Type</th>
+            <th>Sale Type</th>
+            <th>Order By</th>
+            <th style="min-width: 140px;">Lead by</th>
+            <th class="text-end text-success">Received</th>
+            <th class="text-end text-danger">Due</th>
+            <th class="text-end">Site Expenses</th>
+            <th class="text-end text-primary">Margin</th>
+            <!-- Single Milestones Column -->
+            <th class="text-center bg-info-subtle text-info-emphasis text-nowrap" style="min-width: 250px;">
+              <i class="bi bi-gear-wide-connected me-1"></i>Milestones & Handover
+            </th>
+            <!-- Calculated Progress -->
+            <th class="text-center bg-warning-subtle text-warning-emphasis">Work in Process</th>
+            <th class="text-center bg-success-subtle text-success-emphasis">Completed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="22" class="text-center py-5 text-muted">
+              <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+              Loading projects from database...
+            </td>
+          </tr>
+
+          <tr *ngIf="!loading && filteredProjects.length === 0">
+            <td colspan="22" class="text-center py-5 text-muted">
+              <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+              No project records found matching your filters.
+            </td>
+          </tr>
+
+          <tr *ngFor="let p of paginatedProjects; let i = index">
+            <td class="text-nowrap font-mono">{{ formatDate(p.awardedDate) }}</td>
+            <td class="fw-bold font-mono">
+              <a *ngIf="canEdit()" href="javascript:void(0)" (click)="openEditModal(p)" class="client-link text-decoration-none text-primary d-flex align-items-center" title="Click to edit project">
+                <span class="badge bg-light text-primary border me-1 font-mono" style="font-size: 0.75rem;">{{ p.siteId }}</span>
+              </a>
+              <span *ngIf="!canEdit()" class="badge bg-light text-primary border me-1 font-mono" style="font-size: 0.75rem;">
+                {{ p.siteId }}
+              </span>
+            </td>
+            <td style="min-width: 280px; max-width: 420px;" [title]="p.clientName">
+              <a *ngIf="canEdit()" href="javascript:void(0)" (click)="openEditModal(p)" class="client-link text-decoration-none text-dark fw-bold d-inline-block" title="Click to edit project">
+                <i class="bi bi-person-fill text-teal me-1"></i>{{ p.clientName }}
+              </a>
+              <span *ngIf="!canEdit()" class="text-dark fw-bold d-inline-block">
+                <i class="bi bi-person-fill text-teal me-1"></i>{{ p.clientName }}
+              </span>
+              <div class="small text-muted fw-normal mt-0.5" style="font-size: 0.73rem;">
+                <ng-container *ngIf="p.siteId === 'WAREHOUSE'">
+                  <span class="text-primary fw-semibold">Central Inventory Store</span> &bull; Materials & Equipment
+                </ng-container>
+                <ng-container *ngIf="p.siteId !== 'WAREHOUSE'">
+                  {{ p.siteCapacity }} kW &bull; {{ p.siteType }}
+                </ng-container>
+              </div>
+            </td>
+            <td class="text-truncate" style="max-width: 120px;" [title]="p.location">{{ p.location || '-' }}</td>
+            <td class="font-mono text-nowrap">{{ p.contactNo || '-' }}</td>
+            <td class="text-truncate font-mono" style="max-width: 140px;" [title]="p.emailId">{{ p.emailId || '-' }}</td>
+            <td class="text-truncate" style="max-width: 150px;" [title]="p.address">{{ p.address || '-' }}</td>
+            <td class="fw-semibold text-nowrap">{{ p.siteCapacity || '-' }}</td>
+            <td class="text-end fw-bold font-mono">₹{{ p.siteValue | number:'1.0-0' }}</td>
+            
+            <!-- Site Type Badge -->
+            <td>
+              <span class="badge badge-site-type" [ngClass]="{
+                'badge-commercial': p.siteType === 'Commercial',
+                'badge-industrial': p.siteType === 'Industrial',
+                'badge-residential': p.siteType === 'Residential',
+                'badge-residential-common': p.siteType === 'Residential Common',
+                'badge-ground-mount': p.siteType === 'Ground Mount'
+              }">{{ p.siteType }}</span>
+            </td>
+
+            <!-- System Type Badge -->
+            <td>
+              <span class="badge bg-secondary-subtle text-dark border">{{ p.systemType || 'Other' }}</span>
+            </td>
+
+            <td>{{ p.siteCategory || '-' }}</td>
+            <td><span class="badge bg-light text-dark border">{{ p.clientType }}</span></td>
+            <td>{{ p.saleType || '-' }}</td>
+            <td class="fw-semibold text-dark text-nowrap">{{ p.orderBy || '-' }}</td>
+            <td class="fw-semibold text-dark text-nowrap">
+              <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
+                <i class="bi bi-person-badge text-primary me-1" *ngIf="p.leadBy"></i>{{ p.leadBy || '—' }}
+              </span>
+            </td>
+
+            <!-- Financials -->
+            <td class="text-end fw-semibold font-mono">
+              <button class="btn btn-link text-decoration-none p-0 fw-bold text-success font-mono d-inline-flex align-items-center" (click)="openClientPaymentLedger(p)" title="Click to view client payments & add installments">
+                <span>₹{{ p.received | number:'1.0-0' }}</span>
+                <i class="bi bi-wallet2 ms-1 opacity-75" style="font-size: 0.72rem;"></i>
+              </button>
+            </td>
+            <td class="text-end fw-bold text-danger font-mono">₹{{ p.due | number:'1.0-0' }}</td>
+            <td class="text-end font-mono">₹{{ p.siteExpenses | number:'1.0-0' }}</td>
+            <td class="text-end fw-bold text-primary font-mono">
+              ₹{{ p.margin | number:'1.0-0' }}
+              <div class="small text-muted font-monospace" style="font-size: 0.7rem;">{{ p.marginPercentage }}%</div>
+            </td>
+
+            <!-- Single Column: Milestones Dropdown + Checkboxes (Compact Single Line with 6px gap) -->
+            <td class="text-center bg-info-subtle px-2 py-1" style="min-width: 250px;">
+              <div class="d-inline-flex align-items-center flex-nowrap" style="gap: 6px;">
+                <!-- Dropdown: Material Supply, Installation, EB Process, Documents -->
+                <select class="form-select form-select-xs fw-semibold milestone-stage-select shadow-none py-0 px-2"
+                        style="width: 110px; height: 26px; font-size: 0.72rem;"
+                        [ngModel]="getMilestoneStage(p)"
+                        (ngModelChange)="onStageChange(p, $event)"
+                        [disabled]="!canEdit()"
+                        [class.stage-pending]="getMilestoneStage(p) === 'Pending'"
+                        [class.stage-supply]="getMilestoneStage(p) === 'Material Supply'"
+                        [class.stage-install]="getMilestoneStage(p) === 'Installation'"
+                        [class.stage-eb]="getMilestoneStage(p) === 'EB Process'"
+                        [class.stage-docs]="getMilestoneStage(p) === 'Documents'">
+                  <option value="Pending">Pending</option>
+                  <option value="Material Supply">Material Supply</option>
+                  <option value="Installation">Installation</option>
+                  <option value="EB Process">EB Process</option>
+                  <option value="Documents">Documents</option>
+                </select>
+
+                <!-- Checkboxes: Warranty, Handed Over -->
+                <div class="d-inline-flex align-items-center gap-2 py-0 px-2 rounded bg-white border border-light-subtle shadow-xs" style="height: 26px;">
+                  <!-- Warranty Checkbox -->
+                  <div class="form-check form-check-inline m-0 d-inline-flex align-items-center gap-1 p-0"
+                       [title]="getMilestoneStage(p) === 'Documents' ? 'Click to toggle Warranty' : 'Select Documents stage to enable Warranty'">
+                    <input class="form-check-input m-0 cursor-pointer"
+                           type="checkbox"
+                           [id]="'warranty-' + p.id"
+                           [checked]="p.warranty"
+                           [disabled]="!canEdit() || getMilestoneStage(p) !== 'Documents'"
+                           (change)="onWarrantyToggle(p, $event)"
+                           style="width: 13px; height: 13px;">
+                    <label class="form-check-label fw-semibold text-nowrap m-0 cursor-pointer"
+                           [for]="'warranty-' + p.id"
+                           [class.text-muted]="!canEdit() || getMilestoneStage(p) !== 'Documents'"
+                           [class.text-dark]="canEdit() && getMilestoneStage(p) === 'Documents'"
+                           style="font-size: 0.7rem;">
+                      Warranty
+                    </label>
+                  </div>
+
+                  <!-- Handed Over Checkbox -->
+                  <div class="form-check form-check-inline m-0 d-inline-flex align-items-center gap-1 p-0"
+                       [title]="getMilestoneStage(p) === 'Documents' ? 'Click to toggle Handed Over' : 'Select Documents stage to enable Handed Over'">
+                    <input class="form-check-input m-0 cursor-pointer"
+                           type="checkbox"
+                           [id]="'handedOver-' + p.id"
+                           [checked]="p.handedOver"
+                           [disabled]="!canEdit() || getMilestoneStage(p) !== 'Documents'"
+                           (change)="onHandedOverToggle(p, $event)"
+                           style="width: 13px; height: 13px;">
+                    <label class="form-check-label fw-semibold text-nowrap m-0 cursor-pointer"
+                           [for]="'handedOver-' + p.id"
+                           [class.text-muted]="!canEdit() || getMilestoneStage(p) !== 'Documents'"
+                           [class.text-dark]="canEdit() && getMilestoneStage(p) === 'Documents'"
+                           style="font-size: 0.7rem;">
+                      Handed Over
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <!-- Work in Process -->
+            <td class="text-center bg-warning-subtle">
+              <span class="badge bg-warning text-dark font-mono px-2 py-1">{{ p.workInProgressPercentage }}%</span>
+              <div class="progress mt-1 mx-auto" style="height: 4px; width: 60px;">
+                <div class="progress-bar bg-warning" [style.width.%]="p.workInProgressPercentage"></div>
+              </div>
+            </td>
+
+            <!-- Completed -->
+            <td class="text-center bg-success-subtle">
+              <span class="badge font-mono px-2 py-1" [ngClass]="p.completedPercentage === 100 ? 'bg-success text-white' : 'bg-success-subtle text-success border border-success-subtle'">
+                {{ p.completedPercentage }}%
+              </span>
+              <div class="progress mt-1 mx-auto" style="height: 4px; width: 60px;">
+                <div class="progress-bar bg-success" [style.width.%]="p.completedPercentage"></div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Table Pagination Footer -->
+    <div class="card-footer bg-white border-top py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2" *ngIf="filteredProjects.length > 0">
+      <div class="d-flex align-items-center gap-3">
+        <span class="text-muted small">
+          Showing <strong class="text-dark">{{ displayStartRecord }}</strong> to <strong class="text-dark">{{ displayEndRecord }}</strong> of <strong class="text-dark">{{ filteredProjects.length }}</strong> records
+        </span>
+        <div class="d-inline-flex align-items-center gap-1 small text-muted">
+          <span>Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong></span>
+        </div>
+      </div>
+
+      <nav aria-label="Project master table pagination" *ngIf="totalPages > 1 && pageSize !== 'All'">
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item" [class.disabled]="currentPage === 1">
+            <button type="button" class="page-link" (click)="goToPage(1)" [disabled]="currentPage === 1" title="First Page">
+              <i class="bi bi-chevron-double-left"></i>
+            </button>
+          </li>
+          <li class="page-item" [class.disabled]="currentPage === 1">
+            <button type="button" class="page-link" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1" title="Previous Page">
+              <i class="bi bi-chevron-left"></i> Prev
+            </button>
+          </li>
+
+          <ng-container *ngFor="let p of visiblePages">
+            <li class="page-item disabled" *ngIf="p === -1">
+              <span class="page-link">&hellip;</span>
+            </li>
+            <li class="page-item" *ngIf="p !== -1" [class.active]="currentPage === p">
+              <button type="button" class="page-link" (click)="goToPage(p)">{{ p }}</button>
+            </li>
+          </ng-container>
+
+          <li class="page-item" [class.disabled]="currentPage === totalPages">
+            <button type="button" class="page-link" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages" title="Next Page">
+              Next <i class="bi bi-chevron-right"></i>
+            </button>
+          </li>
+          <li class="page-item" [class.disabled]="currentPage === totalPages">
+            <button type="button" class="page-link" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages" title="Last Page">
+              <i class="bi bi-chevron-double-right"></i>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Create / Edit Modal -->
+  <div *ngIf="isModalOpen" class="modal fade show d-block" tabindex="-1" style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px);">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow-lg rounded-4">
+        
+        <div class="modal-header border-bottom px-4 py-3" style="background: #f8fafc;">
+          <div>
+            <h5 class="modal-title fw-bold text-dark mb-0">
+              <i class="bi" [ngClass]="isEditMode ? 'bi-pencil-square text-primary' : 'bi-plus-circle text-success'"></i>
+              {{ isEditMode ? 'Edit Project Master Record' : 'Create New Project Master Record' }}
+            </h5>
+            <small class="text-muted">Enter complete site, commercial, technical, and milestone information</small>
+          </div>
+          <button type="button" class="btn-close" (click)="closeModal()"></button>
+        </div>
+
+        <div class="modal-body p-4">
+          <!-- Form Section Tabs -->
+          <ul class="nav nav-pills mb-4 border-bottom pb-2">
+            <li class="nav-item">
+              <button class="nav-link fw-semibold px-3 py-1 me-2" [class.active]="modalTab === 'basic'" (click)="modalTab = 'basic'">
+                <i class="bi bi-info-circle me-1"></i> 1. Site & Client Details
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link fw-semibold px-3 py-1 me-2" [class.active]="modalTab === 'config'" (click)="modalTab = 'config'">
+                <i class="bi bi-gear me-1"></i> 2. Technical & Order
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link fw-semibold px-3 py-1 me-2" [class.active]="modalTab === 'finance'" (click)="modalTab = 'finance'">
+                <i class="bi bi-currency-rupee me-1"></i> 3. Financials & Ledgers
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link fw-semibold px-3 py-1" [class.active]="modalTab === 'milestones'" (click)="modalTab = 'milestones'">
+                <i class="bi bi-check2-square me-1"></i> 4. Milestones & Progress (16.67% ea)
+              </button>
+            </li>
+          </ul>
+
+          <form (ngSubmit)="saveProject()">
+            <!-- TAB 1: Site & Client Info -->
+            <div *ngIf="modalTab === 'basic'" class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Awarded Date</label>
+                <input type="date" class="form-control" [(ngModel)]="projectForm.awardedDate" name="awardedDate">
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Site ID <span class="text-danger">*</span></label>
+                <input type="text" class="form-control font-mono" placeholder="e.g. SLK-SOL-101" [(ngModel)]="projectForm.siteId" name="siteId" required>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Client Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" placeholder="Client / Company Name" [(ngModel)]="projectForm.clientName" name="clientName" required>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Client Type</label>
+                <select class="form-select" [(ngModel)]="projectForm.clientType" name="clientType">
+                  <option *ngFor="let opt of masterClientTypes" [value]="opt">{{ opt }}</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Location</label>
+                <input type="text" class="form-control" placeholder="e.g. Chennai, Coimbatore" [(ngModel)]="projectForm.location" name="location">
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Contact No</label>
+                <input type="text" class="form-control font-mono" placeholder="+91 98765 43210" [(ngModel)]="projectForm.contactNo" name="contactNo">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Email ID</label>
+                <input type="email" class="form-control font-mono" placeholder="client@example.com" [(ngModel)]="projectForm.emailId" name="emailId">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Address</label>
+                <input type="text" class="form-control" placeholder="Complete site address" [(ngModel)]="projectForm.address" name="address">
+              </div>
+            </div>
+
+            <!-- TAB 2: Technical & Configuration -->
+            <div *ngIf="modalTab === 'config'" class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Site Capacity</label>
+                <input type="text" class="form-control" placeholder="e.g. 50 kW, 100 kW, 1 MW" [(ngModel)]="projectForm.siteCapacity" name="siteCapacity">
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Site Type</label>
+                <select class="form-select" [(ngModel)]="projectForm.siteType" name="siteType">
+                  <option *ngFor="let opt of masterSiteTypes" [value]="opt">{{ opt }}</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">System Type</label>
+                <select class="form-select" [(ngModel)]="projectForm.systemType" name="systemType">
+                  <option *ngFor="let opt of masterSystemTypes" [value]="opt">{{ opt }}</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Site Category</label>
+                <select class="form-select" [(ngModel)]="projectForm.siteCategory" name="siteCategory">
+                  <option value="TATA SPG">TATA SPG</option>
+                  <option value="Waree">Waree</option>
+                  <option value="Premier">Premier</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Sale Type</label>
+                <select class="form-select shadow-none" [(ngModel)]="projectForm.saleType" name="saleType">
+                  <option *ngFor="let opt of saleTypeOptions" [value]="opt">{{ opt }}</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Order By</label>
+                <select class="form-select" [(ngModel)]="projectForm.orderBy" name="orderBy">
+                  <option value="K KARTHIKEYAN">K KARTHIKEYAN</option>
+                  <option value="K SATHISH">K SATHISH</option>
+                  <option value="S KARTHIKEYAN">S KARTHIKEYAN</option>
+                  <option value="SOUNDARARAJAN M">SOUNDARARAJAN M</option>
+                  <option value="V SHARATH">V SHARATH</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Lead by (Sales)</label>
+                <input type="text" class="form-control shadow-none" [(ngModel)]="projectForm.leadBy" name="leadBy" list="pmSalesLeadByList" placeholder="e.g. Renuka / Daya">
+                <datalist id="pmSalesLeadByList">
+                  <option *ngFor="let opt of salesTeamOptions" [value]="opt"></option>
+                </datalist>
+              </div>
+            </div>
+
+            <!-- TAB 3: Financials & Ledger -->
+            <div *ngIf="modalTab === 'finance'" class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Site Value (₹)</label>
+                <input type="number" step="0.01" class="form-control font-mono fs-5" [(ngModel)]="projectForm.siteValue" name="siteValue">
+                <small class="text-muted">Total agreed project value</small>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-success">
+                  Received (₹)
+                  <span class="badge bg-success-subtle text-success ms-1">Client Payment Ledger</span>
+                </label>
+                <input type="number" step="0.01" class="form-control font-mono fs-5 text-success" [(ngModel)]="projectForm.received" name="received">
+                <small class="text-muted">Amount received so far</small>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">
+                  Site Expenses (₹)
+                  <span class="badge bg-secondary-subtle text-secondary ms-1">Expenses Ledger</span>
+                </label>
+                <input type="number" step="0.01" class="form-control font-mono fs-5" [(ngModel)]="projectForm.siteExpenses" name="siteExpenses">
+                <small class="text-muted">Direct expenses incurred</small>
+              </div>
+
+              <!-- Computed Preview Box -->
+              <div class="col-12 mt-4">
+                <div class="card bg-light border p-3 rounded-3">
+                  <h6 class="fw-bold text-dark mb-3"><i class="bi bi-calculator me-1"></i> Live Computed Financial Indicators</h6>
+                  <div class="row text-center">
+                    <div class="col-md-4">
+                      <div class="text-muted small">Due (Site Value - Received)</div>
+                      <div class="fs-4 fw-bold text-danger font-mono mt-1">₹{{ formDue | number:'1.0-2' }}</div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="text-muted small">Margin (Site Value - Expenses)</div>
+                      <div class="fs-4 fw-bold text-primary font-mono mt-1">₹{{ formMargin | number:'1.0-2' }}</div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="text-muted small">Margin %</div>
+                      <div class="fs-4 fw-bold text-dark font-mono mt-1">
+                        {{ projectForm.siteValue && (projectForm.siteValue > 0) ? ((formMargin / projectForm.siteValue) * 100 | number:'1.1-2') : 0 }}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 4: Milestones & Progress -->
+            <div *ngIf="modalTab === 'milestones'" class="row g-4">
+              <div class="col-12">
+                <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-0">
+                  <i class="bi bi-info-circle-fill me-2 fs-6"></i>
+                  Each milestone tick contributes <strong>16.67%</strong> to Completed. All 6 ticks equal <strong>100%</strong>. Work in Process equals <strong>(100 - Completed)</strong>.
+                </div>
+              </div>
+
+              <!-- Stage Dropdown Card -->
+              <div class="col-md-6">
+                <div class="card p-3 border rounded-3 h-100 shadow-sm">
+                  <label class="form-label fw-bold text-dark small mb-2 d-flex justify-content-between align-items-center">
+                    <span>Execution Stage</span>
+                    <span class="badge" 
+                          [class.bg-secondary]="formMilestoneStage === 'Pending'"
+                          [class.bg-primary]="formMilestoneStage === 'Material Supply'"
+                          [class.bg-warning]="formMilestoneStage === 'Installation'"
+                          [class.bg-info]="formMilestoneStage === 'EB Process'"
+                          [class.bg-success]="formMilestoneStage === 'Documents'">
+                      {{ formMilestoneStage }}
+                    </span>
+                  </label>
+                  <select class="form-select form-select-sm font-medium" 
+                          [ngModel]="formMilestoneStage" 
+                          (ngModelChange)="onFormStageChange($event)" 
+                          name="formMilestoneStage">
+                    <option value="Pending">Pending (Not Started)</option>
+                    <option value="Material Supply">Material Supply</option>
+                    <option value="Installation">Installation</option>
+                    <option value="EB Process">EB Process</option>
+                    <option value="Documents">Documents</option>
+                  </select>
+                  <small class="text-muted mt-2 d-block">Configures progress from Material Supply through Documents.</small>
+                </div>
+              </div>
+
+              <!-- Handover & Warranty Checkboxes Card -->
+              <div class="col-md-6">
+                <div class="card p-3 border rounded-3 h-100 shadow-sm" [class.bg-light]="formMilestoneStage !== 'Documents'">
+                  <label class="form-label fw-bold text-dark small mb-2">
+                    <span>Handover & Warranty Configuration</span>
+                  </label>
+                  <div class="d-flex flex-column gap-2 mt-1">
+                    <div class="form-check" [title]="formMilestoneStage === 'Documents' ? '' : 'Enabled only when stage is Documents'">
+                      <input class="form-check-input" 
+                             type="checkbox" 
+                             id="modal-warranty" 
+                             [(ngModel)]="projectForm.warranty" 
+                             name="modalWarranty"
+                             [disabled]="formMilestoneStage !== 'Documents'">
+                      <label class="form-check-label small fw-semibold" for="modal-warranty" [class.text-muted]="formMilestoneStage !== 'Documents'">
+                        Warranty (+16.67%)
+                      </label>
+                    </div>
+                    <div class="form-check" [title]="formMilestoneStage === 'Documents' ? '' : 'Enabled only when stage is Documents'">
+                      <input class="form-check-input" 
+                             type="checkbox" 
+                             id="modal-handedOver" 
+                             [(ngModel)]="projectForm.handedOver" 
+                             name="modalHandedOver"
+                             [disabled]="formMilestoneStage !== 'Documents'">
+                      <label class="form-check-label small fw-semibold" for="modal-handedOver" [class.text-muted]="formMilestoneStage !== 'Documents'">
+                        Handed Over (+16.67%)
+                      </label>
+                    </div>
+                  </div>
+                  <small class="text-muted mt-2 d-block" *ngIf="formMilestoneStage !== 'Documents'">
+                    <i class="bi bi-lock-fill me-1"></i>These options unlock once Documents stage is reached.
+                  </small>
+                </div>
+              </div>
+
+              <!-- Live Progress Preview -->
+              <div class="col-12 mt-3">
+                <div class="card bg-white border p-3 rounded-3 shadow-sm">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-semibold text-dark">Overall Status Calculation</span>
+                    <div>
+                      <span class="badge bg-warning text-dark font-mono me-2">WIP: {{ formWip }}%</span>
+                      <span class="badge bg-success font-mono">Completed: {{ formCompleted }}%</span>
+                    </div>
+                  </div>
+                <div class="progress" style="height: 10px;">
+                  <div class="progress-bar bg-success" [style.width.%]="formCompleted"></div>
+                  <div class="progress-bar bg-warning" [style.width.%]="formWip"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section: Commercial & Milestone Financial Charts / Graph Sheet (Screenshot 3 / Milestones) -->
+            <div class="col-12 mt-2">
+              <div class="card bg-light border-0 rounded-3 p-3 shadow-xs">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom">
+                  <div>
+                    <h6 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2" style="font-size: 0.95rem;">
+                      <i class="bi bi-pie-chart-fill text-success"></i>
+                      Site Commercial &amp; Financial Analytics
+                    </h6>
+                    <small class="text-muted">Breakdown of Client Payments, Site Expenses, and Margin as per Agreement Site Value</small>
+                  </div>
+                  <div class="badge bg-white text-dark border px-3 py-1.5 shadow-xs font-mono fs-7">
+                    <span class="text-muted fw-normal me-1">Site Value:</span>
+                    <strong class="text-primary">₹ {{ (projectForm.siteValue || 0) | number:'1.2-2' }}</strong>
+                  </div>
+                </div>
+
+                <div class="row g-3">
+                  <!-- Chart 1: Client Payment Breakdown (Donut/Pie Graph) -->
+                  <div class="col-md-6">
+                    <div class="card bg-white border rounded-3 p-3 h-100 shadow-sm">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold text-dark small">Client Payment Realization</span>
+                        <span class="badge" [class.bg-success-subtle]="formReceivedPct >= 100" [class.text-success]="formReceivedPct >= 100" [class.bg-warning-subtle]="formReceivedPct < 100 && formReceivedPct > 0" [class.text-warning-emphasis]="formReceivedPct < 100 && formReceivedPct > 0" [class.bg-danger-subtle]="formReceivedPct === 0" [class.text-danger]="formReceivedPct === 0">
+                          {{ formReceivedPct >= 100 ? 'Fully Collected' : (formReceivedPct > 0 ? 'Partially Received' : 'Pending Payment') }}
+                        </span>
+                      </div>
+
+                      <!-- Donut Graphic + Legend -->
+                      <div class="d-flex align-items-center justify-content-center gap-4 py-2">
+                        <!-- Circular Pie/Donut SVG -->
+                        <div class="position-relative d-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">
+                          <svg viewBox="0 0 36 36" style="width: 110px; height: 110px; transform: rotate(-90deg);">
+                            <!-- Background Circle (Due / Unpaid) -->
+                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                  fill="none" stroke="#fecaca" stroke-width="4.2" />
+                            <!-- Foreground Circle (Received) -->
+                            <path [attr.stroke-dasharray]="formReceivedPct + ', 100'"
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                  fill="none" stroke="#10b981" stroke-width="4.2" stroke-linecap="round" />
+                          </svg>
+                          <div class="position-absolute text-center">
+                            <span class="fw-bold fs-6 text-dark d-block font-mono mb-0" style="line-height: 1;">{{ formReceivedPct }}%</span>
+                            <small class="text-muted" style="font-size: 0.65rem;">Collected</small>
+                          </div>
+                        </div>
+
+                        <!-- Legend Details -->
+                        <div class="d-flex flex-column gap-2 flex-grow-1" style="font-size: 0.8rem;">
+                          <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                            <span class="d-flex align-items-center gap-1.5 text-muted">
+                              <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background-color: #10b981;"></span>
+                              Received:
+                            </span>
+                            <strong class="text-success font-mono">₹ {{ (projectForm.received || 0) | number:'1.2-2' }}</strong>
+                          </div>
+                          <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                            <span class="d-flex align-items-center gap-1.5 text-muted">
+                              <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background-color: #ef4444;"></span>
+                              Balance Due:
+                            </span>
+                            <strong class="text-danger font-mono">₹ {{ formDue | number:'1.2-2' }}</strong>
+                          </div>
+                          <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Total Value:</span>
+                            <strong class="text-dark font-mono">₹ {{ (projectForm.siteValue || 0) | number:'1.2-2' }}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Progress indicator bar -->
+                      <div class="progress mt-2" style="height: 6px;">
+                        <div class="progress-bar bg-success" [style.width.%]="formReceivedPct" title="Received"></div>
+                        <div class="progress-bar bg-danger" [style.width.%]="formDuePct" title="Due"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Chart 2: Site Expenses vs Margin Breakdown (Donut/Pie Graph) -->
+                  <div class="col-md-6">
+                    <div class="card bg-white border rounded-3 p-3 h-100 shadow-sm">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold text-dark small">Expenses &amp; Margin as per Site Value</span>
+                        <span class="badge" [class.bg-info-subtle]="formMarginPct > 30" [class.text-info]="formMarginPct > 30" [class.bg-warning-subtle]="formMarginPct <= 30 && formMarginPct > 0" [class.text-warning-emphasis]="formMarginPct <= 30 && formMarginPct > 0" [class.bg-danger-subtle]="formMarginPct <= 0" [class.text-danger]="formMarginPct <= 0">
+                          {{ formMarginPct > 30 ? 'High Margin' : (formMarginPct > 0 ? 'Positive Margin' : 'Deficit / Over-Budget') }}
+                        </span>
+                      </div>
+
+                      <!-- Donut Graphic + Legend -->
+                      <div class="d-flex align-items-center justify-content-center gap-4 py-2">
+                        <!-- Circular Pie/Donut SVG -->
+                        <div class="position-relative d-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">
+                          <svg viewBox="0 0 36 36" style="width: 110px; height: 110px; transform: rotate(-90deg);">
+                            <!-- Background Circle (Expenses) -->
+                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                  fill="none" stroke="#fed7aa" stroke-width="4.2" />
+                            <!-- Foreground Circle (Margin) -->
+                            <path [attr.stroke-dasharray]="formMarginPct + ', 100'"
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                  fill="none" stroke="#0ea5e9" stroke-width="4.2" stroke-linecap="round" />
+                          </svg>
+                          <div class="position-absolute text-center">
+                            <span class="fw-bold fs-6 text-dark d-block font-mono mb-0" style="line-height: 1;">{{ formMarginPct }}%</span>
+                            <small class="text-muted" style="font-size: 0.65rem;">Margin</small>
+                          </div>
+                        </div>
+
+                        <!-- Legend Details -->
+                        <div class="d-flex flex-column gap-2 flex-grow-1" style="font-size: 0.8rem;">
+                          <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                            <span class="d-flex align-items-center gap-1.5 text-muted">
+                              <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background-color: #f97316;"></span>
+                              Site Expenses:
+                            </span>
+                            <strong class="text-danger font-mono">₹ {{ (projectForm.siteExpenses || 0) | number:'1.2-2' }}</strong>
+                          </div>
+                          <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                            <span class="d-flex align-items-center gap-1.5 text-muted">
+                              <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background-color: #0ea5e9;"></span>
+                              Gross Margin:
+                            </span>
+                            <strong class="text-primary font-mono">₹ {{ formMargin | number:'1.2-2' }}</strong>
+                          </div>
+                          <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Net Cashflow:</span>
+                            <strong class="font-mono" [class.text-success]="formNetCashflow >= 0" [class.text-danger]="formNetCashflow < 0">
+                              ₹ {{ formNetCashflow | number:'1.2-2' }}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Progress indicator bar -->
+                      <div class="progress mt-2" style="height: 6px;">
+                        <div class="progress-bar" style="background-color: #0ea5e9;" [style.width.%]="formMarginPct" title="Margin"></div>
+                        <div class="progress-bar" style="background-color: #f97316;" [style.width.%]="formExpensePct" title="Expenses"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Graph Sheet 3: Full Site Value Financial Comparison Bar -->
+                  <div class="col-12">
+                    <div class="card bg-white border rounded-3 p-3 shadow-sm">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold text-dark small">Financial Ledger Summary Comparison Sheet</span>
+                        <span class="text-muted small">Total Realized vs Incurred Cost as per Agreement Value</span>
+                      </div>
+                      <div class="d-flex flex-column gap-2">
+                        <!-- Row 1: Site Agreement Value -->
+                        <div>
+                          <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted fw-semibold">1. Site Value (100% Agreement Target)</span>
+                            <span class="fw-bold text-dark font-mono">₹ {{ (projectForm.siteValue || 0) | number:'1.2-2' }} (100%)</span>
+                          </div>
+                          <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-primary" style="width: 100%;"></div>
+                          </div>
+                        </div>
+                        <!-- Row 2: Client Collections Received -->
+                        <div>
+                          <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted fw-semibold">2. Client Payments Received (Collections)</span>
+                            <span class="fw-bold text-success font-mono">₹ {{ (projectForm.received || 0) | number:'1.2-2' }} ({{ formReceivedPct }}%)</span>
+                          </div>
+                          <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" [style.width.%]="formReceivedPct"></div>
+                          </div>
+                        </div>
+                        <!-- Row 3: Site Expenses Incurred -->
+                        <div>
+                          <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted fw-semibold">3. Site Expenses &amp; Cost Incurred</span>
+                            <span class="fw-bold text-danger font-mono">₹ {{ (projectForm.siteExpenses || 0) | number:'1.2-2' }} ({{ formExpensePct }}%)</span>
+                          </div>
+                          <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-warning" [style.width.%]="formExpensePct"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+            <!-- Form Navigation & Submit -->
+            <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+              <div>
+                <button type="button" class="btn btn-outline-secondary btn-sm me-2" *ngIf="modalTab !== 'basic'" (click)="modalTab = modalTab === 'milestones' ? 'finance' : (modalTab === 'finance' ? 'config' : 'basic')">
+                  <i class="bi bi-arrow-left me-1"></i> Previous Step
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm" *ngIf="modalTab !== 'milestones'" (click)="modalTab = modalTab === 'basic' ? 'config' : (modalTab === 'config' ? 'finance' : 'milestones')">
+                  Next Step <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+              </div>
+
+              <div class="d-flex gap-2 align-items-center">
+                <button type="button" class="btn btn-outline-danger btn-sm px-3 shadow-none me-2" *ngIf="isEditMode && canDelete()" (click)="confirmDeleteFromModal()">
+                  <i class="bi bi-trash me-1"></i> Delete Project
+                </button>
+                <button type="button" class="btn btn-light px-4" (click)="closeModal()">Cancel</button>
+                <button type="submit" *ngIf="isEditMode ? canEdit() : canAdd()" class="btn btn-primary px-4 shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
+                  <i class="bi bi-check2-circle me-1"></i> {{ isEditMode ? 'Save Changes' : 'Create Project' }}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div *ngIf="deleteModalOpen" class="modal fade show d-block" tabindex="-1" style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px);">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg rounded-4 p-3">
+        <div class="modal-body text-center p-4">
+          <div class="text-danger mb-3">
+            <i class="bi bi-exclamation-triangle-fill display-4"></i>
+          </div>
+          <h5 class="fw-bold text-dark">Delete Project Record?</h5>
+          <p class="text-muted small">
+            Are you sure you want to delete <strong class="text-dark">{{ projectToDelete?.siteId }}</strong> ({{ projectToDelete?.clientName }})?
+            This action cannot be undone.
+          </p>
+          <div class="d-flex justify-content-center gap-2 mt-4">
+            <button type="button" class="btn btn-light px-4" (click)="deleteModalOpen = false">Cancel</button>
+            <button type="button" *ngIf="canDelete()" class="btn btn-danger px-4" (click)="executeDelete()">Delete Permanently</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLIENT DETAILS & CHARTS MODAL (PIE CHART & DONUT CHART) -->
+  <div *ngIf="isDetailsModalOpen && selectedProject" class="modal fade show d-block" tabindex="-1" style="background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(3px); z-index: 1060;">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
+        
+        <!-- Modal Header -->
+        <div class="modal-header px-4 py-3 text-white border-0 d-flex justify-content-between align-items-start" style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);">
+          <div class="d-flex align-items-start gap-3 flex-grow-1 pe-3">
+            <div class="bg-white rounded-circle p-2 d-flex align-items-center justify-content-center shadow-sm flex-shrink-0 mt-1" style="width: 44px; height: 44px; color: #0f766e;">
+              <i class="bi bi-building-check fs-4"></i>
+            </div>
+            <div class="min-w-0">
+              <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                <h4 class="modal-title fw-bold mb-0 text-white">{{ selectedProject.clientName }}</h4>
+                <span class="badge bg-warning text-dark font-mono px-2 py-1">{{ selectedProject.siteId }}</span>
+                <span class="badge bg-light text-dark font-mono px-2 py-1">{{ selectedProject.siteCapacity || 'N/A' }} kW</span>
+                <span class="badge bg-white-subtle text-white border border-white-50 px-2 py-1">{{ selectedProject.siteType }}</span>
+              </div>
+              <div class="text-light opacity-75 small d-flex flex-wrap gap-2 align-items-center">
+                <span><i class="bi bi-geo-alt me-1"></i>{{ selectedProject.location || 'Location Not Specified' }}</span>
+                <span>&bull;</span>
+                <span><i class="bi bi-calendar3 me-1"></i>Awarded: {{ formatDate(selectedProject.awardedDate) }}</span>
+                <span>&bull;</span>
+                <span><i class="bi bi-person-badge me-1"></i>Managed by: {{ selectedProject.orderBy || '-' }}</span>
+                <span *ngIf="selectedProject.leadBy">&bull;</span>
+                <span *ngIf="selectedProject.leadBy"><i class="bi bi-person-check me-1"></i>Lead by: {{ selectedProject.leadBy }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <button type="button" class="btn btn-sm btn-light px-3 d-flex align-items-center shadow-sm fw-semibold text-danger border" (click)="exportProjectDetailsPdf()" title="Show in PDF & Download Report">
+              <i class="bi bi-file-earmark-pdf-fill me-1 text-danger"></i> PDF
+            </button>
+            <button type="button" *ngIf="canEdit()" class="btn btn-sm btn-outline-light px-3 d-flex align-items-center shadow-sm" (click)="editFromDetailsModal()">
+              <i class="bi bi-pencil-square me-1"></i> Edit
+            </button>
+            <button type="button" class="btn-close btn-close-white" (click)="closeClientDetails()" aria-label="Close"></button>
+          </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body p-4 bg-light">
+
+          <!-- 4 KPI Summary Cards -->
+          <div class="row g-3 mb-4">
+            <!-- Total Site Value -->
+            <div class="col-6 col-md-3">
+              <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 border-start border-4 border-primary">
+                <div class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Site Value</div>
+                <div class="fs-4 fw-bold text-dark font-mono mt-1">₹{{ selectedProject.siteValue | number:'1.0-0' }}</div>
+                <div class="small text-muted text-truncate mt-1">
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ selectedProject.siteType }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Amount Received -->
+            <div class="col-6 col-md-3">
+              <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 border-start border-4 border-success">
+                <div class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Received Payment</div>
+                <div class="fs-4 fw-bold text-success font-mono mt-1">₹{{ selectedProject.received | number:'1.0-0' }}</div>
+                <div class="small text-muted text-truncate mt-1">
+                  Due: <span class="fw-bold font-mono" [ngClass]="selectedProject.due! > 0 ? 'text-danger' : 'text-success'">₹{{ selectedProject.due | number:'1.0-0' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Site Expenses & Margin -->
+            <div class="col-6 col-md-3">
+              <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 border-start border-4 border-warning">
+                <div class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Site Expenses & Margin</div>
+                <div class="fs-5 fw-bold text-dark font-mono mt-1">₹{{ selectedProject.margin | number:'1.0-0' }}</div>
+                <div class="small text-muted mt-1">
+                  <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Exp: ₹{{ selectedProject.siteExpenses | number:'1.0-0' }}</span>
+                  <span class="text-teal fw-bold ms-1" style="color: #0f766e;">{{ selectedProject.marginPercentage }}%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Milestone Completion -->
+            <div class="col-6 col-md-3">
+              <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 border-start border-4" style="border-left-color: #0d9488 !important;">
+                <div class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Execution Progress</div>
+                <div class="fs-4 fw-bold font-mono mt-1" [ngClass]="selectedProject.completedPercentage === 100 ? 'text-success' : 'text-primary'">
+                  {{ selectedProject.completedPercentage }}%
+                </div>
+                <div class="small text-muted mt-1">
+                  <span class="badge bg-warning-subtle text-dark border border-warning-subtle">WIP: {{ selectedProject.workInProgressPercentage }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- THE TWO CHARTS: PIE CHART & DONUT CHART -->
+          <div class="row g-3 mb-4">
+            
+            <!-- 1. BAR GRAPH / PIE CHART: Financial Distribution -->
+            <div class="col-12 col-lg-6">
+              <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom flex-wrap gap-2">
+                  <div>
+                    <h6 class="fw-bold text-dark mb-0">
+                      <i class="bi me-2 text-teal" [ngClass]="financialChartMode === 'bar' ? 'bi-bar-chart-fill' : 'bi-pie-chart-fill'" style="color: #0f766e;"></i> Financial Distribution
+                    </h6>
+                    <small class="text-muted">Breakdown of project ledger & margins</small>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-2">
+                    <!-- Toggle: Bar Graph (Default) vs Pie Chart -->
+                    <div class="btn-group btn-group-sm bg-light p-1 rounded-2 border">
+                      <button type="button" class="btn btn-xs py-0 px-2 fw-semibold" [ngClass]="financialChartMode === 'bar' ? 'btn-primary text-white shadow-xs' : 'btn-light text-secondary border-0'" (click)="setFinancialChartMode('bar')" title="Show Financial Bar Graph">
+                        <i class="bi bi-bar-chart-fill me-1"></i> Bar Graph
+                      </button>
+                      <button type="button" class="btn btn-xs py-0 px-2 fw-semibold" [ngClass]="financialChartMode === 'pie' ? 'btn-primary text-white shadow-xs' : 'btn-light text-secondary border-0'" (click)="setFinancialChartMode('pie')" title="Show Financial Pie Chart">
+                        <i class="bi bi-pie-chart-fill me-1"></i> Pie Chart
+                      </button>
+                    </div>
+
+                    <span class="badge bg-light text-dark border font-mono">Total: ₹{{ selectedProject.siteValue | number:'1.0-0' }}</span>
+                  </div>
+                </div>
+
+                <!-- Canvas for Financial Bar Graph (Default) -->
+                <div *ngIf="financialChartMode === 'bar'" class="chart-container py-1 d-flex justify-content-center align-items-center" style="position: relative; height: 220px; width: 100%;">
+                  <canvas id="financialBarChart"></canvas>
+                </div>
+
+                <!-- Canvas for Financial Pie Chart -->
+                <div *ngIf="financialChartMode === 'pie'" class="chart-container py-1 d-flex justify-content-center align-items-center" style="position: relative; height: 220px; width: 100%;">
+                  <canvas id="financialPieChart"></canvas>
+                </div>
+
+                <!-- Financial Legend Breakdown Chips -->
+                <div class="row g-2 mt-2 pt-2 border-top text-center" style="font-size: 0.78rem;">
+                  <div class="col-6 col-sm-3">
+                    <div class="p-2 rounded-2 bg-success-subtle border border-success-subtle">
+                      <div class="text-success fw-bold text-truncate">Received</div>
+                      <div class="fw-bold font-mono text-dark">₹{{ selectedProject.received | number:'1.0-0' }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6 col-sm-3">
+                    <div class="p-2 rounded-2 bg-danger-subtle border border-danger-subtle">
+                      <div class="text-danger fw-bold text-truncate">Due Amount</div>
+                      <div class="fw-bold font-mono text-dark">₹{{ selectedProject.due | number:'1.0-0' }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6 col-sm-3">
+                    <div class="p-2 rounded-2 bg-warning-subtle border border-warning-subtle">
+                      <div class="text-warning-emphasis fw-bold text-truncate">Expenses</div>
+                      <div class="fw-bold font-mono text-dark">₹{{ selectedProject.siteExpenses | number:'1.0-0' }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6 col-sm-3">
+                    <div class="p-2 rounded-2 border" style="background-color: #f0fdfa; border-color: #ccfbf1 !important;">
+                      <div class="fw-bold text-truncate" style="color: #0f766e;">Net Margin</div>
+                      <div class="fw-bold font-mono text-dark">₹{{ selectedProject.margin | number:'1.0-0' }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. DONUT CHART: Milestone Progress Status -->
+            <div class="col-12 col-lg-6">
+              <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                  <div>
+                    <h6 class="fw-bold text-dark mb-0">
+                      <i class="bi bi-circle-half text-warning me-2"></i> Project Execution Progress
+                    </h6>
+                    <small class="text-muted">Work In Process vs Completed Milestones</small>
+                  </div>
+                  <span class="badge" [ngClass]="selectedProject.completedPercentage === 100 ? 'bg-success text-white' : 'bg-warning text-dark'">
+                    {{ selectedProject.completedPercentage === 100 ? 'Completed' : 'In Progress' }}
+                  </span>
+                </div>
+
+                <!-- Canvas for Chart.js Donut -->
+                <div class="chart-container py-1 d-flex justify-content-center align-items-center" style="position: relative; height: 220px; width: 100%;">
+                  <canvas id="progressDonutChart"></canvas>
+                </div>
+
+                <!-- 6 Milestone Progress Chips -->
+                <div class="row g-2 mt-2 pt-2 border-top" style="font-size: 0.75rem;">
+                  <div class="col-4">
+                    <div class="d-flex align-items-center p-1 rounded-2 border" [ngClass]="selectedProject.materialsSupply ? 'bg-success-subtle border-success' : 'bg-light text-muted'">
+                      <i class="bi me-1" [ngClass]="selectedProject.materialsSupply ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-secondary'"></i>
+                      <span class="text-truncate fw-semibold">Materials</span>
+                    </div>
+                  </div>
+                  <div class="col-4">
+                    <div class="d-flex align-items-center p-1 rounded-2 border" [ngClass]="selectedProject.installation ? 'bg-success-subtle border-success' : 'bg-light text-muted'">
+                      <i class="bi me-1" [ngClass]="selectedProject.installation ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-secondary'"></i>
+                      <span class="text-truncate fw-semibold">Installation</span>
+                    </div>
+                  </div>
+                  <div class="col-4">
+                    <div class="d-flex align-items-center p-1 rounded-2 border" [ngClass]="selectedProject.ebProcess ? 'bg-success-subtle border-success' : 'bg-light text-muted'">
+                      <i class="bi me-1" [ngClass]="selectedProject.ebProcess ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-secondary'"></i>
+                      <span class="text-truncate fw-semibold">EB Process</span>
+                    </div>
+                  </div>
+                  <div class="col-4">
+                    <div class="d-flex align-items-center p-1 rounded-2 border" [ngClass]="selectedProject.documents ? 'bg-success-subtle border-success' : 'bg-light text-muted'">
+                      <i class="bi me-1" [ngClass]="selectedProject.documents ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-secondary'"></i>
+                      <span class="text-truncate fw-semibold">Documents</span>
+                    </div>
+                  </div>
+                  <div class="col-4">
+                    <div class="d-flex align-items-center p-1 rounded-2 border" [ngClass]="selectedProject.warranty ? 'bg-success-subtle border-success' : 'bg-light text-muted'">
+                      <i class="bi me-1" [ngClass]="selectedProject.warranty ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-secondary'"></i>
+                      <span class="text-truncate fw-semibold">Warranty</span>
+                    </div>
+                  </div>
+                  <div class="col-4">
+                    <div class="d-flex align-items-center p-1 rounded-2 border" [ngClass]="selectedProject.handedOver ? 'bg-success-subtle border-success' : 'bg-light text-muted'">
+                      <i class="bi me-1" [ngClass]="selectedProject.handedOver ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-secondary'"></i>
+                      <span class="text-truncate fw-semibold">Handed Over</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Comprehensive Project Information Breakdown -->
+          <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+            <h6 class="fw-bold text-dark mb-3">
+              <i class="bi bi-info-circle-fill text-teal me-2" style="color: #0f766e;"></i> Complete Project Specifications & Contact Information
+            </h6>
+
+            <div class="row g-3">
+              <!-- Left Column: Technical & Commercial Specs -->
+              <div class="col-md-6">
+                <div class="table-responsive">
+                  <table class="table table-sm table-borderless align-middle mb-0" style="font-size: 0.85rem;">
+                    <tbody>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold" style="width: 40%;">Site ID</td>
+                        <td class="fw-bold font-mono text-dark">{{ selectedProject.siteId }}</td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">Site Capacity</td>
+                        <td class="fw-bold text-teal" style="color: #0f766e;">{{ selectedProject.siteCapacity || '-' }}</td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">Site Type</td>
+                        <td><span class="badge bg-light text-dark border">{{ selectedProject.siteType }}</span></td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">System Type</td>
+                        <td><span class="badge bg-secondary-subtle text-dark">{{ selectedProject.systemType || '-' }}</span></td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">Site Category</td>
+                        <td class="fw-medium text-dark">{{ selectedProject.siteCategory || '-' }}</td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">Sale Type</td>
+                        <td><span class="badge bg-light text-primary border">{{ selectedProject.saleType || '-' }}</span></td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">Order Managed By</td>
+                        <td class="fw-bold text-dark">{{ selectedProject.orderBy || '-' }}</td>
+                      </tr>
+                      <tr>
+                        <td class="text-muted fw-semibold">Lead By (Sales)</td>
+                        <td class="fw-bold text-dark">{{ selectedProject.leadBy || '-' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Right Column: Client Contact & Physical Address -->
+              <div class="col-md-6">
+                <div class="table-responsive">
+                  <table class="table table-sm table-borderless align-middle mb-0" style="font-size: 0.85rem;">
+                    <tbody>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold" style="width: 35%;">Client Name</td>
+                        <td class="fw-bold text-dark">{{ selectedProject.clientName }}</td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">Client Type</td>
+                        <td><span class="badge bg-light text-dark border">{{ selectedProject.clientType }}</span></td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">Location</td>
+                        <td class="fw-medium text-dark">{{ selectedProject.location || '-' }}</td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">Contact Phone</td>
+                        <td class="font-mono text-dark">{{ selectedProject.contactNo || 'Not Provided' }}</td>
+                      </tr>
+                      <tr class="border-bottom">
+                        <td class="text-muted fw-semibold">Email Address</td>
+                        <td class="font-mono text-dark">{{ selectedProject.emailId || 'Not Provided' }}</td>
+                      </tr>
+                      <tr>
+                        <td class="text-muted fw-semibold align-top">Full Address</td>
+                        <td class="text-secondary small">{{ selectedProject.address || 'No detailed address provided' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer px-4 py-3 bg-white border-top d-flex justify-content-between">
+          <div class="small text-muted">
+            Record ID: <span class="font-mono text-dark">#{{ selectedProject.id }}</span> &bull; 
+            Created: <span class="font-mono text-dark">{{ formatDate(selectedProject.createdAt) }}</span>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-danger px-3 d-flex align-items-center shadow-sm fw-semibold" (click)="exportProjectDetailsPdf()" title="Show in PDF & Download">
+              <i class="bi bi-file-earmark-pdf-fill me-1"></i> Export PDF
+            </button>
+            <button type="button" class="btn btn-outline-secondary px-4" (click)="closeClientDetails()">Close</button>
+            <button type="button" class="btn btn-primary px-4 shadow-sm" style="background-color: #0f766e; border-color: #0f766e;" (click)="editFromDetailsModal()">
+              <i class="bi bi-pencil-square me-1"></i> Edit Project
+            </button>
+          </div>
+        </div>
+
+  <!-- DEDICATED CLIENT PAYMENT LEDGER MODAL DIRECTLY ON DASHBOARD -->
+  <div class="modal fade show d-block" *ngIf="isPaymentModalOpen && activePaymentProject" tabindex="-1" style="background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        
+        <!-- Client Identity Header -->
+        <div class="modal-header modal-header-luxury py-3 px-4 border-0">
+          <div class="d-flex align-items-center gap-3">
+            <div class="client-avatar-box">
+              <i class="bi bi-wallet2"></i>
+            </div>
+            <div>
+              <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                <h4 class="modal-title fw-bold mb-0 text-white tracking-tight">{{ activePaymentProject.clientName }}</h4>
+                <span class="badge bg-warning text-dark font-mono px-2 py-1 fw-bold shadow-xs">{{ activePaymentProject.siteId }}</span>
+              </div>
+              <div class="d-flex align-items-center gap-2 flex-wrap text-white-50 small">
+                <span class="meta-pill"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>{{ activePaymentProject.siteCapacity }} kW &bull; {{ activePaymentProject.siteType }}</span>
+                <span class="meta-pill" *ngIf="activePaymentProject.location"><i class="bi bi-geo-alt-fill text-info me-1"></i>{{ activePaymentProject.location }}</span>
+                <span class="meta-pill text-white-50">&bull; Client Payment Ledger & Installments</span>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="modal-close-btn ms-auto" (click)="closePaymentModal()" title="Close dialog" aria-label="Close">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+
+        <div class="modal-body p-4 bg-light">
+          
+          <!-- Financial Balance Summary Bar -->
+          <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white p-3 border">
+            <div class="row text-center g-3 align-items-center">
+              <div class="col-4 border-end">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.05em;">Site Contract Value</span>
+                <div class="fs-4 fw-bold text-dark font-mono mt-1">₹ {{ activePaymentProject.siteValue | number:'1.2-2' }}</div>
+                <div class="text-muted fs-8">Total Project Agreement</div>
+              </div>
+              <div class="col-4 border-end">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.05em;">Currently Received</span>
+                <div class="fs-4 fw-bold text-success font-mono mt-1">₹ {{ clientTotalReceived | number:'1.2-2' }}</div>
+                <div class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 fs-8 fw-semibold mt-1">
+                  <i class="bi bi-check2-circle me-1"></i>{{ clientPaymentsList.length }} Payments Recorded
+                </div>
+              </div>
+              <div class="col-4">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.05em;">Current Due Balance</span>
+                <div class="fs-4 fw-bold font-mono mt-1" [ngClass]="clientCurrentDue > 0 ? 'text-danger' : 'text-success'">
+                  ₹ {{ clientCurrentDue | number:'1.2-2' }}
+                </div>
+                <div class="badge px-2 py-0.5 fs-8 fw-semibold mt-1" [ngClass]="clientCurrentDue > 0 ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-success-subtle text-success border border-success-subtle'">
+                  {{ clientCurrentDue > 0 ? 'Pending Collection' : 'Fully Settled' }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Payment Records List Header + Add Button -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-journal-text text-primary fs-5"></i>
+              <h6 class="fw-bold mb-0 text-dark">Payment History & Records for {{ activePaymentProject.clientName }}</h6>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono">{{ clientPaymentsList.length }} Records</span>
+              <div *ngIf="loadingClientPayments" class="spinner-border spinner-border-sm text-primary ms-1" role="status"></div>
+            </div>
+            
+            <button class="btn btn-success btn-sm px-3 shadow-sm fw-semibold d-flex align-items-center" *ngIf="!isAddingOrEditingPayment" (click)="startAddNewPayment()">
+              <i class="bi bi-plus-circle me-1"></i> + Add New Payment
+            </button>
+          </div>
+
+          <!-- Past Records Table Box -->
+          <div class="card border-0 shadow-sm rounded-3 bg-white mb-4 overflow-hidden">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 custom-table">
+                <thead class="table-light text-uppercase fs-8 text-secondary border-bottom">
+                  <tr>
+                    <th style="width: 60px;">#</th>
+                    <th style="width: 120px;">Date</th>
+                    <th style="width: 100px;">Site ID</th>
+                    <th style="width: 180px;">Payment Mode</th>
+                    <th>Remarks</th>
+                    <th class="text-end" style="width: 170px;">Payment Received</th>
+                    <th class="text-center" style="width: 100px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngIf="loadingClientPayments && clientPaymentsList.length === 0">
+                    <td colspan="7" class="text-center py-4 text-muted">
+                      <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                      Loading payment records...
+                    </td>
+                  </tr>
+                  <tr *ngIf="!loadingClientPayments && clientPaymentsList.length === 0">
+                    <td colspan="7" class="text-center py-4 text-muted">
+                      <i class="bi bi-cash-coin fs-2 d-block mb-1 text-secondary"></i>
+                      No payment records found yet for this client.
+                      <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-success" (click)="startAddNewPayment()">
+                          <i class="bi bi-plus-circle me-1"></i> Add 1st Payment
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngFor="let p of clientPaymentsList; let idx = index" [class.table-active]="editingPaymentId === p.id">
+                    <td class="fw-bold text-muted font-mono small">
+                      <span class="badge bg-secondary-subtle text-secondary">{{ idx + 1 }}</span>
+                    </td>
+                    <td class="fw-semibold text-dark font-mono small">
+                      {{ p.formattedDate || toDisplayDate(p.paymentDate) }}
+                    </td>
+                    <td>
+                      <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono fw-bold">{{ p.siteId }}</span>
+                    </td>
+                    <td>
+                      <span class="badge" [ngClass]="{
+                        'bg-success-subtle text-success': p.paymentMode?.includes('NEFT') || p.paymentMode?.includes('IMPS'),
+                        'bg-info-subtle text-info': p.paymentMode?.includes('Cheque') || p.paymentMode?.includes('DD'),
+                        'bg-warning-subtle text-warning-emphasis': p.paymentMode?.includes('UPI'),
+                        'bg-secondary-subtle text-secondary': p.paymentMode?.includes('Deposit') || p.paymentMode?.includes('Blanks')
+                      }">{{ p.paymentMode || '(Blanks)' }}</span>
+                    </td>
+                    <td class="text-dark small fw-medium">
+                      {{ p.remarks || '—' }}
+                    </td>
+                    <td class="text-end fw-bold text-success font-mono fs-7">
+                      ₹ {{ p.amount | number:'1.2-2' }}
+                    </td>
+                    <td class="text-center">
+                      <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary border-0 p-1" (click)="startEditPastRecord(p)" title="Edit this installment">
+                          <i class="bi bi-pencil-square fs-6"></i>
+                        </button>
+                        <button class="btn btn-outline-danger border-0 p-1" (click)="deleteClientPaymentRow(p)" title="Delete this payment">
+                          <i class="bi bi-trash3 fs-6"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section: Add / Edit Payment Box -->
+          <div *ngIf="isAddingOrEditingPayment" class="card border border-2 shadow-sm rounded-3 bg-white p-4" [ngClass]="isEditingPastRecord ? 'border-primary' : 'border-success'">
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi fs-5" [ngClass]="isEditingPastRecord ? 'bi-pencil-square text-primary' : 'bi-plus-circle-fill text-success'"></i>
+                <h6 class="fw-bold mb-0 text-dark">
+                  {{ isEditingPastRecord ? 'Edit Payment Installment' : '+ Add New Payment for ' + activePaymentProject.clientName }}
+                </h6>
+              </div>
+              <button type="button" class="btn-close" (click)="cancelPaymentSubForm()"></button>
+            </div>
+
+            <form (ngSubmit)="submitClientPayment()">
+              <div class="row g-3">
+                <!-- Date (dd-mm-yyyy) -->
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">
+                    Date (dd-mm-yyyy) <span class="text-danger">*</span>
+                  </label>
+                  <input type="text" class="form-control font-mono" [(ngModel)]="paymentFormData.dateInput" name="dateInput" placeholder="17-09-2026" required>
+                </div>
+
+                <!-- Site ID (Auto-populated and locked) -->
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">
+                    Site ID <span class="text-muted fw-normal">(Auto-populated)</span>
+                  </label>
+                  <input type="text" class="form-control font-mono fw-bold bg-light" [(ngModel)]="paymentFormData.siteId" name="siteId" readonly>
+                </div>
+
+                <!-- Payment Mode Dropdown -->
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">
+                    Payment Mode <span class="text-danger">*</span>
+                  </label>
+                  <select class="form-select" [(ngModel)]="paymentFormData.paymentMode" name="paymentMode" required>
+                    <option *ngFor="let opt of paymentModeOptions" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+
+                <!-- Remarks (e.g. 1st payment, 2nd payment) -->
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark">
+                    Remarks <span class="text-muted fw-normal">(Installment)</span>
+                  </label>
+                  <input type="text" class="form-control" [(ngModel)]="paymentFormData.remarks" name="remarks" placeholder="e.g. 1st Payment, 2nd Payment">
+                </div>
+
+                <!-- Payment Received (₹) -->
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-dark">
+                    Payment Received (₹) <span class="text-danger">*</span>
+                  </label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-white fw-bold text-success">₹</span>
+                    <input type="number" class="form-control fw-bold text-success font-mono fs-5" [(ngModel)]="paymentFormData.amount" name="amount" placeholder="e.g. 50000" min="1" step="any" required>
+                  </div>
+                </div>
+
+                <!-- Live Dashboard Sync Feedback Alert -->
+                <div class="col-md-6 d-flex align-items-center">
+                  <div *ngIf="paymentFormData.amount && paymentFormData.amount > 0" class="alert alert-info py-2 px-3 mb-0 w-100 small d-flex align-items-center">
+                    <i class="bi bi-arrow-repeat fs-5 me-2 text-primary"></i>
+                    <div>
+                      <strong>Dashboard Live Reflection:</strong><br>
+                      Total Received will become <strong class="text-success font-mono">₹ {{ liveNewReceived | number:'1.2-2' }}</strong>
+                      and Due will recalculate to <strong class="text-danger font-mono">₹ {{ liveNewDue | number:'1.2-2' }}</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Form Buttons -->
+              <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3" (click)="cancelPaymentSubForm()">Cancel</button>
+                <button type="submit" class="btn btn-sm px-4 fw-bold shadow-sm" [ngClass]="isEditingPastRecord ? 'btn-primary' : 'btn-success'" [disabled]="!paymentFormData.amount || paymentFormData.amount <= 0">
+                  <i class="bi bi-check2-circle me-1"></i>
+                  {{ isEditingPastRecord ? 'Update Payment & Sync Dashboard' : 'Save Payment & Sync Dashboard' }}
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </div>
+
+        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between align-items-center">
+          <small class="text-muted">
+            <i class="bi bi-shield-check text-success me-1"></i> All recorded payments automatically reflect in Dashboard "Received" and recalculate "Due" in real-time.
+          </small>
+          <button type="button" class="btn btn-secondary btn-sm px-4" (click)="closePaymentModal()">Close</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+

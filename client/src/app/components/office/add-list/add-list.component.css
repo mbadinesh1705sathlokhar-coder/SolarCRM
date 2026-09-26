@@ -1,0 +1,72 @@
+/* Header Navigation Tabs */
+.nav-tabs-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tab-pill-btn {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  color: #475569;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tab-pill-btn:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.tab-pill-btn.active {
+  background-color: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.office-icon-box {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Custom List Table */
+.custom-list-table {
+  font-size: 0.84rem;
+}
+
+.custom-list-table thead th {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 10px 14px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.custom-list-table tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.modal-backdrop-custom {
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.config-title-link {
+  cursor: pointer;
+  transition: color 0.15s ease, text-decoration 0.15s ease;
+}
+
+.config-title-link:hover .hover-underline {
+  color: #0d6efd;
+  text-decoration: underline;
+}

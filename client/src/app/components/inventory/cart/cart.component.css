@@ -1,0 +1,111 @@
+/* Pill Navigation Tabs */
+.nav-tabs-wrapper {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.tab-pill-btn {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tab-pill-btn:hover {
+  color: #0f172a;
+  background-color: #f1f5f9;
+}
+
+.tab-pill-btn.active {
+  background-color: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.inventory-icon-box {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Compact Table */
+.compact-table th {
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  padding: 8px 10px !important;
+  letter-spacing: 0.02em;
+}
+
+.compact-table td {
+  font-size: 0.82rem !important;
+  padding: 8px 10px !important;
+}
+
+.hover-link:hover {
+  text-decoration: underline !important;
+  color: #2563eb !important;
+}
+
+/* Status dots for Order Summary */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Custom Modal Backdrop */
+.modal-backdrop-custom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.6);
+  z-index: 1060;
+  padding: 1rem;
+}
+
+/* Badges in Cart: padding 3px 8px, border-radius 5px */
+.badge {
+  border-radius: 5px !important;
+  padding: 3px 8px !important;
+}
+
+.badge.bg-warning-subtle {
+  background-color: #ffedd5 !important;
+  color: #9a3412 !important;
+  border-color: #fdba74 !important;
+}
+
+/* Add Material Button: guaranteed white text and icon on hover/focus */
+.btn-add-mat {
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-add-mat:hover,
+.btn-add-mat:focus,
+.btn-add-mat:active {
+  background-color: #059669 !important;
+  border-color: #059669 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-add-mat *,
+.btn-add-mat:hover *,
+.btn-add-mat:focus *,
+.btn-add-mat:active * {
+  color: #ffffff !important;
+}
+
+

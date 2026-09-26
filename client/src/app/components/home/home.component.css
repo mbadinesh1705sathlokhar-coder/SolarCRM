@@ -1,0 +1,78 @@
+﻿.workspace-page-container {
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.home-avatar-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metric-card {
+  transition: all 0.2s ease-in-out;
+  background-color: #ffffff;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+.metric-number {
+  font-size: 1.85rem;
+  line-height: 1.2;
+}
+
+.metric-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Custom To-Do Table */
+.custom-todo-table th {
+  background-color: #f8fafc;
+  font-weight: 700;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.04em;
+  padding: 8px 12px !important;
+  border-top: none;
+}
+
+.custom-todo-table td {
+  padding: 7px 12px !important;
+  font-size: 0.78rem !important;
+}
+
+.todo-completed-row {
+  background-color: #f8fafc !important;
+  opacity: 0.75;
+}
+
+.todo-action-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}

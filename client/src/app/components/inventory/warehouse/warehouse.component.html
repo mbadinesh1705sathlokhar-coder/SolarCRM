@@ -1,0 +1,228 @@
+<div class="container-fluid p-3 p-md-4">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage" 
+       class="alert alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg border-0 z-3"
+       [class.alert-success]="toastType === 'success'"
+       [class.alert-danger]="toastType === 'danger'"
+       [class.alert-info]="toastType === 'info'"
+       style="min-width: 320px; z-index: 1099;">
+    <i class="bi me-2" 
+       [class.bi-check-circle-fill]="toastType === 'success'"
+       [class.bi-exclamation-triangle-fill]="toastType === 'danger'"
+       [class.bi-info-circle-fill]="toastType === 'info'"></i>
+    {{ toastMessage }}
+    <button type="button" class="btn-close" (click)="toastMessage = ''"></button>
+  </div>
+
+  <!-- Header with Pill Tabs -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
+    <div class="d-flex align-items-center gap-3">
+      <div class="inventory-icon-box bg-success-subtle text-success shadow-sm p-2 rounded-3">
+        <i class="bi bi-box-seam-fill fs-4"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold mb-0 text-dark tracking-tight">Inventory Management</h4>
+      </div>
+    </div>
+
+    <!-- Inventory Pill Navigation Tabs -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/inventory/indent" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-file-earmark-text me-1 text-primary"></i> Indent
+      </a>
+      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-box-seam me-1 text-success"></i> Warehouse
+      </a>
+      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-pass me-1 text-warning"></i> Gate Pass
+      </a>
+      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-cart3 me-1 text-danger"></i> Add to cart
+      </a>
+    </div>
+
+    <!-- Top Action -->
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportWarehousePdf()" title="Download Warehouse Stock PDF">
+        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      </button>
+      <button class="btn btn-sm btn-success fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
+              *ngIf="canAdd()"
+              (click)="openAddModal()">
+        <i class="bi bi-plus-lg"></i> Add Material
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="card border-0 shadow-sm rounded-3 p-2 px-3 bg-white mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="input-group input-group-sm" style="max-width: 320px;">
+        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" class="form-control border-start-0 bg-light" placeholder="Search material, description..." [(ngModel)]="searchTerm">
+      </div>
+      <div class="small text-muted">
+        Total Warehouse Stock Items: <strong class="text-dark">{{ filteredMaterials.length }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Warehouse Table -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 compact-table">
+        <thead class="table-light">
+          <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+            <th>Materials</th>
+            <th>Description</th>
+            <th style="width: 110px;">Unit</th>
+            <th style="width: 130px;" class="text-end">In-Stock</th>
+            <th style="width: 130px;" class="text-center">Status</th>
+            <th style="width: 90px;" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="6" class="text-center py-4 text-muted">
+              <div class="spinner-border spinner-border-sm text-success me-2"></div>
+              Loading warehouse materials...
+            </td>
+          </tr>
+          <tr *ngIf="!loading && filteredMaterials.length === 0">
+            <td colspan="6" class="text-center py-5 text-muted">
+              <i class="bi bi-box fs-2 d-block mb-2 text-secondary"></i>
+              No materials found in warehouse. Click <strong>Add Material</strong> to stock items.
+            </td>
+          </tr>
+          <tr *ngFor="let m of filteredMaterials">
+            <!-- Materials: Clickable to edit -->
+            <td>
+              <a *ngIf="canEdit()" href="javascript:void(0)" 
+                 class="fw-bold text-dark text-decoration-none hover-link"
+                 (click)="openEditModal(m)" 
+                 title="Click to edit material details">
+                {{ m.materialName }}
+              </a>
+              <span *ngIf="!canEdit()" class="fw-bold text-dark">
+                {{ m.materialName }}
+              </span>
+            </td>
+            <!-- Description -->
+            <td class="small text-secondary text-truncate" style="max-width: 300px;" [title]="m.description || ''">
+              {{ m.description || '—' }}
+            </td>
+            <!-- Unit -->
+            <td>
+              <span class="badge bg-light text-dark border">{{ m.unit }}</span>
+            </td>
+            <!-- In-Stock -->
+            <td class="text-end font-mono fw-bold fs-7" [class.text-danger]="m.inStock <= 0" [class.text-low-stock]="m.inStock > 0 && m.inStock <= 5" [class.text-success]="m.inStock > 5">
+              {{ m.inStock | number:'1.0-2' }}
+            </td>
+            <!-- Status -->
+            <td class="text-center">
+              <span class="stock-badge"
+                    [ngClass]="{
+                      'stock-in-stock': m.status === 'In Stock',
+                      'stock-low-stock': m.status === 'Low Stock',
+                      'stock-out-of-stock': m.status === 'Out of Stock'
+                    }">
+                {{ m.status }}
+              </span>
+            </td>
+            <!-- Actions: Strictly DELETE button only (no icons) -->
+            <td class="text-center">
+              <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
+                      style="font-size: 0.76rem;"
+                      (click)="confirmDelete(m)"
+                      title="Delete Material">
+                Delete
+              </button>
+              <span *ngIf="!canDelete()" class="text-muted small">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: ADD / EDIT WAREHOUSE MATERIAL                     -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-success text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-box-seam"></i>
+          {{ isEditMode ? 'Edit Material: ' + materialForm.materialName : 'Add Material to Warehouse' }}
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeModal()"></button>
+      </div>
+      <form (ngSubmit)="saveMaterial()">
+        <div class="modal-body p-4 bg-light">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small fw-bold text-dark mb-1">Material Name <span class="text-danger">*</span></label>
+              <input type="text" list="matOptionsList" class="form-control shadow-sm" placeholder="Select or type material name" [(ngModel)]="materialForm.materialName" name="materialName" required>
+              <datalist id="matOptionsList">
+                <option *ngFor="let m of materialOptions" [value]="m"></option>
+              </datalist>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-bold text-dark mb-1">Description</label>
+              <textarea class="form-control shadow-sm" rows="2" placeholder="e.g. 5KW Distribution Box IP65 rated with MCB & SPD" [(ngModel)]="materialForm.description" name="description"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-dark mb-1">Unit <span class="text-danger">*</span></label>
+              <select class="form-select shadow-sm" [(ngModel)]="materialForm.unit" name="unit" required>
+                <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-dark mb-1">In-Stock Quantity <span class="text-danger">*</span></label>
+              <input type="number" step="any" min="0" class="form-control font-mono shadow-sm" placeholder="e.g. 25" [(ngModel)]="materialForm.inStock" name="inStock" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-bold text-dark mb-1">Status</label>
+              <select class="form-select shadow-sm" [(ngModel)]="materialForm.status" name="status">
+                <option *ngFor="let st of statusOptions" [value]="st">{{ st }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">Cancel</button>
+          <button type="submit" *ngIf="isEditMode ? canEdit() : canAdd()" class="btn btn-sm btn-success px-4 fw-bold shadow-sm">
+            <i class="bi bi-check2-circle me-1"></i> {{ isEditMode ? 'Update Material' : 'Save Material' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: CONFIRM DELETE WAREHOUSE MATERIAL                 -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-danger text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0">Confirm Delete Material</h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeDeleteModal()"></button>
+      </div>
+      <div class="modal-body p-4 bg-light text-center">
+        <p class="mb-1 text-dark">Are you sure you want to delete this material from warehouse?</p>
+        <p class="fw-bold text-danger mb-0 fs-6">{{ materialToDelete?.materialName }}</p>
+        <small class="text-muted d-block mt-2">Current Stock: {{ materialToDelete?.inStock }} {{ materialToDelete?.unit }}</small>
+      </div>
+      <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteModal()">Cancel</button>
+        <button type="button" *ngIf="canDelete()" class="btn btn-sm btn-danger px-4 fw-bold shadow-sm" (click)="deleteMaterial()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>

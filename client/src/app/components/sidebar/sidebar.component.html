@@ -1,0 +1,237 @@
+<aside class="crm-sidebar">
+  <!-- Top Item: Home -->
+  <div class="sidebar-top-section">
+    <a routerLink="/home" routerLinkActive="active" class="home-nav-pill">
+      <div class="windows-grid-icon">
+        <span class="grid-dot"></span>
+        <span class="grid-dot"></span>
+        <span class="grid-dot"></span>
+        <span class="grid-dot"></span>
+      </div>
+      <span class="nav-text fw-bold">Home</span>
+    </a>
+  </div>
+
+  <!-- Section: CRM -->
+  <div class="sidebar-category">
+    <div class="category-header">CRM</div>
+    <ul class="nav-list list-unstyled">
+      <!-- Sales Dropdown Group -->
+      <li class="nav-item has-submenu" *ngIf="authService.canViewAnyNav(['campaigns', 'leads', 'oppurtunities', 'awarded-sites', 'sales-dashboard'])">
+        <button type="button"
+                class="sidebar-nav-item dropdown-trigger-btn w-100 text-start border-0 bg-transparent"
+                (click)="toggleSales()"
+                title="Toggle Sales & Pipeline">
+          <div class="d-flex align-items-center gap-2">
+            <span class="color-square color-lime"></span>
+            <span class="nav-text">Sales</span>
+          </div>
+          <i class="bi bi-chevron-down dropdown-chevron" [class.rotated]="isSalesOpen"></i>
+        </button>
+
+        <!-- Submenu links: Campaigns, Leads, Oppurtunities, Awarded sites, Sales Dashboard -->
+        <ul class="submenu-list list-unstyled" *ngIf="isSalesOpen">
+          <li class="submenu-item" *ngIf="authService.canViewNav('campaigns')">
+            <a routerLink="/sales/campaigns" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-megaphone"></i>
+              <span>Campaigns</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('leads')">
+            <a routerLink="/sales/leads" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-person-lines-fill"></i>
+              <span>Leads</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('oppurtunities')">
+            <a routerLink="/sales/oppurtunity" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-lightning-charge"></i>
+              <span>Oppurtunities</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('awarded-sites')">
+            <a routerLink="/awarded-sites" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-building-check"></i>
+              <span>Awarded sites</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('sales-dashboard')">
+            <a routerLink="/sales/dashboard" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-bar-chart-line text-warning"></i>
+              <span>Sales Dashboard</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+
+      <!-- Finances Dropdown Group -->
+      <li class="nav-item has-submenu" *ngIf="authService.canViewAnyNav(['payment-ledger', 'expense-ledger', 'vendor-ledger', 'expo-expenses'])">
+        <button type="button"
+                class="sidebar-nav-item dropdown-trigger-btn w-100 text-start border-0 bg-transparent"
+                (click)="toggleFinances()"
+                title="Toggle Finances & Ledgers">
+          <div class="d-flex align-items-center gap-2">
+            <span class="color-square color-purple"></span>
+            <span class="nav-text">Finances</span>
+          </div>
+          <i class="bi bi-chevron-down dropdown-chevron" [class.rotated]="isFinancesOpen"></i>
+        </button>
+
+        <!-- Submenu links: Client Payment Ledger, Expenses Ledger, Vendor Ledger, Expo Expenses -->
+        <ul class="submenu-list list-unstyled" *ngIf="isFinancesOpen">
+          <li class="submenu-item" *ngIf="authService.canViewNav('payment-ledger')">
+            <a routerLink="/payment-ledger" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-wallet2 text-success"></i>
+              <span>Client Payment Ledger</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('expense-ledger')">
+            <a routerLink="/expense-ledger" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-receipt text-danger"></i>
+              <span>Expenses Ledger</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('vendor-ledger')">
+            <a routerLink="/vendor-ledger" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-truck text-info"></i>
+              <span>Vendor Ledger</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('expo-expenses')">
+            <a routerLink="/expo-expenses" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-calendar-event text-danger"></i>
+              <span>Expo Expenses</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+
+      <!-- Activity Dropdown Group -->
+      <li class="nav-item has-submenu" *ngIf="authService.canViewAnyNav(['meetings', 'calls', 'tasks', 'site-plan'])">
+        <button type="button"
+                class="sidebar-nav-item dropdown-trigger-btn w-100 text-start border-0 bg-transparent"
+                (click)="toggleActivity()"
+                title="Toggle Activity">
+          <div class="d-flex align-items-center gap-2">
+            <span class="color-square" style="background-color: #0284c7;"></span>
+            <span class="nav-text">Activity</span>
+          </div>
+          <i class="bi bi-chevron-down dropdown-chevron" [class.rotated]="isActivityOpen"></i>
+        </button>
+
+        <!-- Submenu links: Meetings, Calls, Tasks, Site Plan -->
+        <ul class="submenu-list list-unstyled" *ngIf="isActivityOpen">
+          <li class="submenu-item" *ngIf="authService.canViewNav('meetings')">
+            <a routerLink="/activity/meetings" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-calendar-check text-primary"></i>
+              <span>Meetings</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('calls')">
+            <a routerLink="/activity/calls" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-telephone-fill" style="color: #ec4899;"></i>
+              <span>Calls</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('tasks')">
+            <a routerLink="/activity/tasks" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-card-checklist" style="color: #f59e0b;"></i>
+              <span>Tasks</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('site-plan')">
+            <a routerLink="/activity/site-plan" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-geo-alt-fill" style="color: #16a34a;"></i>
+              <span>Site Plan</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+
+      <!-- Inventory Dropdown Group -->
+      <li class="nav-item has-submenu" *ngIf="authService.canViewAnyNav(['indent', 'warehouse', 'gate-pass', 'cart'])">
+        <button type="button"
+                class="sidebar-nav-item dropdown-trigger-btn w-100 text-start border-0 bg-transparent"
+                (click)="toggleInventory()"
+                title="Toggle Inventory Management">
+          <div class="d-flex align-items-center gap-2">
+            <span class="color-square" style="background-color: #0f766e;"></span>
+            <span class="nav-text">Inventory</span>
+          </div>
+          <i class="bi bi-chevron-down dropdown-chevron" [class.rotated]="isInventoryOpen"></i>
+        </button>
+
+        <!-- Submenu links: Indent, Warehouse, Gate Pass, Add to cart -->
+        <ul class="submenu-list list-unstyled" *ngIf="isInventoryOpen">
+          <li class="submenu-item" *ngIf="authService.canViewNav('indent')">
+            <a routerLink="/inventory/indent" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-file-earmark-text text-primary"></i>
+              <span>Indent</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('warehouse')">
+            <a routerLink="/inventory/warehouse" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-box-seam text-success"></i>
+              <span>Warehouse</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('gate-pass')">
+            <a routerLink="/inventory/gate-pass" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-pass text-warning"></i>
+              <span>Gate Pass</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('cart')">
+            <a routerLink="/inventory/cart" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-cart3 text-danger"></i>
+              <span>Add to cart</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Section: ACCOUNT -->
+  <div class="sidebar-category">
+    <div class="category-header">ACCOUNT</div>
+    <ul class="nav-list list-unstyled">
+      <!-- Office Dropdown Group (Under Account, Above Logout - Admin Only) -->
+      <li class="nav-item has-submenu" *ngIf="authService.isAdmin()">
+        <button type="button"
+                class="sidebar-nav-item dropdown-trigger-btn w-100 text-start border-0 bg-transparent"
+                (click)="toggleOffice()"
+                title="Toggle Office Administration">
+          <div class="d-flex align-items-center gap-2">
+            <span class="color-square" style="background-color: #f59e0b;"></span>
+            <span class="nav-text">Office</span>
+          </div>
+          <i class="bi bi-chevron-down dropdown-chevron" [class.rotated]="isOfficeOpen"></i>
+        </button>
+
+        <!-- Submenu links: Employees, Add List -->
+        <ul class="submenu-list list-unstyled" *ngIf="isOfficeOpen">
+          <li class="submenu-item">
+            <a routerLink="/office/employees" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-person-badge text-primary"></i>
+              <span>Employees</span>
+            </a>
+          </li>
+          <li class="submenu-item">
+            <a routerLink="/office/add-list" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-card-checklist text-warning"></i>
+              <span>Add List</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+
+      <li class="nav-item">
+        <a class="sidebar-nav-item cursor-pointer" (click)="onActivityClick('Logout')">
+          <i class="bi bi-box-arrow-right item-icon text-danger"></i>
+          <span class="nav-text">Logout</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+</aside>

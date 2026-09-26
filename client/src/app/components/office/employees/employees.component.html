@@ -1,0 +1,684 @@
+<div class="container-fluid p-3 p-md-4">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage" 
+       class="alert alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg border-0 z-3"
+       [class.alert-success]="toastType === 'success'"
+       [class.alert-danger]="toastType === 'danger'"
+       [class.alert-info]="toastType === 'info'"
+       style="min-width: 320px; z-index: 1099;">
+    <i class="bi me-2" 
+       [class.bi-check-circle-fill]="toastType === 'success'"
+       [class.bi-exclamation-triangle-fill]="toastType === 'danger'"
+       [class.bi-info-circle-fill]="toastType === 'info'"></i>
+    {{ toastMessage }}
+    <button type="button" class="btn-close" (click)="toastMessage = ''"></button>
+  </div>
+
+  <!-- Header with Office Navigation Pill Tabs -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
+    <div class="d-flex align-items-center gap-3">
+      <div class="office-icon-box bg-primary-subtle text-primary shadow-sm p-2 rounded-3">
+        <i class="bi bi-people-fill fs-4"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold mb-0 text-dark tracking-tight">Office Administration</h4>
+      </div>
+    </div>
+
+    <!-- Office Pill Navigation Tabs -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/office/employees" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-person-badge-fill me-1 text-primary"></i> Employees
+      </a>
+      <a routerLink="/office/add-list" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-card-checklist me-1 text-warning"></i> Add List
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="card border-0 shadow-sm rounded-3 p-2 px-3 bg-white mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="input-group input-group-sm" style="max-width: 340px;">
+        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" class="form-control border-start-0 bg-light" placeholder="Search employee name, role, phone..." [(ngModel)]="searchTerm">
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="small text-muted">Total Staff: <strong>{{ filteredEmployees.length }}</strong></span>
+        <button *ngIf="canAdd()" class="btn btn-sm btn-primary fw-semibold shadow-sm px-3 py-1 d-flex align-items-center gap-1"
+                style="background-color: #0f766e; border-color: #0f766e;"
+                (click)="openAddModal()">
+          <i class="bi bi-plus-lg"></i> Add Employee
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employees Table (Simple, clean, non-fancy) -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+    <!-- Top Horizontal Scrollbar (Synchronized with Table Scroll) -->
+    <div class="top-scrollbar-track" #topScrollWrapper (scroll)="onTopScroll()" [style.display]="tableScrollWidth > tableClientWidth ? 'block' : 'none'">
+      <div class="top-scrollbar-thumb-shim" [style.width.px]="tableScrollWidth"></div>
+    </div>
+
+    <div class="table-responsive" #tableWrapper (scroll)="onTableScroll()">
+      <table class="table table-hover align-middle mb-0 compact-table" #dataTableEl>
+        <thead class="table-light">
+          <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+            <th style="min-width: 170px;">Name</th>
+            <th style="min-width: 170px;">Role</th>
+            <th style="min-width: 125px;">Responsibility</th>
+            <th *ngIf="isAdmin()" style="min-width: 130px;">Access</th>
+            <th style="min-width: 150px;">Email</th>
+            <th style="min-width: 150px;">Password</th>
+            <th style="min-width: 140px;">Phone No</th>
+            <th style="min-width: 190px;">Email ID</th>
+            <th style="min-width: 200px;">Address</th>
+            <th style="min-width: 110px;">Experience</th>
+            <th style="min-width: 90px;" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td [attr.colspan]="isAdmin() ? 11 : 10" class="text-center py-4 text-muted">
+              <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+              Loading employees...
+            </td>
+          </tr>
+          <tr *ngIf="!loading && filteredEmployees.length === 0">
+            <td [attr.colspan]="isAdmin() ? 11 : 10" class="text-center py-5 text-muted">
+              <i class="bi bi-people fs-2 d-block mb-2 text-secondary"></i>
+              No employee records found. Click <strong>Add Employee</strong> to register staff.
+            </td>
+          </tr>
+          <tr *ngFor="let emp of filteredEmployees">
+            <!-- Name (Clickable only if canEdit(emp)) -->
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="rounded-circle overflow-hidden flex-shrink-0 bg-light border d-flex align-items-center justify-content-center shadow-xs" style="width: 28px; height: 28px;">
+                  <img *ngIf="emp.photo" [src]="emp.photo" [alt]="emp.name" class="w-100 h-100 object-fit-cover">
+                  <i *ngIf="!emp.photo" class="bi bi-person text-secondary" style="font-size: 0.85rem;"></i>
+                </div>
+                <a *ngIf="canEdit(emp)"
+                   href="javascript:void(0)" 
+                   class="fw-bold text-dark text-decoration-none name-link d-inline-flex align-items-center gap-1"
+                   (click)="openEditModal(emp)"
+                   title="Click to view and edit credentials / details">
+                  {{ emp.name }}
+                  <i class="bi bi-pencil-fill text-muted opacity-50" style="font-size: 0.65rem;"></i>
+                </a>
+                <span *ngIf="!canEdit(emp)" class="fw-semibold text-dark" title="Read-only: Contact admin to change">
+                  {{ emp.name }}
+                </span>
+              </div>
+            </td>
+
+            <!-- Role (styled with employee badge background) -->
+            <td>
+              <span class="badge" 
+                    [ngClass]="emp.role === 'admin' ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-light text-secondary border'"
+                    style="font-size: 0.78rem; font-weight: 500; padding: 4px 8px;">
+                <i class="bi" [ngClass]="emp.role === 'admin' ? 'bi-shield-lock-fill me-1' : 'bi-person me-1'"></i>
+                {{ emp.designation || '-' }}
+              </span>
+            </td>
+
+            <!-- Responsibility Badge -->
+            <td>
+              <span class="badge" 
+                    [ngClass]="{
+                      'bg-success-subtle text-success border border-success-subtle': emp.responsibility === 'Sales',
+                      'bg-info-subtle text-info-emphasis border border-info-subtle': emp.responsibility === 'Engineers',
+                      'bg-warning-subtle text-warning-emphasis border border-warning-subtle': emp.responsibility === 'Admin',
+                      'bg-primary-subtle text-primary border border-primary-subtle': emp.responsibility === 'Purchase'
+                    }">
+                <i class="bi me-1"
+                   [ngClass]="{
+                     'bi-graph-up-arrow': emp.responsibility === 'Sales',
+                     'bi-tools': emp.responsibility === 'Engineers',
+                     'bi-shield-shaded': emp.responsibility === 'Admin',
+                     'bi-cart-check': emp.responsibility === 'Purchase'
+                   }"></i>
+                {{ emp.responsibility || 'Sales' }}
+              </span>
+            </td>
+
+            <!-- Access Permissions Column (Admin only) -->
+            <td *ngIf="isAdmin()">
+              <button type="button" 
+                      class="btn btn-sm p-1 px-2.5 d-inline-flex align-items-center gap-1.5 border rounded-pill shadow-xs"
+                      [ngClass]="{
+                        'bg-success-subtle text-success border-success-subtle': getAccessSummary(emp) === 'Full Control',
+                        'bg-primary-subtle text-primary border-primary-subtle': getAccessSummary(emp) === 'Add / Edit',
+                        'bg-secondary-subtle text-secondary border-secondary-subtle': getAccessSummary(emp) === 'View Only',
+                        'bg-light text-dark border': getAccessSummary(emp) !== 'Full Control' && getAccessSummary(emp) !== 'Add / Edit' && getAccessSummary(emp) !== 'View Only'
+                      }"
+                      (click)="openAccessModal(emp, $event)"
+                      [title]="canManageAccess() ? 'Click to configure permissions for ' + emp.name : 'View permissions for ' + emp.name"
+                      style="font-size: 0.74rem; font-weight: 600;">
+                <i class="bi" 
+                   [ngClass]="{
+                     'bi-shield-check': getAccessSummary(emp) === 'Full Control',
+                     'bi-pencil-square': getAccessSummary(emp) === 'Add / Edit',
+                     'bi-eye-fill': getAccessSummary(emp) === 'View Only',
+                     'bi-shield-lock': getAccessSummary(emp) !== 'Full Control' && getAccessSummary(emp) !== 'Add / Edit' && getAccessSummary(emp) !== 'View Only'
+                   }"></i>
+                {{ getAccessSummary(emp) }}
+                <i class="bi bi-gear-fill ms-0.5 opacity-60" *ngIf="canManageAccess()" style="font-size: 0.65rem;"></i>
+              </button>
+            </td>
+
+            <!-- Username -->
+            <td class="font-mono" style="font-size: 0.82rem;">
+              <span *ngIf="emp.username" class="badge bg-light text-dark border font-mono">
+                <i class="bi bi-at text-muted"></i>{{ emp.username }}
+              </span>
+              <span *ngIf="!emp.username" class="text-muted small fst-italic">Not set</span>
+            </td>
+
+            <!-- Password -->
+            <td class="font-mono text-nowrap" style="font-size: 0.82rem;">
+              <div class="d-inline-flex align-items-center gap-1" *ngIf="emp.password">
+                <span class="small font-mono text-secondary" style="letter-spacing: 0.08em;">
+                  {{ (showPasswordMap[emp.id!] && (isAdmin() || isSelf(emp))) ? emp.password : '••••••••' }}
+                </span>
+                <button type="button" 
+                        *ngIf="isAdmin() || isSelf(emp)"
+                        class="btn btn-sm btn-link text-muted p-0 ms-1 border-0 shadow-none text-decoration-none"
+                        (click)="toggleTablePassword(emp, $event)"
+                        [title]="showPasswordMap[emp.id!] ? 'Hide password' : 'Show password'">
+                  <i class="bi" [ngClass]="showPasswordMap[emp.id!] ? 'bi-eye-slash-fill text-danger' : 'bi-eye text-primary'"></i>
+                </button>
+                <i *ngIf="!isAdmin() && !isSelf(emp)" class="bi bi-lock-fill text-muted ms-1 small" title="Encrypted credential (Restricted)"></i>
+              </div>
+              <span *ngIf="!emp.password" class="text-muted small fst-italic">Not set</span>
+            </td>
+
+            <!-- Phone No -->
+            <td class="font-mono text-nowrap" style="font-size: 0.82rem;">
+              <a *ngIf="emp.phoneNo" [href]="'tel:' + emp.phoneNo" class="text-decoration-none text-dark">
+                <i class="bi bi-telephone text-muted me-1"></i>{{ emp.phoneNo }}
+              </a>
+              <span *ngIf="!emp.phoneNo" class="text-muted">-</span>
+            </td>
+
+            <!-- Email ID -->
+            <td class="font-mono" style="font-size: 0.82rem;">
+              <a *ngIf="emp.emailId" [href]="'mailto:' + emp.emailId" class="text-decoration-none text-primary">
+                {{ emp.emailId }}
+              </a>
+              <span *ngIf="!emp.emailId" class="text-muted">-</span>
+            </td>
+
+            <!-- Address -->
+            <td class="text-secondary small" style="max-width: 260px;">
+              <i class="bi bi-geo-alt text-muted me-1"></i>{{ emp.address || '-' }}
+            </td>
+
+            <!-- Experience -->
+            <td>
+              <span class="badge bg-light text-dark border font-mono">
+                {{ emp.experience || '-' }}
+              </span>
+            </td>
+
+            <!-- Actions: Delete (admin only) -->
+            <td class="text-center text-nowrap">
+              <button *ngIf="canDelete(emp)"
+                      class="btn btn-sm btn-outline-danger border-0 p-1"
+                      (click)="confirmDelete(emp)"
+                      title="Delete Employee">
+                <i class="bi bi-trash3 fs-6"></i>
+              </button>
+              <span *ngIf="!canDelete(emp)" class="text-muted small" title="Read only">
+                <i class="bi bi-lock-fill opacity-50"></i>
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: ADD / EDIT EMPLOYEE                               -->
+  <!-- ======================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 560px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+        <div class="modal-header bg-dark text-white py-3 px-4">
+          <h6 class="modal-title fw-bold mb-0">
+            <i class="bi bi-person-badge-fill me-2 text-warning"></i>
+            {{ isEditMode ? 'Employee Details & Credentials' : 'Add New Employee' }}
+          </h6>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeModal()"></button>
+        </div>
+        <form (ngSubmit)="saveEmployee()">
+          <div class="modal-body p-4 bg-light">
+            <div class="row g-3">
+              <!-- Profile Photo Upload -->
+              <div class="col-12 text-center pb-2">
+                <div class="d-inline-flex flex-column align-items-center">
+                  <div class="position-relative mb-2" style="width: 76px; height: 76px;">
+                    <img *ngIf="employeeForm.photo" [src]="employeeForm.photo" alt="Profile Photo" class="w-100 h-100 rounded-circle object-fit-cover shadow-sm border border-2 border-primary">
+                    <div *ngIf="!employeeForm.photo" class="w-100 h-100 rounded-circle bg-white border d-flex align-items-center justify-content-center text-muted fs-3 shadow-xs">
+                      <i class="bi bi-person"></i>
+                    </div>
+                    <label class="btn btn-sm btn-primary rounded-circle position-absolute bottom-0 end-0 p-0 d-flex align-items-center justify-content-center shadow" style="width: 26px; height: 26px; cursor: pointer;" title="Upload Photo">
+                      <i class="bi bi-camera-fill" style="font-size: 0.72rem;"></i>
+                      <input type="file" accept="image/*" class="d-none" (change)="onPhotoFileChange($event)">
+                    </label>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <label class="btn btn-sm btn-outline-primary py-0 px-2 small shadow-xs" style="cursor: pointer; font-size: 0.76rem;">
+                      <i class="bi bi-upload me-1"></i> Upload Photo
+                      <input type="file" accept="image/*" class="d-none" (change)="onPhotoFileChange($event)">
+                    </label>
+                    <button *ngIf="employeeForm.photo" type="button" class="btn btn-sm btn-outline-danger py-0 px-2 small shadow-xs" style="font-size: 0.76rem;" (click)="removePhoto()">
+                      <i class="bi bi-trash3 me-1"></i> Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Name -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control shadow-sm" [readonly]="!isAdmin() && isEditMode" placeholder="e.g. Renuka Devi" [(ngModel)]="employeeForm.name" name="name" required>
+              </div>
+
+              <!-- Role / Designation -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Role <span class="text-danger">*</span></label>
+                <select class="form-select shadow-sm" [disabled]="!isAdmin() && isEditMode" [(ngModel)]="employeeForm.designation" name="designation" required>
+                  <option value="" disabled>Select Role...</option>
+                  <option *ngFor="let d of designationOptions" [value]="d">{{ d }}</option>
+                  <option *ngIf="employeeForm.designation && !designationOptions.includes(employeeForm.designation)" [value]="employeeForm.designation">
+                    {{ employeeForm.designation }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Responsibility (Sales / Engineers / Admin) -->
+              <div class="col-md-6" *ngIf="isAdmin()">
+                <label class="form-label small fw-bold text-dark mb-1">Responsibility <span class="text-danger">*</span></label>
+                <select class="form-select shadow-sm" [(ngModel)]="employeeForm.responsibility" name="responsibility" required>
+                  <option *ngFor="let opt of responsibilityOptions" [value]="opt">{{ opt }}</option>
+                </select>
+              </div>
+              <div class="col-md-6" *ngIf="!isAdmin()">
+                <label class="form-label small fw-bold text-dark mb-1">Responsibility</label>
+                <input type="text" class="form-control shadow-sm bg-light" [value]="employeeForm.responsibility || 'Sales'" readonly>
+              </div>
+
+              <!-- Role (Only Admin can change role) -->
+              <div class="col-md-6" *ngIf="isAdmin()">
+                <label class="form-label small fw-bold text-dark mb-1">Role Permission <span class="text-danger">*</span></label>
+                <select class="form-select shadow-sm" [(ngModel)]="employeeForm.role" name="role" required>
+                  <option value="employee">Staff / Employee</option>
+                  <option value="admin">Administrator</option>
+                </select>
+              </div>
+              <div class="col-md-6" *ngIf="!isAdmin()">
+                <label class="form-label small fw-bold text-dark mb-1">Role Permission</label>
+                <input type="text" class="form-control shadow-sm bg-light" [value]="(employeeForm.role || 'employee') | titlecase" readonly>
+              </div>
+
+              <!-- Phone No -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Phone No</label>
+                <input type="text" class="form-control font-mono shadow-sm" placeholder="e.g. +91 98401 55210" [(ngModel)]="employeeForm.phoneNo" name="phoneNo">
+              </div>
+
+              <!-- Email ID -->
+              <div class="col-12">
+                <label class="form-label small fw-bold text-dark mb-1">Email ID</label>
+                <input type="email" class="form-control font-mono shadow-sm" placeholder="e.g. renuka@sathlokhar.com" [(ngModel)]="employeeForm.emailId" name="emailId">
+              </div>
+
+              <!-- Login Credentials Section -->
+              <div class="col-12 mt-2 pt-2 border-top">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <i class="bi bi-shield-lock-fill text-primary"></i>
+                  <span class="fw-bold small text-dark">Login Credentials</span>
+                  <span class="badge bg-light text-muted border small ms-auto">
+                    {{ isEditMode ? (isAdmin() ? 'Admin Access' : 'Personal Credentials') : 'New User Setup' }}
+                  </span>
+                </div>
+                <div class="p-3 bg-white rounded-3 border shadow-sm">
+                  <div class="row g-2">
+                    <div class="col-md-6">
+                      <label class="form-label small fw-semibold text-secondary mb-1">Email / Login ID</label>
+                      <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-at"></i></span>
+                        <input type="text" class="form-control font-mono" placeholder="e.g. user@sathlokhar.com" [(ngModel)]="employeeForm.username" name="username">
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label small fw-semibold text-secondary mb-1">Password</label>
+                      <div class="input-group input-group-sm">
+                        <input [type]="modalShowPassword ? 'text' : 'password'" 
+                               class="form-control font-mono" 
+                               placeholder="Set account password" 
+                               [(ngModel)]="employeeForm.password" 
+                               name="password">
+                        <button type="button" 
+                                class="btn btn-outline-secondary" 
+                                (click)="modalShowPassword = !modalShowPassword"
+                                [title]="modalShowPassword ? 'Hide password' : 'Show password'">
+                          <i class="bi" [ngClass]="modalShowPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Address & Experience -->
+              <div class="col-md-8">
+                <label class="form-label small fw-bold text-dark mb-1">Address</label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. Anna Nagar, Chennai, Tamil Nadu" [(ngModel)]="employeeForm.address" name="address">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">Experience</label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. 4.5 Years" [(ngModel)]="employeeForm.experience" name="experience">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-success px-3 fw-bold shadow-sm">
+              <i class="bi bi-check2-circle me-1"></i> {{ isEditMode ? 'Update Details' : 'Save Employee' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETE CONFIRMATION MODAL -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteModalOpen && employeeToDelete" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden text-center p-4">
+        <i class="bi bi-trash3 text-danger fs-1 mb-2"></i>
+        <h6 class="fw-bold mb-2">Delete Employee?</h6>
+        <p class="small text-muted mb-4">
+          Are you sure you want to remove <strong>{{ employeeToDelete.name }}</strong> from staff records?
+        </p>
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteModal()">Cancel</button>
+          <button type="button" class="btn btn-sm btn-danger px-3 fw-bold" (click)="deleteEmployee()">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: ACCESS CONTROL PERMISSIONS (Point 5)              -->
+  <!-- ======================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isAccessModalOpen" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width: 840px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+        <!-- Modal Header -->
+        <div class="modal-header bg-dark text-white py-3 px-4">
+          <div class="d-flex align-items-center gap-2.5">
+            <div class="p-2 rounded-3 bg-primary bg-opacity-25 text-primary border border-primary border-opacity-50">
+              <i class="bi bi-shield-lock-fill fs-5"></i>
+            </div>
+            <div>
+              <h6 class="modal-title fw-bold mb-0 text-white" style="font-size: 1rem;">Navigation & Access Permissions</h6>
+              <small class="text-white-50" style="font-size: 0.75rem;">Manage page visibility and Add, Edit, Delete permissions</small>
+            </div>
+          </div>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeAccessModal()"></button>
+        </div>
+
+        <div class="modal-body p-3 p-md-4 bg-white" *ngIf="employeeForAccess">
+          <!-- Employee Profile Summary Card -->
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-2.5 px-3 bg-light rounded-3 border mb-3">
+            <div class="d-flex align-items-center gap-2.5 min-w-0">
+              <div class="rounded-circle overflow-hidden flex-shrink-0 bg-white border d-flex align-items-center justify-content-center shadow-xs" style="width: 44px; height: 44px;">
+                <img *ngIf="employeeForAccess.photo" [src]="employeeForAccess.photo" [alt]="employeeForAccess.name" class="w-100 h-100 object-fit-cover">
+                <i *ngIf="!employeeForAccess.photo" class="bi bi-person-fill text-secondary fs-4"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="fw-bold text-dark text-truncate" style="font-size: 0.95rem;">{{ employeeForAccess.name }}</div>
+                <div class="text-muted small text-truncate" style="font-size: 0.75rem;">
+                  <span class="fw-semibold text-secondary">{{ employeeForAccess.designation || '-' }}</span>
+                  <span class="mx-1">•</span>
+                  <span>{{ employeeForAccess.emailId || employeeForAccess.username || 'No email' }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge" 
+                    [ngClass]="{
+                      'bg-success-subtle text-success border border-success-subtle': employeeForAccess.responsibility === 'Sales',
+                      'bg-info-subtle text-info-emphasis border border-info-subtle': employeeForAccess.responsibility === 'Engineers',
+                      'bg-warning-subtle text-warning-emphasis border border-warning-subtle': employeeForAccess.responsibility === 'Admin',
+                      'bg-primary-subtle text-primary border border-primary-subtle': employeeForAccess.responsibility === 'Purchase'
+                    }" style="font-size: 0.78rem; padding: 5px 10px;">
+                {{ employeeForAccess.responsibility || 'Sales' }}
+              </span>
+              <span class="badge bg-white text-dark border font-mono shadow-xs" style="font-size: 0.78rem; padding: 5px 10px;">
+                <i class="bi bi-compass me-1 text-primary"></i>{{ getTotalEnabledNavCount() }} / {{ navPagesList.length }} Navs Active
+              </span>
+            </div>
+          </div>
+
+          <!-- Authority Alert -->
+          <div class="alert py-2 px-3 small rounded-3 d-flex align-items-center gap-2 mb-3"
+               [ngClass]="canManageAccess() ? 'alert-info border-info-subtle' : 'alert-warning border-warning-subtle'"
+               style="font-size: 0.75rem;">
+            <i class="bi" [ngClass]="canManageAccess() ? 'bi-shield-check fs-5 text-primary' : 'bi-lock-fill fs-5 text-warning'"></i>
+            <div class="flex-grow-1">
+              <span *ngIf="canManageAccess()">
+                <strong>Admin Mode:</strong> Configure access to specific navigation pages (Campaigns, Leads, Oppurtunities, Awarded sites, Client Payment ledger, etc.).
+              </span>
+              <span *ngIf="!canManageAccess()">
+                <strong>Read-Only Mode:</strong> Only Administrators can change employee permissions.
+              </span>
+            </div>
+          </div>
+
+          <!-- Quick Presets -->
+          <div class="mb-3" *ngIf="canManageAccess()">
+            <div class="d-flex align-items-center justify-content-between mb-1.5">
+              <label class="form-label small fw-bold text-muted text-uppercase mb-0" style="font-size: 0.68rem; letter-spacing: 0.04em;">
+                Quick Role Presets
+              </label>
+              <small class="text-muted" style="font-size: 0.68rem;">One-click presets for common roles</small>
+            </div>
+            <div class="d-flex flex-wrap gap-1.5">
+              <button type="button" class="btn btn-outline-success py-1 px-2.5 fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;" (click)="applyRolePreset('admin')">
+                <i class="bi bi-shield-lock-fill"></i> Full Access (All)
+              </button>
+              <button type="button" class="btn btn-outline-primary py-1 px-2.5 fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;" (click)="applyRolePreset('sales')">
+                <i class="bi bi-graph-up-arrow"></i> Sales Preset
+              </button>
+              <button type="button" class="btn btn-outline-info py-1 px-2.5 fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;" (click)="applyRolePreset('engineer')">
+                <i class="bi bi-tools"></i> Engineer Preset
+              </button>
+              <button type="button" class="btn btn-outline-secondary py-1 px-2.5 fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;" (click)="applyRolePreset('viewAll')">
+                <i class="bi bi-eye"></i> View Only (All)
+              </button>
+              <button type="button" class="btn btn-outline-danger py-1 px-2.5 fw-semibold d-inline-flex align-items-center gap-1 ms-auto" style="font-size: 0.74rem;" (click)="applyRolePreset('revokeAll')">
+                <i class="bi bi-x-circle"></i> Revoke All
+              </button>
+            </div>
+          </div>
+
+          <!-- Category Filter Bar & Quick Category Actions -->
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2.5 pt-1 border-top">
+            <div class="nav nav-pills d-inline-flex gap-1 p-1 bg-light rounded-3 border">
+              <button type="button" 
+                      class="nav-link btn-sm py-1 px-2.5 rounded-2 fw-semibold d-flex align-items-center gap-1"
+                      [class.active]="activeNavCategory === 'all'"
+                      (click)="activeNavCategory = 'all'"
+                      style="font-size: 0.74rem;">
+                <span>All Pages</span>
+                <span class="badge bg-secondary-subtle text-secondary rounded-pill font-mono ms-1" style="font-size: 0.65rem;">{{ getCategoryNavCount('all') }}</span>
+              </button>
+              <button type="button" 
+                      class="nav-link btn-sm py-1 px-2.5 rounded-2 fw-semibold d-flex align-items-center gap-1"
+                      [class.active]="activeNavCategory === 'sales'"
+                      (click)="activeNavCategory = 'sales'"
+                      style="font-size: 0.74rem;">
+                <span class="rounded-circle d-inline-block" style="width: 8px; height: 8px; background-color: #84cc16;"></span>
+                <span>Sales</span>
+                <span class="badge bg-secondary-subtle text-secondary rounded-pill font-mono ms-1" style="font-size: 0.65rem;">{{ getCategoryEnabledCount('sales') }}/{{ getCategoryNavCount('sales') }}</span>
+              </button>
+              <button type="button" 
+                      class="nav-link btn-sm py-1 px-2.5 rounded-2 fw-semibold d-flex align-items-center gap-1"
+                      [class.active]="activeNavCategory === 'finance'"
+                      (click)="activeNavCategory = 'finance'"
+                      style="font-size: 0.74rem;">
+                <span class="rounded-circle d-inline-block" style="width: 8px; height: 8px; background-color: #a855f7;"></span>
+                <span>Finances</span>
+                <span class="badge bg-secondary-subtle text-secondary rounded-pill font-mono ms-1" style="font-size: 0.65rem;">{{ getCategoryEnabledCount('finance') }}/{{ getCategoryNavCount('finance') }}</span>
+              </button>
+              <button type="button" 
+                      class="nav-link btn-sm py-1 px-2.5 rounded-2 fw-semibold d-flex align-items-center gap-1"
+                      [class.active]="activeNavCategory === 'activity'"
+                      (click)="activeNavCategory = 'activity'"
+                      style="font-size: 0.74rem;">
+                <span class="rounded-circle d-inline-block" style="width: 8px; height: 8px; background-color: #0284c7;"></span>
+                <span>Activity</span>
+                <span class="badge bg-secondary-subtle text-secondary rounded-pill font-mono ms-1" style="font-size: 0.65rem;">{{ getCategoryEnabledCount('activity') }}/{{ getCategoryNavCount('activity') }}</span>
+              </button>
+              <button type="button" 
+                      class="nav-link btn-sm py-1 px-2.5 rounded-2 fw-semibold d-flex align-items-center gap-1"
+                      [class.active]="activeNavCategory === 'inventory'"
+                      (click)="activeNavCategory = 'inventory'"
+                      style="font-size: 0.74rem;">
+                <span class="rounded-circle d-inline-block" style="width: 8px; height: 8px; background-color: #0f766e;"></span>
+                <span>Inventory</span>
+                <span class="badge bg-secondary-subtle text-secondary rounded-pill font-mono ms-1" style="font-size: 0.65rem;">{{ getCategoryEnabledCount('inventory') }}/{{ getCategoryNavCount('inventory') }}</span>
+              </button>
+            </div>
+
+            <!-- Quick Category Toggle Actions -->
+            <div class="d-flex align-items-center gap-1.5" *ngIf="canManageAccess()">
+              <button type="button" class="btn btn-outline-secondary py-1 px-2 fw-medium" style="font-size: 0.72rem;" (click)="toggleCategoryAll(activeNavCategory, true)">
+                <i class="bi bi-check-all me-1"></i>Enable All in View
+              </button>
+              <button type="button" class="btn btn-outline-secondary py-1 px-2 fw-medium" style="font-size: 0.72rem;" (click)="toggleCategoryAll(activeNavCategory, false)">
+                <i class="bi bi-dash-circle me-1"></i>Disable All in View
+              </button>
+            </div>
+          </div>
+
+          <!-- Navigation Pages List -->
+          <div class="border rounded-3 overflow-hidden shadow-xs">
+            <div class="bg-light py-2 px-3 border-bottom d-flex align-items-center justify-content-between text-muted fw-bold" style="font-size: 0.72rem; letter-spacing: 0.03em;">
+              <span class="text-uppercase">Navigation Page & Description</span>
+              <div class="d-flex align-items-center gap-3">
+                <span class="text-uppercase text-center" style="width: 70px;">View Access</span>
+                <span class="text-uppercase text-center" style="width: 45px;">Add</span>
+                <span class="text-uppercase text-center" style="width: 45px;">Edit</span>
+                <span class="text-uppercase text-center" style="width: 45px;">Delete</span>
+              </div>
+            </div>
+
+            <div class="list-group list-group-flush" style="max-height: 380px; overflow-y: auto;">
+              <div *ngFor="let item of visibleNavPages" class="list-group-item p-2.5 px-3 d-flex align-items-center justify-content-between transition-all" [class.bg-light]="!getNavAccess(item.key).canView">
+                <!-- Page Info -->
+                <div class="d-flex align-items-center gap-2.5 min-w-0" style="max-width: 55%;">
+                  <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0"
+                       [style.background-color]="item.badgeBg"
+                       [style.color]="item.badgeColor"
+                       style="width: 34px; height: 34px; font-size: 1rem;">
+                    <i class="bi" [ngClass]="item.icon"></i>
+                  </div>
+                  <div class="min-w-0">
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="fw-bold text-dark text-truncate" style="font-size: 0.84rem;">{{ item.name }}</span>
+                      <span class="badge border" 
+                            [style.background-color]="item.badgeBg"
+                            [style.color]="item.badgeColor"
+                            style="font-size: 0.65rem; padding: 2px 6px;">
+                        {{ item.categoryLabel }}
+                      </span>
+                    </div>
+                    <div class="text-muted text-truncate" style="font-size: 0.72rem;">{{ item.description }}</div>
+                  </div>
+                </div>
+
+                <!-- Permission Controls -->
+                <div class="d-flex align-items-center gap-3">
+                  <!-- View Access Switch -->
+                  <div class="text-center" style="width: 70px;">
+                    <div class="form-check form-switch d-inline-flex m-0">
+                      <input type="checkbox" 
+                             class="form-check-input cursor-pointer" 
+                             role="switch"
+                             [checked]="getNavAccess(item.key).canView"
+                             (change)="toggleNavView(item.key)"
+                             [disabled]="!canManageAccess()"
+                             [title]="getNavAccess(item.key).canView ? 'Page is visible in sidebar' : 'Page is hidden from sidebar'">
+                    </div>
+                    <div style="font-size: 0.65rem;" [ngClass]="getNavAccess(item.key).canView ? 'text-success fw-semibold' : 'text-muted'">
+                      {{ getNavAccess(item.key).canView ? 'Visible' : 'Hidden' }}
+                    </div>
+                  </div>
+
+                  <!-- Add Checkbox -->
+                  <div class="text-center" style="width: 45px;">
+                    <input type="checkbox" 
+                           class="form-check-input cursor-pointer"
+                           [checked]="getNavAccess(item.key).canAdd"
+                           (change)="toggleNavAdd(item.key)"
+                           [disabled]="!canManageAccess() || !getNavAccess(item.key).canView"
+                           title="Allow Add / Create in {{ item.name }}">
+                  </div>
+
+                  <!-- Edit Checkbox -->
+                  <div class="text-center" style="width: 45px;">
+                    <input type="checkbox" 
+                           class="form-check-input cursor-pointer"
+                           [checked]="getNavAccess(item.key).canEdit"
+                           (change)="toggleNavEdit(item.key)"
+                           [disabled]="!canManageAccess() || !getNavAccess(item.key).canView"
+                           title="Allow Edit / Modify in {{ item.name }}">
+                  </div>
+
+                  <!-- Delete Checkbox -->
+                  <div class="text-center" style="width: 45px;">
+                    <input type="checkbox" 
+                           class="form-check-input cursor-pointer"
+                           [checked]="getNavAccess(item.key).canDelete"
+                           (change)="toggleNavDelete(item.key)"
+                           [disabled]="!canManageAccess() || !getNavAccess(item.key).canView"
+                           title="Allow Delete in {{ item.name }}">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer bg-light py-2.5 px-4 d-flex justify-content-between align-items-center">
+          <div class="d-flex align-items-center gap-2 text-muted small" style="font-size: 0.75rem;">
+            <i class="bi bi-info-circle text-primary"></i>
+            <span>Permissions take effect immediately upon next page load or session refresh.</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-secondary fw-medium px-3" (click)="closeAccessModal()">
+              Close
+            </button>
+            <button type="button" 
+                    *ngIf="canManageAccess()"
+                    class="btn btn-sm btn-primary fw-semibold px-4 d-flex align-items-center gap-1.5 shadow-sm"
+                    style="background-color: #0f766e; border-color: #0f766e;"
+                    [disabled]="savingAccess"
+                    (click)="saveAccessPermissions()">
+              <i class="bi" [ngClass]="savingAccess ? 'bi-hourglass-split' : 'bi-check-circle-fill'"></i>
+              <span>{{ savingAccess ? 'Saving...' : 'Save Permissions' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

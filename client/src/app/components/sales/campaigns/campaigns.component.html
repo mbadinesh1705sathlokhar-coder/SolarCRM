@@ -1,0 +1,645 @@
+<div class="container-fluid p-3 p-md-4">
+  <!-- Toast Feedback Notification -->
+  <div *ngIf="toastMessage" 
+       class="alert alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg border-0 z-3"
+       [class.alert-success]="toastType === 'success'"
+       [class.alert-danger]="toastType === 'danger'"
+       [class.alert-info]="toastType === 'info'"
+       style="min-width: 320px; z-index: 1099;">
+    <i class="bi me-2" 
+       [class.bi-check-circle-fill]="toastType === 'success'"
+       [class.bi-exclamation-triangle-fill]="toastType === 'danger'"
+       [class.bi-info-circle-fill]="toastType === 'info'"></i>
+    {{ toastMessage }}
+    <button type="button" class="btn-close" (click)="toastMessage = ''"></button>
+  </div>
+
+  <!-- Header with Sales Pill Tabs -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
+    <div class="d-flex align-items-center">
+      <h4 class="fw-bold mb-0 text-dark tracking-tight">Sales & Pipeline Management</h4>
+    </div>
+
+    <!-- Sales Pill Navigation Tabs -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/sales/campaigns" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-megaphone me-1" style="color: #8b5cf6;"></i> Campaigns
+      </a>
+      <a routerLink="/sales/leads" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-person-lines-fill me-1" style="color: #0f766e;"></i> Leads
+      </a>
+      <a routerLink="/sales/oppurtunity" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-lightning-charge-fill me-1 text-warning"></i> Oppurtunities
+      </a>
+      <a routerLink="/awarded-sites" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-building-check me-1 text-success"></i> Awarded sites
+      </a>
+    </div>
+
+    <!-- Top Action Buttons -->
+    <div *ngIf="activeSubView === 'campaigns'" class="d-flex align-items-center gap-2">
+      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportCampaignsPdf()" title="Download Campaigns Summary PDF">
+        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      </button>
+      <button *ngIf="canAdd()" class="btn btn-sm btn-primary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
+              style="background-color: #0f766e; border-color: #0f766e;"
+              (click)="openAddCampaignModal()">
+        <i class="bi bi-plus-lg"></i> Add Campaign
+      </button>
+    </div>
+    <div *ngIf="activeSubView === 'leads'" class="d-flex align-items-center gap-2">
+      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportLeadsPdf()" title="Download Campaign Leads PDF">
+        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      </button>
+      <button *ngIf="canAdd()" class="btn btn-sm btn-primary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
+              style="background-color: #0f766e; border-color: #0f766e;"
+              (click)="openAddLeadModal()">
+        <i class="bi bi-person-plus-fill"></i> Add Expo Lead
+      </button>
+    </div>
+    <div *ngIf="activeSubView === 'expenses'" class="d-flex align-items-center gap-2">
+      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportExpensesPdf()" title="Download Campaign Expenses PDF">
+        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      </button>
+      <button *ngIf="canAdd()" class="btn btn-sm btn-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
+              (click)="openAddExpenseModal()">
+        <i class="bi bi-receipt"></i> Add Expo Expense
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 1. MAIN CAMPAIGNS VIEW                                   -->
+  <!-- ======================================================== -->
+  <div *ngIf="activeSubView === 'campaigns'">
+    <!-- Filter Bar -->
+    <div class="card border-0 shadow-sm rounded-3 p-2 px-3 bg-white mb-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="input-group input-group-sm" style="max-width: 320px;">
+          <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <input type="text" class="form-control border-start-0 bg-light" placeholder="Search campaign name, venue..." [(ngModel)]="searchTerm">
+        </div>
+        <div class="small text-muted">
+          Showing <strong>{{ filteredCampaigns.length }}</strong> campaigns
+        </div>
+      </div>
+    </div>
+
+    <!-- Campaigns Table -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+      <!-- Top Horizontal Scrollbar (Synchronized with Table Scroll) -->
+      <div class="top-scrollbar-track" #topScrollWrapper (scroll)="onTopScroll()" [style.display]="tableScrollWidth > tableClientWidth ? 'block' : 'none'">
+        <div class="top-scrollbar-thumb-shim" [style.width.px]="tableScrollWidth"></div>
+      </div>
+      <div class="table-responsive" #tableWrapper (scroll)="onTableScroll()">
+        <table class="table table-hover align-middle mb-0 compact-table" #dataTableEl style="min-width: 850px;">
+          <thead class="table-light">
+            <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+              <th style="width: 130px;">Date</th>
+              <th>Campaign Name</th>
+              <th>Venue</th>
+              <th style="width: 220px;" class="text-center">Expo Details</th>
+              <th style="width: 130px;" class="text-center">Updates Date</th>
+              <th style="width: 90px;" class="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loading">
+              <td colspan="6" class="text-center py-4 text-muted">
+                <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                Loading campaigns...
+              </td>
+            </tr>
+            <tr *ngIf="!loading && filteredCampaigns.length === 0">
+              <td colspan="6" class="text-center py-5 text-muted">
+                <i class="bi bi-megaphone fs-2 d-block mb-2 text-secondary"></i>
+                No campaigns found. Click <strong>Add Campaign</strong> above to create one.
+              </td>
+            </tr>
+            <tr *ngFor="let c of filteredCampaigns" class="campaign-row">
+              <!-- Date -->
+              <td class="font-mono text-nowrap" style="font-size: 0.82rem;">
+                {{ formatDate(c.campaignDate) }}
+              </td>
+
+              <!-- Campaign Name (Click to edit) -->
+              <td>
+                <a *ngIf="canEdit()" href="javascript:void(0)" 
+                   class="fw-bold text-dark text-decoration-none campaign-name-link"
+                   (click)="openEditCampaignModal(c)"
+                   title="Click to edit campaign details">
+                  {{ c.campaignName }}
+                </a>
+                <span *ngIf="!canEdit()" class="fw-bold text-dark">
+                  {{ c.campaignName }}
+                </span>
+              </td>
+
+              <!-- Venue -->
+              <td class="text-secondary" style="font-size: 0.82rem;">
+                <i class="bi bi-geo-alt me-1 text-muted"></i>{{ c.venue }}
+              </td>
+
+              <!-- Expo Details: Dropdown naming 'Leads' and 'Expenses' -->
+              <td class="text-center">
+                <div class="d-inline-flex align-items-center gap-1">
+                  <!-- Option Selector Dropdown / Buttons -->
+                  <button class="btn btn-xs btn-outline-primary d-flex align-items-center gap-1 px-2 py-1"
+                          (click)="selectCampaignView(c, 'leads')"
+                          title="View and manage leads acquired at this expo">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Leads</span>
+                    <span class="badge bg-primary rounded-pill ms-1" style="font-size: 0.65rem;">{{ c.leadCount || 0 }}</span>
+                  </button>
+                  <button class="btn btn-xs btn-outline-danger d-flex align-items-center gap-1 px-2 py-1"
+                          (click)="selectCampaignView(c, 'expenses')"
+                          title="View and manage expo expenses">
+                    <i class="bi bi-cash-stack"></i>
+                    <span>Expenses</span>
+                    <span class="badge bg-danger rounded-pill ms-1" style="font-size: 0.65rem;">₹{{ (c.totalExpenses || 0) | number:'1.0-0' }}</span>
+                  </button>
+                </div>
+              </td>
+
+              <!-- Updates Date -->
+              <td class="font-mono small text-nowrap text-center">
+                {{ formatDate(c.updatedAt || c.campaignDate) }}
+              </td>
+
+              <!-- Actions: ONLY Delete option as requested -->
+              <td class="text-center">
+                <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger border-0 p-1"
+                        (click)="confirmDeleteCampaign(c)"
+                        title="Delete Campaign">
+                  <i class="bi bi-trash3 fs-6"></i>
+                </button>
+                <span *ngIf="!canDelete()" class="text-muted small">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 2. LEADS SUB-VIEW (LEADS FOR SELECTED CAMPAIGN)          -->
+  <!-- ======================================================== -->
+  <div *ngIf="activeSubView === 'leads' && selectedCampaign">
+    <!-- Sub-header bar -->
+    <div class="card border-0 shadow-sm rounded-3 p-2 px-3 bg-white mb-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary px-2 py-1" (click)="backToCampaigns()">
+            &lt;--
+          </button>
+          <span class="text-muted">|</span>
+          <span class="fw-bold text-dark">{{ selectedCampaign.campaignName }}</span>
+          <span class="badge bg-primary-subtle text-primary border ms-1">Leads ({{ campaignLeads.length }})</span>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <div class="input-group input-group-sm" style="width: 240px;">
+            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control border-start-0 bg-light" placeholder="Search leads..." [(ngModel)]="leadSearchTerm">
+          </div>
+          <button class="btn btn-sm btn-outline-danger fw-semibold shadow-xs px-2.5 py-1 d-flex align-items-center gap-1"
+                  (click)="exportLeadsPdf()" title="Download Leads PDF">
+            <i class="bi bi-file-earmark-pdf-fill"></i> PDF
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leads Table -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+      <!-- Top Horizontal Scrollbar (Synchronized with Table Scroll) -->
+      <div class="top-scrollbar-track" #topScrollLeadsWrapper (scroll)="onTopScrollLeads()" [style.display]="leadsScrollWidth > leadsClientWidth ? 'block' : 'none'">
+        <div class="top-scrollbar-thumb-shim" [style.width.px]="leadsScrollWidth"></div>
+      </div>
+      <div class="table-responsive" #leadsTableWrapper (scroll)="onTableScrollLeads()">
+        <table class="table table-hover align-middle mb-0 compact-table" #leadsTableEl style="min-width: 1400px;">
+          <thead class="table-light">
+            <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+              <th style="min-width: 110px; width: 110px;">Lead Date</th>
+              <th style="min-width: 180px;">Lead Name</th>
+              <th style="min-width: 140px;">Lead Contact</th>
+              <th style="min-width: 180px;">Lead Email</th>
+              <th style="min-width: 150px;">Lead Location</th>
+              <th class="text-center" style="min-width: 130px; width: 130px;">Lead Status</th>
+              <th style="min-width: 130px;">Lead Handler</th>
+              <th style="min-width: 250px;">Lead Remarks</th>
+              <th style="min-width: 120px; width: 120px;" class="text-center">Updates Date</th>
+              <th style="min-width: 90px; width: 90px;" class="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="leadsLoading">
+              <td colspan="10" class="text-center py-4 text-muted">
+                <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                Loading leads...
+              </td>
+            </tr>
+            <tr *ngIf="!leadsLoading && filteredLeads.length === 0">
+              <td colspan="10" class="text-center py-5 text-muted">
+                <i class="bi bi-person-x fs-2 d-block mb-2 text-secondary"></i>
+                No leads recorded for this campaign yet. Click <strong>Add Expo Lead</strong> to add one.
+              </td>
+            </tr>
+            <tr *ngFor="let l of filteredLeads">
+              <td class="font-mono text-nowrap" style="font-size: 0.82rem;">{{ formatDate(l.leadDate) }}</td>
+              <td>
+                <a *ngIf="canEdit()" href="javascript:void(0)" class="fw-bold text-dark text-decoration-none" (click)="openEditLeadModal(l)" title="Click to edit lead">
+                  {{ l.leadName }}
+                </a>
+                <span *ngIf="!canEdit()" class="fw-bold text-dark">
+                  {{ l.leadName }}
+                </span>
+              </td>
+              <td class="font-mono small">{{ l.leadContact || '-' }}</td>
+              <td class="font-mono small">{{ l.leadEmail || '-' }}</td>
+              <td class="small">{{ l.leadLocation || '-' }}</td>
+              <td class="text-center">
+                <select *ngIf="canEdit()"
+                        #campaignSelect
+                        class="form-select form-select-sm status-select-pill text-center shadow-none d-inline-block w-auto"
+                        [ngModel]="l.leadStatus"
+                        (ngModelChange)="onCampaignLeadStatusChange(l, $event, campaignSelect)"
+                        [class.status-qualify]="l.leadStatus === 'Qualify'"
+                        [class.status-on-hold]="l.leadStatus === 'On hold'"
+                        [class.status-unqualify]="l.leadStatus === 'Unqualify'"
+                        title="Change lead status (Qualify will automatically add to Leads)">
+                  <option *ngFor="let s of leadStatuses" [value]="s">{{ s }}</option>
+                </select>
+                <span *ngIf="!canEdit()"
+                      class="status-select-pill text-center d-inline-block"
+                      [class.status-qualify]="l.leadStatus === 'Qualify'"
+                      [class.status-on-hold]="l.leadStatus === 'On hold'"
+                      [class.status-unqualify]="l.leadStatus === 'Unqualify'">
+                  {{ l.leadStatus }}
+                </span>
+              </td>
+              <td><span class="badge bg-light text-dark border">{{ l.leadHandler }}</span></td>
+              <td class="small text-secondary" style="max-width: 250px;">{{ l.leadRemarks || '-' }}</td>
+              <td class="font-mono small text-nowrap text-center">{{ formatDate(l.updatedAt || l.leadDate) }}</td>
+              <td class="text-center">
+                <div class="d-flex justify-content-center gap-1" *ngIf="canDelete()">
+                  <button class="btn btn-sm btn-outline-danger border-0 p-1" (click)="confirmDeleteLead(l)" title="Delete Lead">
+                    <i class="bi bi-trash3 fs-6"></i>
+                  </button>
+                </div>
+                <span *ngIf="!canDelete()" class="text-muted small">-</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 3. EXPENSES SUB-VIEW (EXPENSES FOR SELECTED CAMPAIGN)    -->
+  <!-- ======================================================== -->
+  <div *ngIf="activeSubView === 'expenses' && selectedCampaign">
+    <!-- Sub-header bar -->
+    <div class="card border-0 shadow-sm rounded-3 p-2 px-3 bg-white mb-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary px-2 py-1" (click)="backToCampaigns()">
+            &lt;--
+          </button>
+          <span class="text-muted">|</span>
+          <span class="fw-bold text-dark">{{ selectedCampaign.campaignName }}</span>
+          <span class="badge bg-danger-subtle text-danger border ms-1">
+            Total Expo Expense: ₹ {{ totalExpenseSum | number:'1.2-2' }}
+          </span>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <div class="input-group input-group-sm" style="width: 240px;">
+            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control border-start-0 bg-light" placeholder="Search expenses..." [(ngModel)]="expenseSearchTerm">
+          </div>
+          <button class="btn btn-sm btn-outline-danger fw-semibold shadow-xs px-2.5 py-1 d-flex align-items-center gap-1"
+                  (click)="exportExpensesPdf()" title="Download Expenses PDF">
+            <i class="bi bi-file-earmark-pdf-fill"></i> PDF
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expenses Table -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 compact-table" style="min-width: 650px;">
+          <thead class="table-light">
+            <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+              <th style="min-width: 140px; width: 140px;">Date</th>
+              <th style="min-width: 180px; width: 180px;" class="text-end">Amount (₹)</th>
+              <th style="min-width: 240px;">Purpose</th>
+              <th style="min-width: 90px; width: 90px;" class="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="expensesLoading">
+              <td colspan="4" class="text-center py-4 text-muted">
+                <div class="spinner-border spinner-border-sm text-danger me-2"></div>
+                Loading expenses...
+              </td>
+            </tr>
+            <tr *ngIf="!expensesLoading && filteredExpenses.length === 0">
+              <td colspan="4" class="text-center py-5 text-muted">
+                <i class="bi bi-receipt fs-2 d-block mb-2 text-secondary"></i>
+                No expenses logged for this campaign yet. Click <strong>Add Expo Expense</strong> above.
+              </td>
+            </tr>
+            <tr *ngFor="let e of filteredExpenses">
+              <td class="font-mono text-nowrap" style="font-size: 0.82rem;">{{ formatDate(e.expenseDate) }}</td>
+              <td class="font-mono fw-bold text-end text-danger" style="font-size: 0.85rem;">
+                ₹ {{ e.amount | number:'1.2-2' }}
+              </td>
+              <td>
+                <a *ngIf="canEdit()" href="javascript:void(0)" class="text-dark fw-semibold text-decoration-none" (click)="openEditExpenseModal(e)" title="Click to edit expense">
+                  {{ e.purpose }}
+                </a>
+                <span *ngIf="!canEdit()" class="text-dark fw-semibold">
+                  {{ e.purpose }}
+                </span>
+              </td>
+              <td class="text-center">
+                <div class="d-flex justify-content-center gap-1" *ngIf="canDelete()">
+                  <button class="btn btn-sm btn-outline-danger border-0 p-1" (click)="confirmDeleteExpense(e)" title="Delete Expense">
+                    <i class="bi bi-trash3 fs-6"></i>
+                  </button>
+                </div>
+                <span *ngIf="!canDelete()" class="text-muted small">-</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: ADD / EDIT CAMPAIGN (SINGLE POP UP WITH LEADS & EXPENSES) -->
+  <!-- ======================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isCampaignModalOpen" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 560px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+        <div class="modal-header bg-dark text-white py-3 px-4">
+          <h6 class="modal-title fw-bold mb-0">
+            <i class="bi bi-megaphone me-2 text-warning"></i>
+            {{ isEditCampaignMode ? 'Edit Campaign' : 'Add New Campaign' }}
+          </h6>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeCampaignModal()"></button>
+        </div>
+        <form (ngSubmit)="saveCampaign()">
+          <div class="modal-body p-4 bg-light">
+            <!-- Campaign Details: Date, Campaign Name, Venue -->
+            <div class="bg-white p-3 rounded-3 border shadow-xs">
+              <div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
+                <i class="bi bi-megaphone-fill text-warning"></i>
+                <span class="fw-bold text-dark small text-uppercase">Campaign Details</span>
+              </div>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label small fw-bold text-dark mb-1">Date <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="campaignForm.campaignDate" name="campaignDate" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-bold text-dark mb-1">Campaign Name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm shadow-sm" placeholder="e.g. Renewable Energy Expo 2026" [(ngModel)]="campaignForm.campaignName" name="campaignName" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-bold text-dark mb-1">Venue <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm shadow-sm" placeholder="e.g. Chennai Trade Centre / Stall B-12" [(ngModel)]="campaignForm.venue" name="venue" required>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer bg-white border-top py-2.5 px-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeCampaignModal()">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-success px-4 fw-bold shadow-sm">
+              <i class="bi bi-check2-circle me-1"></i> {{ isEditCampaignMode ? 'Update Campaign' : 'Save Campaign' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: ADD / EDIT CAMPAIGN LEAD                          -->
+  <!-- ======================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isLeadModalOpen" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+        <div class="modal-header bg-primary text-white py-3 px-4">
+          <h6 class="modal-title fw-bold mb-0">
+            <i class="bi bi-person-lines-fill me-2"></i>
+            {{ isEditLeadMode ? 'Edit Expo Lead' : 'Add Expo Lead' }}
+          </h6>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeLeadModal()"></button>
+        </div>
+        <form (ngSubmit)="saveLead()">
+          <div class="modal-body p-4 bg-light">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Lead Date <span class="text-danger">*</span></label>
+                <input type="date" class="form-control font-mono shadow-sm" [(ngModel)]="leadForm.leadDate" name="leadDate" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Lead Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. Sundaram Auto / Mr. Rajesh" [(ngModel)]="leadForm.leadName" name="leadName" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Lead Contact</label>
+                <input type="text" class="form-control font-mono shadow-sm" placeholder="e.g. +91 98401 23456" [(ngModel)]="leadForm.leadContact" name="leadContact">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Lead Email</label>
+                <input type="email" class="form-control font-mono shadow-sm" placeholder="e.g. client@company.com" [(ngModel)]="leadForm.leadEmail" name="leadEmail">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Lead Location</label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. Ambattur, Chennai" [(ngModel)]="leadForm.leadLocation" name="leadLocation">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Lead Status</label>
+                <select class="form-select shadow-sm" [(ngModel)]="leadForm.leadStatus" name="leadStatus">
+                  <option *ngFor="let s of leadStatuses" [value]="s">{{ s }}</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Lead Handler</label>
+                <select class="form-select shadow-sm" [(ngModel)]="leadForm.leadHandler" name="leadHandler">
+                  <option *ngFor="let h of leadHandlers" [value]="h">{{ h }}</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-bold text-dark mb-1">Lead Remarks</label>
+                <textarea class="form-control shadow-sm" rows="2" placeholder="e.g. 500 kW Rooftop, requested site assessment" [(ngModel)]="leadForm.leadRemarks" name="leadRemarks"></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeLeadModal()">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-primary px-3 fw-bold shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
+              <i class="bi bi-check2-circle me-1"></i> {{ isEditLeadMode ? 'Update Lead' : 'Save Lead' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: ADD / EDIT CAMPAIGN EXPENSE                       -->
+  <!-- ======================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isExpenseModalOpen" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+        <div class="modal-header bg-danger text-white py-3 px-4">
+          <h6 class="modal-title fw-bold mb-0">
+            <i class="bi bi-receipt me-2"></i>
+            {{ isEditExpenseMode ? 'Edit Expo Expense' : 'Add Expo Expense' }}
+          </h6>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeExpenseModal()"></button>
+        </div>
+        <form (ngSubmit)="saveExpense()">
+          <div class="modal-body p-4 bg-light">
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-dark mb-1">Date <span class="text-danger">*</span></label>
+              <input type="date" class="form-control font-mono shadow-sm" [(ngModel)]="expenseForm.expenseDate" name="expenseDate" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-dark mb-1">Amount (₹) <span class="text-danger">*</span></label>
+              <input type="number" step="0.01" class="form-control font-mono shadow-sm" placeholder="e.g. 25000" [(ngModel)]="expenseForm.amount" name="amount" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-dark mb-1">
+                Purpose <span class="text-danger">*</span> <small class="text-muted fw-normal">(Manual Text Input)</small>
+              </label>
+              <textarea class="form-control shadow-sm" rows="3" placeholder="Type expense purpose manually (e.g. Stall booking, display boards, travel allowance)..." [(ngModel)]="expenseForm.purpose" name="purpose" required></textarea>
+            </div>
+          </div>
+          <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeExpenseModal()">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-danger px-3 fw-bold shadow-sm">
+              <i class="bi bi-check2-circle me-1"></i> {{ isEditExpenseMode ? 'Update Expense' : 'Save Expense' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- DELETE CONFIRMATION MODALS                               -->
+  <!-- ======================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteCampaignModalOpen && campaignToDelete" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden text-center p-4">
+        <i class="bi bi-trash3 text-danger fs-1 mb-2"></i>
+        <h6 class="fw-bold mb-2">Delete Campaign?</h6>
+        <p class="small text-muted mb-4">
+          Are you sure you want to delete <strong>{{ campaignToDelete.campaignName }}</strong>? All associated leads and expenses will also be permanently removed.
+        </p>
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteCampaignModal()">Cancel</button>
+          <button type="button" class="btn btn-sm btn-danger px-3 fw-bold" (click)="deleteCampaign()">Delete Permanently</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteLeadModalOpen && leadToDelete" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden text-center p-4">
+        <i class="bi bi-trash3 text-danger fs-1 mb-2"></i>
+        <h6 class="fw-bold mb-2">Delete Lead?</h6>
+        <p class="small text-muted mb-4">
+          Delete lead <strong>{{ leadToDelete.leadName }}</strong>?
+        </p>
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteLeadModal()">Cancel</button>
+          <button type="button" class="btn btn-sm btn-danger px-3 fw-bold" (click)="deleteLead()">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteExpenseModalOpen && expenseToDelete" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden text-center p-4">
+        <i class="bi bi-trash3 text-danger fs-1 mb-2"></i>
+        <h6 class="fw-bold mb-2">Delete Expense?</h6>
+        <p class="small text-muted mb-4">
+          Delete expense entry <strong>₹ {{ expenseToDelete.amount | number:'1.2-2' }}</strong>?
+        </p>
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteExpenseModal()">Cancel</button>
+          <button type="button" class="btn btn-sm btn-danger px-3 fw-bold" (click)="deleteExpense()">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: CONFIRM QUALIFY CAMPAIGN LEAD (CAMPAIGNS -> LEADS)-->
+  <!-- ======================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isQualifyCampaignLeadModalOpen && pendingQualifyCampaignLead" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        <div class="modal-header text-white py-3 px-4 border-0" style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-person-check-fill text-warning fs-4"></i>
+            <h5 class="modal-title fw-bold mb-0">Qualify Lead & Move to Leads?</h5>
+          </div>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="cancelQualifyCampaignLead()" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="alert alert-info border border-info-subtle bg-info-subtle rounded-3 p-3 mb-3 d-flex align-items-start gap-3">
+            <i class="bi bi-people-fill text-primary fs-2"></i>
+            <div>
+              <div class="fw-bold text-primary mb-1">Move Expo Lead to Sales Leads</div>
+              <div class="small text-dark">
+                Are you sure you want to qualify <strong>{{ pendingQualifyCampaignLead.leadName }}</strong>?
+                This will automatically add the person to the <strong>Sales Leads</strong> table as a <strong>New</strong> lead under handler <strong>{{ pendingQualifyCampaignLead.leadHandler || 'Renuka' }}</strong>.
+              </div>
+            </div>
+          </div>
+
+          <div class="card border rounded-3 p-3 bg-light mb-3">
+            <div class="row g-2 small">
+              <div class="col-6"><span class="text-muted">Lead Name:</span> <strong class="text-dark d-block">{{ pendingQualifyCampaignLead.leadName }}</strong></div>
+              <div class="col-6"><span class="text-muted">Contact:</span> <span class="d-block font-mono">{{ pendingQualifyCampaignLead.leadContact || '—' }}</span></div>
+              <div class="col-6"><span class="text-muted">Email:</span> <span class="d-block font-mono text-truncate">{{ pendingQualifyCampaignLead.leadEmail || '—' }}</span></div>
+              <div class="col-6"><span class="text-muted">Location:</span> <span class="d-block">{{ pendingQualifyCampaignLead.leadLocation || '—' }}</span></div>
+              <div class="col-6"><span class="text-muted">Campaign:</span> <span class="d-block">{{ selectedCampaign?.campaignName || '—' }}</span></div>
+              <div class="col-6"><span class="text-muted">Handler:</span> <span class="d-block">{{ pendingQualifyCampaignLead.leadHandler || 'Renuka' }}</span></div>
+            </div>
+          </div>
+
+          <p class="small text-muted mb-0 text-center fw-semibold">
+            If confirmed, the lead will be created in Sales Leads for follow-up.
+          </p>
+        </div>
+        <div class="modal-footer bg-light border-top py-3 px-4 d-flex justify-content-between">
+          <button type="button" class="btn btn-outline-secondary px-4 shadow-none" (click)="cancelQualifyCampaignLead()">
+            <i class="bi bi-x-circle me-1"></i> No, Cancel
+          </button>
+          <button type="button" class="btn btn-success fw-bold px-4 shadow-sm" (click)="confirmQualifyCampaignLeadYes()" style="background-color: #0f766e; border-color: #0f766e;">
+            <i class="bi bi-arrow-right-circle me-1"></i> Yes, Move to Leads
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

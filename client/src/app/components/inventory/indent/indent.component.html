@@ -1,0 +1,328 @@
+<div class="container-fluid p-3 p-md-4">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage" 
+       class="alert alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg border-0 z-3"
+       [class.alert-success]="toastType === 'success'"
+       [class.alert-danger]="toastType === 'danger'"
+       [class.alert-info]="toastType === 'info'"
+       style="min-width: 320px; z-index: 1099;">
+    <i class="bi me-2" 
+       [class.bi-check-circle-fill]="toastType === 'success'"
+       [class.bi-exclamation-triangle-fill]="toastType === 'danger'"
+       [class.bi-info-circle-fill]="toastType === 'info'"></i>
+    {{ toastMessage }}
+    <button type="button" class="btn-close" (click)="toastMessage = ''"></button>
+  </div>
+
+  <!-- Header with Pill Tabs -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
+    <div class="d-flex align-items-center gap-3">
+      <div class="inventory-icon-box bg-primary-subtle text-primary shadow-sm p-2 rounded-3">
+        <i class="bi bi-box-seam-fill fs-4"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold mb-0 text-dark tracking-tight">Inventory Management</h4>
+      </div>
+    </div>
+
+    <!-- Inventory Pill Navigation Tabs -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/inventory/indent" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-file-earmark-text me-1 text-primary"></i> Indent
+      </a>
+      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-seam me-1 text-success"></i> Warehouse
+      </a>
+      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-pass me-1 text-warning"></i> Gate Pass
+      </a>
+      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-cart3 me-1 text-danger"></i> Add to cart
+      </a>
+    </div>
+
+    <!-- Top Action -->
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportIndentPdf()" title="Download Material Indents PDF">
+        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      </button>
+      <button class="btn btn-sm btn-primary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
+              *ngIf="canAdd()"
+              style="background-color: #0f766e; border-color: #0f766e;"
+              (click)="openAddModal()">
+        <i class="bi bi-plus-lg"></i> Add Indent
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="card border-0 shadow-sm rounded-3 p-2 px-3 bg-white mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="input-group input-group-sm" style="max-width: 320px;">
+        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" class="form-control border-start-0 bg-light" placeholder="Search indent no, client, engineer..." [(ngModel)]="searchTerm">
+      </div>
+      <div class="small text-muted">
+        Total Indents: <strong class="text-dark">{{ filteredIndents.length }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Indent Table -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 compact-table">
+        <thead class="table-light">
+          <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+            <th style="width: 130px;">Indent_Date</th>
+            <th style="width: 140px;">Indent_No</th>
+            <th>Site_Engineer</th>
+            <th>Client_Name</th>
+            <th style="width: 120px;" class="text-center">Items Count</th>
+            <th style="width: 90px;" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="6" class="text-center py-4 text-muted">
+              <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+              Loading indents...
+            </td>
+          </tr>
+          <tr *ngIf="!loading && filteredIndents.length === 0">
+            <td colspan="6" class="text-center py-5 text-muted">
+              <i class="bi bi-file-earmark-x fs-2 d-block mb-2 text-secondary"></i>
+              No indents found. Click <strong>Add Indent</strong> to create one.
+            </td>
+          </tr>
+          <tr *ngFor="let ind of filteredIndents">
+            <!-- Indent_Date in dd-mm-yyyy -->
+            <td class="font-mono text-nowrap" style="font-size: 0.82rem;">{{ formatDate(ind.indentDate) }}</td>
+            <!-- Indent_No: Clickable to edit -->
+            <td>
+              <a *ngIf="canEdit()" href="javascript:void(0)" 
+                 class="fw-bold font-mono text-primary text-decoration-none hover-link"
+                 (click)="openEditModal(ind)" 
+                 title="Click to edit indent and requested materials">
+                {{ ind.indentNo }}
+              </a>
+              <span *ngIf="!canEdit()" class="fw-bold font-mono text-dark">
+                {{ ind.indentNo }}
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border">{{ ind.siteEngineer }}</span>
+            </td>
+            <td class="fw-semibold text-dark">
+              <a *ngIf="canEdit()" href="javascript:void(0)" 
+                 class="text-dark text-decoration-none hover-link"
+                 (click)="openEditModal(ind)" 
+                 title="Click to edit indent">
+                {{ ind.clientName }}
+              </a>
+              <span *ngIf="!canEdit()">
+                {{ ind.clientName }}
+              </span>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-secondary-subtle text-secondary-emphasis border">
+                {{ ind.materials?.length || 0 }} Materials
+              </span>
+            </td>
+            <!-- Actions: Strictly DELETE button only (no icons) -->
+            <td class="text-center">
+              <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
+                      style="font-size: 0.76rem;"
+                      (click)="confirmDelete(ind)"
+                      title="Delete Indent">
+                Delete
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: ADD / EDIT INDENT & REQUESTED MATERIALS           -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header bg-primary text-white py-3 px-4" style="background-color: #0f766e !important;">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-file-earmark-text"></i>
+          {{ isEditMode ? 'Edit Indent: ' + indentForm.indentNo : 'Add New Indent' }}
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeModal()"></button>
+      </div>
+
+      <form (ngSubmit)="saveIndent()">
+        <div class="modal-body p-4 bg-light" style="max-height: 80vh; overflow-y: auto;">
+          <!-- 1. Base Indent Information -->
+          <div class="bg-white p-3 rounded-3 border mb-4 shadow-xs">
+            <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+              <span class="badge bg-primary px-2.5 py-1 fw-bold">1. Indent Header Details</span>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Indent Date <span class="text-danger">*</span></label>
+                <input type="date" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="indentForm.indentDate" name="indentDate" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Indent No <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm font-mono shadow-sm" placeholder="e.g. IND-101" [(ngModel)]="indentForm.indentNo" name="indentNo" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Site Engineer <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm shadow-sm" [(ngModel)]="indentForm.siteEngineer" name="siteEngineer" required>
+                  <option *ngFor="let eng of engineers" [value]="eng">{{ eng }}</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Client Name <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm shadow-sm" [(ngModel)]="indentForm.clientName" name="clientName" required>
+                  <option value="" disabled selected>Select Awarded Client</option>
+                  <option *ngFor="let client of clientOptions" [value]="client">{{ client }}</option>
+                  <!-- Support custom/existing name if not in current awarded sites list -->
+                  <option *ngIf="indentForm.clientName && !clientOptions.includes(indentForm.clientName)" [value]="indentForm.clientName">{{ indentForm.clientName }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. REQUESTED MATERIALS (Exact replica of Screenshot 1) -->
+          <div class="bg-white p-3 rounded-3 border shadow-xs">
+            <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+              <div>
+                <h6 class="fw-bold text-uppercase mb-0 text-dark" style="letter-spacing: 0.04em; font-size: 0.92rem;">
+                  REQUESTED MATERIALS
+                </h6>
+                <small class="text-muted">Select materials, quantity, unit, status, and PO/WO.</small>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-success fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1"
+                      style="border-color: #10b981; color: #059669;"
+                      (click)="addMaterialRow()">
+                <i class="bi bi-plus-lg"></i> Add Material
+              </button>
+            </div>
+
+            <!-- Material Rows Table -->
+            <div class="table-responsive">
+              <table class="table table-borderless align-middle mb-0">
+                <thead>
+                  <tr class="text-uppercase text-secondary" style="font-size: 0.72rem; font-weight: 700;">
+                    <th style="min-width: 220px;">MATERIAL (FROM STOCK) *</th>
+                    <th style="width: 100px;">QUANTITY *</th>
+                    <th style="width: 110px;">UNIT *</th>
+                    <th style="width: 160px;">STATUS *</th>
+                    <th style="width: 120px;" class="text-center">PO/WO</th>
+                    <th style="width: 45px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let m of requestedMaterials; let i = index" class="border-bottom-custom">
+                    <!-- MATERIAL (FROM STOCK) -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-semibold text-dark" 
+                              [(ngModel)]="m.materialName" 
+                              [name]="'mat_name_' + i">
+                        <option *ngFor="let opt of stockMaterialOptions" [value]="opt">{{ opt }}</option>
+                      </select>
+                    </td>
+
+                    <!-- QUANTITY -->
+                    <td>
+                      <input type="number" 
+                             min="0.01" 
+                             step="any"
+                             class="form-control form-control-sm font-mono text-center shadow-xs rounded-3 fw-bold" 
+                             [(ngModel)]="m.quantity" 
+                             [name]="'mat_qty_' + i">
+                    </td>
+
+                    <!-- UNIT -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary" 
+                              [(ngModel)]="m.unit" 
+                              [name]="'mat_unit_' + i">
+                        <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
+                      </select>
+                    </td>
+
+                    <!-- STATUS: Pill Selector (Ready to issue, Requested Vendor, Pending) -->
+                    <td>
+                      <select class="form-select form-select-sm status-pill shadow-xs"
+                              [class.status-ready]="m.status === 'Ready to issue'"
+                              [class.status-requested]="m.status === 'Requested Vendor'"
+                              [class.status-pending]="m.status === 'Pending'"
+                              [(ngModel)]="m.status"
+                              [name]="'mat_status_' + i">
+                        <option *ngFor="let st of materialStatuses" [value]="st">{{ st }}</option>
+                      </select>
+                    </td>
+
+                    <!-- PO/WO CHECKBOX (Styled badge pill checkbox from Screenshot 1) -->
+                    <td class="text-center">
+                      <label class="po-wo-badge-checkbox" [class.checked]="m.poWo">
+                        <input type="checkbox" [(ngModel)]="m.poWo" [name]="'mat_powo_' + i">
+                        <i class="bi bi-check-lg check-icon" *ngIf="m.poWo"></i>
+                        <span>PO/WO</span>
+                      </label>
+                    </td>
+
+                    <!-- REMOVE ROW BUTTON (Red ✕ from Screenshot 1) -->
+                    <td class="text-center">
+                      <button type="button" 
+                              class="btn btn-sm btn-outline-danger border-0 p-1 remove-row-btn"
+                              (click)="removeMaterialRow(i)" 
+                              title="Remove this material"
+                              *ngIf="requestedMaterials.length > 1">
+                        <i class="bi bi-x-lg"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">Cancel</button>
+          <button type="submit" *ngIf="isEditMode ? canEdit() : canAdd()" class="btn btn-sm btn-success px-4 fw-bold shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
+            <i class="bi bi-check2-circle me-1"></i> {{ isEditMode ? 'Update Indent' : 'Save Indent' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: CONFIRM DELETE INDENT                             -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-danger text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0">Confirm Delete Indent</h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeDeleteModal()"></button>
+      </div>
+      <div class="modal-body p-4 bg-light text-center">
+        <p class="mb-1 text-dark">Are you sure you want to delete this indent?</p>
+        <p class="fw-bold font-mono text-danger mb-0 fs-6">{{ indentToDelete?.indentNo }} - {{ indentToDelete?.clientName }}</p>
+        <small class="text-muted d-block mt-2">All requested material items inside this indent will be removed.</small>
+      </div>
+      <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteModal()">Cancel</button>
+        <button type="button" *ngIf="canDelete()" class="btn btn-sm btn-danger px-4 fw-bold shadow-sm" (click)="deleteIndent()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>

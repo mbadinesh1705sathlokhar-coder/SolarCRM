@@ -1,0 +1,301 @@
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.filter-container {
+  user-select: none;
+}
+
+.filter-popup-menu {
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nav-pills .nav-link {
+  color: #64748b;
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.nav-pills .nav-link.active {
+  background-color: #0f766e;
+  color: #ffffff;
+}
+
+.custom-checkbox-btn {
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+}
+
+.custom-checkbox-btn:checked {
+  background-color: #0f766e;
+  border-color: #0f766e;
+}
+
+.milestone-select {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 1.4rem 0.2rem 0.45rem;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 98px;
+  height: 28px;
+  line-height: 1.2;
+  transition: all 0.15s ease-in-out;
+}
+
+.milestone-select.is-completed {
+  background-color: #dcfce7 !important;
+  color: #15803d !important;
+  border-color: #86efac !important;
+}
+
+.milestone-select.is-pending {
+  background-color: #f8fafc !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+}
+
+.client-link {
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.client-link:hover {
+  color: #0f766e !important;
+  text-decoration: underline !important;
+}
+
+.client-link:hover .badge {
+  background-color: #0f766e !important;
+  color: #ffffff !important;
+  border-color: #0f766e !important;
+}
+
+.text-teal {
+  color: #0f766e !important;
+}
+
+.chart-container {
+  min-height: 250px;
+}
+
+.modal-content {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* --- Top Horizontal Scrollbar --- */
+.top-scrollbar-wrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 2px solid #0f766e;
+  cursor: pointer;
+}
+
+.top-scrollbar-wrapper::-webkit-scrollbar {
+  height: 14px;
+}
+
+.top-scrollbar-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.top-scrollbar-wrapper::-webkit-scrollbar-thumb {
+  background: #0f766e;
+  border-radius: 7px;
+  border: 2px solid #f1f5f9;
+}
+
+.top-scrollbar-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #0d9488;
+}
+
+.top-scrollbar-dummy {
+  height: 1px;
+}
+
+/* Hide bottom scrollbar on table container as requested by user */
+.table-no-bottom-scroll::-webkit-scrollbar {
+  height: 0px !important;
+  width: 0px !important;
+  display: none !important;
+}
+
+.table-no-bottom-scroll {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* Extra small button utility */
+.btn-xs {
+  font-size: 0.72rem;
+  padding: 0.18rem 0.5rem;
+  line-height: 1.3;
+  border-radius: 4px;
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Luxury Sathlokhar Modal Header Styling */
+.modal-header-luxury {
+  background: linear-gradient(135deg, #0b1329 0%, #0f1c3f 50%, #1e293b 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.client-avatar-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #38bdf8;
+  font-size: 1.45rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+}
+
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.76rem;
+  color: #e2e8f0;
+}
+
+.modal-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  padding: 0;
+}
+
+.modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+/* --- Project Master Table Pagination Styling --- */
+.pagination .page-item .page-link {
+  color: #334155;
+  border-color: #e2e8f0;
+  font-size: 0.82rem;
+  padding: 0.32rem 0.62rem;
+  border-radius: 6px;
+  margin: 0 2px;
+  font-weight: 500;
+  background-color: #ffffff;
+  transition: all 0.15s ease-in-out;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: #0f766e !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(15, 118, 110, 0.25);
+}
+
+.pagination .page-item .page-link:hover:not(.disabled) {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f766e;
+}
+
+.pagination .page-item.disabled .page-link {
+  color: #94a3b8;
+  pointer-events: none;
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+/* --- Single Column Milestone Stage Select & Checkboxes --- */
+.milestone-stage-select {
+  font-size: 0.72rem;
+  padding: 0.12rem 0.35rem;
+  height: 26px;
+  line-height: 1;
+  border-radius: 6px;
+  border-width: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stage-pending {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+.stage-supply {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.stage-install {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.stage-eb {
+  background-color: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.stage-docs {
+  background-color: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+

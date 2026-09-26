@@ -1,0 +1,249 @@
+.ledger-container {
+  background-color: #f8fafc;
+  min-height: calc(100vh - 60px);
+}
+
+.fs-7 {
+  font-size: 0.95rem;
+}
+
+.fs-8 {
+  font-size: 0.75rem;
+}
+
+.metric-card {
+  border-radius: 12px;
+  background: #ffffff;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06) !important;
+}
+
+.metric-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.custom-table th {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  border-top: none;
+}
+
+.custom-table td {
+  padding: 0.85rem 1rem;
+}
+
+.modal-backdrop-custom {
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.hover-primary:hover {
+  color: #dc2626 !important;
+  text-decoration: underline !important;
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.warehouse-row {
+  background-color: #f8faff !important;
+}
+
+.warehouse-row:hover {
+  background-color: #f1f5f9 !important;
+}
+
+.bg-purple-subtle {
+  background-color: #ede9fe !important;
+}
+
+.text-purple {
+  color: #6d28d9 !important;
+}
+
+.border-purple-subtle {
+  border-color: #ddd6fe !important;
+}
+
+/* Luxury Sathlokhar Modal Header Styling */
+.modal-header-luxury {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.client-avatar-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.45rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+}
+
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.76rem;
+  color: #e2e8f0;
+}
+
+.btn-pdf-statement {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-pdf-statement:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.45);
+}
+
+.btn-pdf-statement i {
+  font-size: 0.95rem;
+}
+
+.modal-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  padding: 0;
+}
+
+.modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+/* Bill Voucher Interactive Buttons (Compact) */
+.btn-voucher-submitted {
+  background: #ecfdf5;
+  border-color: #a7f3d0 !important;
+  color: #065f46;
+  border-radius: 6px;
+  line-height: 1.15;
+  min-width: 95px;
+  transition: all 0.2s ease;
+}
+
+.btn-voucher-submitted:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7 !important;
+  transform: translateY(-1px);
+}
+
+.btn-voucher-pending {
+  background: #fef2f2;
+  border-color: #fecaca !important;
+  color: #991b1b;
+  border-radius: 6px;
+  line-height: 1.15;
+  min-width: 95px;
+  transition: all 0.2s ease;
+}
+
+.btn-voucher-pending:hover {
+  background: #fee2e2;
+  border-color: #fca5a5 !important;
+  transform: translateY(-1px);
+}
+
+.voucher-invoice-text {
+  letter-spacing: 0.02em;
+}
+
+.hover-edit-siteid {
+  transition: all 0.15s ease-in-out;
+}
+
+.hover-edit-siteid:hover {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+/* Top Horizontal Scrollbar Track (Synchronized with table) */
+.top-scrollbar-track {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 12px;
+  background-color: #f1f5f9;
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  border-bottom: 1px solid #e2e8f0;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.top-scrollbar-track::-webkit-scrollbar {
+  height: 10px;
+}
+
+.top-scrollbar-track::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.top-scrollbar-track::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+  border-radius: 5px;
+  border: 2px solid #f1f5f9;
+}
+
+.top-scrollbar-track::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
+
+.top-scrollbar-thumb-shim {
+  height: 1px;
+}
+

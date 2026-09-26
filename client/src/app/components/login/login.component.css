@@ -1,0 +1,53 @@
+.login-wrapper {
+  background: transparent;
+  padding: 1.5rem;
+}
+
+.login-container {
+  width: 100%;
+  max-width: 420px;
+}
+
+.card {
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+.login-header {
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.brand-logo-wrap {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+}
+
+.brand-logo-img {
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+}
+
+.form-control:focus {
+  background-color: #ffffff;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 0.2rem rgba(15, 118, 110, 0.12);
+}
+
+.login-btn {
+  background-color: #0f766e;
+  border-color: #0f766e;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.login-btn:hover {
+  background-color: #115e59;
+  border-color: #115e59;
+}
+
+.font-mono {
+  font-family: var(--bs-font-monospace), monospace;
+}
+

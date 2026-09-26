@@ -1,0 +1,1444 @@
+<div class="workspace-page-container">
+
+  <!-- Toast Alert -->
+  <div *ngIf="toastMessage" 
+       class="alert alert-{{ toastType }} alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg z-3"
+       role="alert" style="max-width: 420px; z-index: 1060;">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi" [ngClass]="{
+        'bi-check-circle-fill text-success': toastType === 'success',
+        'bi-exclamation-triangle-fill text-danger': toastType === 'danger',
+        'bi-info-circle-fill text-info': toastType === 'info'
+      }"></i>
+      <span>{{ toastMessage }}</span>
+    </div>
+  </div>
+
+  <!-- Header Section with Role Badge -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3 pb-3 border-bottom">
+    <div class="d-flex align-items-center gap-3">
+      <div class="home-avatar-circle shadow-sm bg-primary-subtle text-primary fw-bold fs-5">
+        {{ (currentUser?.name || 'U')[0] }}
+      </div>
+      <div>
+        <h4 class="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+          <span>Welcome, {{ currentUser?.name || 'Team Member' }}</span>
+          <span class="badge rounded-pill fw-semibold"
+                [ngClass]="{
+                  'bg-success-subtle text-success border border-success-subtle': userResponsibility === 'Sales',
+                  'bg-info-subtle text-info-emphasis border border-info-subtle': userResponsibility === 'Engineers',
+                  'bg-warning-subtle text-warning-emphasis border border-warning-subtle': userResponsibility === 'Admin',
+                  'bg-primary-subtle text-primary border border-primary-subtle': userResponsibility === 'Purchase'
+                }"
+                style="font-size: 0.72rem;">
+            {{ userResponsibility }} Workspace
+          </span>
+        </h4>
+        <small class="text-muted">Solar Sathlokhar Management &bull; Live Performance & Operational Hub</small>
+      </div>
+    </div>
+
+    <!-- Quick Date / User Info -->
+    <div class="text-muted small d-flex align-items-center gap-2">
+      <i class="bi bi-clock-history text-secondary"></i>
+      <span>{{ currentUser?.emailId || currentUser?.username || 'Active Session' }}</span>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- TIMEFRAME FILTER TOOLBAR (Week, Month, Year, Custom From-To Dates)   -->
+  <!-- =================================================================== -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white mb-4 overflow-hidden border-start border-4 border-primary">
+    <div class="card-body p-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <!-- Left: Label & Presets -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="d-flex align-items-center gap-1.5 text-dark fw-bold small me-1">
+          <i class="bi bi-calendar3 text-primary fs-6"></i>
+          <span>Dashboard Timeframe:</span>
+        </div>
+        <div class="btn-group btn-group-sm shadow-xs">
+          <button type="button" 
+                  class="btn"
+                  [ngClass]="timeframePreset === 'week' ? 'btn-primary' : 'btn-outline-secondary'"
+                  (click)="setTimeframe('week')"
+                  style="font-size: 0.75rem; padding: 4px 11px;">
+            Week
+          </button>
+          <button type="button" 
+                  class="btn"
+                  [ngClass]="timeframePreset === 'month' ? 'btn-primary' : 'btn-outline-secondary'"
+                  (click)="setTimeframe('month')"
+                  style="font-size: 0.75rem; padding: 4px 11px;">
+            Month
+          </button>
+          <button type="button" 
+                  class="btn"
+                  [ngClass]="timeframePreset === 'year' ? 'btn-primary' : 'btn-outline-secondary'"
+                  (click)="setTimeframe('year')"
+                  style="font-size: 0.75rem; padding: 4px 11px;">
+            Year
+          </button>
+          <button type="button" 
+                  class="btn"
+                  [ngClass]="timeframePreset === 'all' ? 'btn-primary' : 'btn-outline-secondary'"
+                  (click)="setTimeframe('all')"
+                  style="font-size: 0.75rem; padding: 4px 11px;">
+            All Time
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Custom Date Range (From Date & To Date) -->
+      <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
+        <div class="d-flex align-items-center gap-1.5">
+          <label class="text-muted small fw-semibold mb-0" style="font-size: 0.72rem;">From:</label>
+          <input type="date" 
+                 class="form-control form-control-sm shadow-none" 
+                 style="font-size: 0.75rem; width: 135px; height: 31px;"
+                 [(ngModel)]="fromDateStr" 
+                 (change)="onCustomDateChange()">
+        </div>
+        <div class="d-flex align-items-center gap-1.5">
+          <label class="text-muted small fw-semibold mb-0" style="font-size: 0.72rem;">To:</label>
+          <input type="date" 
+                 class="form-control form-control-sm shadow-none" 
+                 style="font-size: 0.75rem; width: 135px; height: 31px;"
+                 [(ngModel)]="toDateStr" 
+                 (change)="onCustomDateChange()">
+        </div>
+        <span class="badge bg-light text-secondary border px-2 py-1 text-nowrap" style="font-size: 0.7rem;">
+          <i class="bi bi-funnel me-1 text-primary"></i>
+          {{ fromDateStr ? (formatDate(fromDateStr) + ' to ' + formatDate(toDateStr)) : 'All Historical Data' }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- 1. SALES & ADMIN WORKSPACE (4 CORE KPI CARDS)                       -->
+  <!-- =================================================================== -->
+  <div *ngIf="(userResponsibility === 'Sales' || userResponsibility === 'Admin') && authService.canViewModule('sales')" class="mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2.5">
+      <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.05em;">
+        Executive Sales & Contract Performance
+      </h6>
+      <span class="badge bg-light text-success border px-2 py-0.5" style="font-size: 0.7rem;">
+        <i class="bi bi-check-circle-fill me-1"></i>Live MySQL Analytics
+      </span>
+    </div>
+
+    <!-- The 4 Core KPI Cards -->
+    <div class="row g-3 mb-3">
+      <!-- 1) Awarded Sites (Count) -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-success"
+             (click)="openBreakdownModal('awarded')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Awarded Sites
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ awardedSitesCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.74rem;">
+                Projects awarded in timeframe
+              </div>
+            </div>
+            <div class="metric-icon-box bg-success-subtle text-success">
+              <i class="bi bi-building-check fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-success small" style="font-size: 0.74rem;">
+            <span>View Awarded Sites ({{ awardedSitesCount }})</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2) Awarded Value (Total Amount) -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-primary"
+             (click)="openBreakdownModal('awarded')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div style="min-width: 0;">
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Awarded Value
+              </div>
+              <div class="metric-number text-primary fw-bold my-1 text-truncate" title="₹ {{ awardedValue | number:'1.2-2' }}">
+                ₹ {{ awardedValue | number:'1.2-2' }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.74rem;">
+                Total order contract value
+              </div>
+            </div>
+            <div class="metric-icon-box bg-primary-subtle text-primary">
+              <i class="bi bi-currency-rupee fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-primary small" style="font-size: 0.74rem;">
+            <span>View Value Details</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3) Received Value (Total Amount) -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4"
+             style="border-color: #7c3aed !important;"
+             (click)="openBreakdownModal('payments')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div style="min-width: 0;">
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Received Value
+              </div>
+              <div class="metric-number fw-bold my-1 text-truncate" style="color: #7c3aed;" title="₹ {{ receivedValue | number:'1.2-2' }}">
+                ₹ {{ receivedValue | number:'1.2-2' }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.74rem;">
+                Client payments verified
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #ede9fe; color: #7c3aed;">
+              <i class="bi bi-wallet2 fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #7c3aed; font-size: 0.74rem;">
+            <span>View Payments ({{ filteredPayments.length }})</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4) Number of PO/WO registered -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-warning"
+             (click)="openBreakdownModal('powo')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Number of PO/WO registered
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ poWoRegisteredCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.74rem;">
+                PO/WO vouchers in timeframe
+              </div>
+            </div>
+            <div class="metric-icon-box bg-warning-subtle text-warning-emphasis">
+              <i class="bi bi-file-earmark-ruled fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-warning-emphasis small" style="font-size: 0.74rem;">
+            <span>Inspect PO/WO Register</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sales Pipeline Details (Leads & Follow-ups) -->
+    <div class="row g-3">
+      <!-- New Leads Card -->
+      <div class="col-12 col-md-6">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-teal"
+             style="border-color: #0d9488 !important;"
+             (click)="goTo('/sales/leads')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                New Leads
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ newLeadsCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Leads currently under <strong style="color: #0d9488;">'New'</strong> status
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #ccfbf1; color: #0d9488;">
+              <i class="bi bi-person-plus-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #0d9488; font-size: 0.74rem;">
+            <span>Open Leads Pipeline</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Follow-up Leads Card -->
+      <div class="col-12 col-md-6">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-info"
+             (click)="goTo('/sales/oppurtunity')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Follow-up Leads & Opportunities
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ followUpLeadsCount }}
+              </div>
+              <div class="small text-muted d-flex align-items-center gap-2 flex-wrap" style="font-size: 0.75rem;">
+                <span class="badge bg-light text-dark border">
+                  Site Visit: <strong>{{ siteVisitPlannedCount + siteVisitCompletedCount }}</strong>
+                </span>
+                <span class="badge bg-light text-dark border">
+                  Negotiation: <strong>{{ negotiationCount }}</strong>
+                </span>
+              </div>
+            </div>
+            <div class="metric-icon-box bg-info-subtle text-info-emphasis">
+              <i class="bi bi-arrow-repeat fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-info small" style="font-size: 0.74rem;">
+            <span>View Opportunities</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- 2. PURCHASE WORKSPACE                                               -->
+  <!-- =================================================================== -->
+  <div *ngIf="userResponsibility === 'Purchase' || (userResponsibility === 'Admin' && authService.canViewModule('inventory'))" class="mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2.5">
+      <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.05em;">
+        Purchase & Procurement Workspace
+      </h6>
+      <span class="badge bg-light text-primary border px-2 py-0.5" style="font-size: 0.7rem;">
+        Procurement & Inventory Analytics
+      </span>
+    </div>
+
+    <!-- Purchase Financial Summary (Total Expenses & Total Client Payments) -->
+    <div class="row g-3 mb-3">
+      <!-- Total Expenses Card -->
+      <div class="col-12 col-md-6">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-danger"
+             (click)="openBreakdownModal('expenses')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div style="min-width: 0;">
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Total Expenses
+              </div>
+              <div class="metric-number text-danger fw-bold my-1 text-truncate" title="₹ {{ totalExpensesValue | number:'1.2-2' }}">
+                ₹ {{ totalExpensesValue | number:'1.2-2' }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                <strong>{{ filteredExpenses.length }}</strong> expense vouchers recorded in timeframe
+              </div>
+            </div>
+            <div class="metric-icon-box bg-danger-subtle text-danger">
+              <i class="bi bi-receipt fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-danger small" style="font-size: 0.74rem;">
+            <span>Inspect All Expenses</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total Client Payments Card -->
+      <div class="col-12 col-md-6">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-success"
+             (click)="openBreakdownModal('payments')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div style="min-width: 0;">
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Total Client Payments
+              </div>
+              <div class="metric-number text-success fw-bold my-1 text-truncate" title="₹ {{ totalClientPaymentsValue | number:'1.2-2' }}">
+                ₹ {{ totalClientPaymentsValue | number:'1.2-2' }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                <strong>{{ filteredPayments.length }}</strong> payments collected in timeframe
+              </div>
+            </div>
+            <div class="metric-icon-box bg-success-subtle text-success">
+              <i class="bi bi-cash-coin fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-success small" style="font-size: 0.74rem;">
+            <span>Inspect Payment Ledger</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory Section Cards -->
+    <div class="row g-3">
+      <!-- 1) Total Indent Card -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-teal"
+             style="border-color: #0d9488 !important;"
+             (click)="goTo('/inventory/indent')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Total Indent
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ totalIndentsCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Material requisition indents
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #ccfbf1; color: #0d9488;">
+              <i class="bi bi-file-earmark-spreadsheet-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #0d9488; font-size: 0.74rem;">
+            <span>Open Indents</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2) Warehouse (Low Stocks only) Card -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-warning"
+             (click)="goTo('/inventory/warehouse')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Warehouse (Low Stock)
+              </div>
+              <div class="metric-number text-dark fw-bold my-1" [ngClass]="warehouseLowStockCount > 0 ? 'text-warning-emphasis' : 'text-dark'">
+                {{ warehouseLowStockCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Items needing replenishment
+              </div>
+            </div>
+            <div class="metric-icon-box bg-warning-subtle text-warning-emphasis">
+              <i class="bi bi-box-seam-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-warning-emphasis small" style="font-size: 0.74rem;">
+            <span>Check Low Stock</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3) Gatepass Card -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4"
+             style="border-color: #7c3aed !important;"
+             (click)="goTo('/inventory/gate-pass')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Gatepass
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ gatePassesCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Material dispatch passes
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #ede9fe; color: #7c3aed;">
+              <i class="bi bi-pass-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #7c3aed; font-size: 0.74rem;">
+            <span>View Gatepasses</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4) Add to Cart Card -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-primary"
+             (click)="goTo('/inventory/cart')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Add to Cart
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ cartItemsCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Pending procurement orders
+              </div>
+            </div>
+            <div class="metric-icon-box bg-primary-subtle text-primary">
+              <i class="bi bi-cart-check-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-primary small" style="font-size: 0.74rem;">
+            <span>Open Procurement Cart</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- 3. ENGINEERS WORKSPACE                                              -->
+  <!-- =================================================================== -->
+  <div *ngIf="(userResponsibility === 'Engineers' || userResponsibility === 'Admin') && authService.canViewModule('activity')" class="mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2.5">
+      <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.05em;">
+        Engineering, Field Activities & Materials
+      </h6>
+      <span class="badge bg-light text-info border px-2 py-0.5" style="font-size: 0.7rem;">Field & Site Execution</span>
+    </div>
+
+    <div class="row g-3">
+      <!-- 1) Assigned Site Plans Card -->
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-info"
+             (click)="goTo('/activity/site-plan')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Site Plans
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ assignedSitePlansCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Scheduled visits & inspections
+              </div>
+            </div>
+            <div class="metric-icon-box bg-info-subtle text-info-emphasis">
+              <i class="bi bi-geo-alt-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-info small" style="font-size: 0.74rem;">
+            <span>Open Site Plan Directory</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2) Scheduled Meetings Card -->
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-warning"
+             (click)="goTo('/activity/meetings')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Scheduled Meetings
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ upcomingMeetingsCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Active appointments & discussions
+              </div>
+            </div>
+            <div class="metric-icon-box bg-warning-subtle text-warning-emphasis">
+              <i class="bi bi-calendar2-event fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-warning-emphasis small" style="font-size: 0.74rem;">
+            <span>View Calendar</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3) Active Tasks Card -->
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-danger"
+             (click)="goTo('/activity/tasks')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Pending Tasks
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ activeTasksCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Action items needing attention
+              </div>
+            </div>
+            <div class="metric-icon-box bg-danger-subtle text-danger">
+              <i class="bi bi-card-checklist fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-danger small" style="font-size: 0.74rem;">
+            <span>Review Tasks</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4) Indents (Respective Engineer's Indents Only!) -->
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-teal"
+             style="border-color: #0d9488 !important;"
+             (click)="goTo('/inventory/indent')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                {{ isAdmin ? 'Total Indents' : ('My Indents (' + (currentUser?.name || 'Engineer') + ')') }}
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ engineerIndentsCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                {{ isAdmin ? 'All site material indents' : 'Material indents raised by you' }}
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #ccfbf1; color: #0d9488;">
+              <i class="bi bi-file-earmark-text-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #0d9488; font-size: 0.74rem;">
+            <span>{{ isAdmin ? 'View All Indents' : 'View My Indents' }}</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5) Warehouse Available Stock -->
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-primary"
+             (click)="goTo('/inventory/warehouse')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Warehouse Materials
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ warehouseTotalMaterialsCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Stock items ({{ warehouseLowStockCount }} low stock)
+              </div>
+            </div>
+            <div class="metric-icon-box bg-primary-subtle text-primary">
+              <i class="bi bi-box-seam-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-primary small" style="font-size: 0.74rem;">
+            <span>Inspect Warehouse Stock</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6) GatePass Card -->
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4"
+             style="border-color: #7c3aed !important;"
+             (click)="goTo('/inventory/gate-pass')">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Gate Pass
+              </div>
+              <div class="metric-number text-dark fw-bold my-1">
+                {{ gatePassesCount }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.75rem;">
+                Material dispatch passes
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #ede9fe; color: #7c3aed;">
+              <i class="bi bi-pass-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #7c3aed; font-size: 0.74rem;">
+            <span>View Gatepasses</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- 4. ALLOTTED ACTIVITIES HUB ("and Activities i alloted to them")      -->
+  <!-- =================================================================== -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden mb-4">
+    <!-- Hub Header with Tabs & Admin Employee Switcher -->
+    <div class="p-3 border-bottom bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <div class="p-1.5 rounded-2 bg-primary text-white d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+          <i class="bi bi-calendar-check fs-5"></i>
+        </div>
+        <div>
+          <h6 class="mb-0 fw-bold text-dark">
+            {{ isAdmin ? 'Activities Allotted Across Organization' : 'Activities Allotted to You' }}
+          </h6>
+          <small class="text-muted" style="font-size: 0.72rem;">
+            {{ isAdmin ? 'Monitor all tasks, meetings, calls, and site surveys assigned to team members' : 'Manage your assigned tasks, meetings, calls, and site visits' }}
+          </small>
+        </div>
+      </div>
+
+      <!-- Admin Employee Filter & Add Task Button -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <!-- Admin Employee Filter Dropdown -->
+        <div *ngIf="isAdmin" class="d-flex align-items-center gap-1.5">
+          <span class="small fw-semibold text-muted" style="font-size: 0.72rem;">Filter Employee:</span>
+          <select class="form-select form-select-sm shadow-none" 
+                  style="width: 160px; font-size: 0.74rem;" 
+                  [(ngModel)]="adminEmployeeFilter" 
+                  (change)="onAdminEmployeeFilterChange()">
+            <option value="all">All Employees</option>
+            <option *ngFor="let emp of allEmployees" [value]="emp.name">{{ emp.name }} ({{ emp.responsibility || 'Staff' }})</option>
+          </select>
+        </div>
+
+        <!-- + Add Task Button -->
+        <button type="button" 
+                class="btn btn-sm btn-success fw-semibold d-flex align-items-center gap-1 shadow-xs px-2.5 py-1"
+                style="background-color: #0f766e; border-color: #0f766e; font-size: 0.76rem;"
+                (click)="openAddTodoModal()">
+          <i class="bi bi-plus-lg"></i>
+          <span>Add To-Do</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Segmented Navigation for Activities: Tasks, Meetings, Calls, Site Plans -->
+    <div class="px-3 pt-2 pb-0 bg-white border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <ul class="nav nav-tabs border-0 flex-nowrap overflow-x-auto" style="gap: 4px;">
+        <li class="nav-item">
+          <button class="nav-link border-0 fw-semibold pb-2" 
+                  [class.active]="activityActiveTab === 'tasks'"
+                  [class.text-primary]="activityActiveTab === 'tasks'"
+                  [class.border-bottom]="activityActiveTab === 'tasks'"
+                  [class.border-primary]="activityActiveTab === 'tasks'"
+                  [class.border-2]="activityActiveTab === 'tasks'"
+                  (click)="activityActiveTab = 'tasks'"
+                  style="font-size: 0.78rem;">
+            <i class="bi bi-check2-square me-1"></i>
+            Tasks / To-Dos <span class="badge bg-light text-dark border ms-1">{{ filteredTodos.length }}</span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link border-0 fw-semibold pb-2" 
+                  [class.active]="activityActiveTab === 'meetings'"
+                  [class.text-primary]="activityActiveTab === 'meetings'"
+                  [class.border-bottom]="activityActiveTab === 'meetings'"
+                  [class.border-primary]="activityActiveTab === 'meetings'"
+                  [class.border-2]="activityActiveTab === 'meetings'"
+                  (click)="activityActiveTab = 'meetings'"
+                  style="font-size: 0.78rem;">
+            <i class="bi bi-calendar2-event me-1"></i>
+            Meetings Allotted <span class="badge bg-light text-dark border ms-1">{{ filteredMeetingsList.length }}</span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link border-0 fw-semibold pb-2" 
+                  [class.active]="activityActiveTab === 'calls'"
+                  [class.text-primary]="activityActiveTab === 'calls'"
+                  [class.border-bottom]="activityActiveTab === 'calls'"
+                  [class.border-primary]="activityActiveTab === 'calls'"
+                  [class.border-2]="activityActiveTab === 'calls'"
+                  (click)="activityActiveTab = 'calls'"
+                  style="font-size: 0.78rem;">
+            <i class="bi bi-telephone-fill me-1"></i>
+            Calls Logged <span class="badge bg-light text-dark border ms-1">{{ filteredCallsList.length }}</span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link border-0 fw-semibold pb-2" 
+                  [class.active]="activityActiveTab === 'siteplans'"
+                  [class.text-primary]="activityActiveTab === 'siteplans'"
+                  [class.border-bottom]="activityActiveTab === 'siteplans'"
+                  [class.border-primary]="activityActiveTab === 'siteplans'"
+                  [class.border-2]="activityActiveTab === 'siteplans'"
+                  (click)="activityActiveTab = 'siteplans'"
+                  style="font-size: 0.78rem;">
+            <i class="bi bi-geo-alt-fill me-1"></i>
+            Site Plans <span class="badge bg-light text-dark border ms-1">{{ filteredSitePlansList.length }}</span>
+          </button>
+        </li>
+      </ul>
+
+      <!-- To-Do Filter Status Buttons (only on Tasks tab) -->
+      <div *ngIf="activityActiveTab === 'tasks'" class="btn-group btn-group-sm mb-2 shadow-xs">
+        <button type="button" 
+                class="btn btn-sm"
+                [ngClass]="todoFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'"
+                (click)="todoFilter = 'all'"
+                style="font-size: 0.72rem; padding: 2px 8px;">
+          All
+        </button>
+        <button type="button" 
+                class="btn btn-sm"
+                [ngClass]="todoFilter === 'pending' ? 'btn-primary' : 'btn-outline-secondary'"
+                (click)="todoFilter = 'pending'"
+                style="font-size: 0.72rem; padding: 2px 8px;">
+          Pending
+        </button>
+        <button type="button" 
+                class="btn btn-sm"
+                [ngClass]="todoFilter === 'completed' ? 'btn-primary' : 'btn-outline-secondary'"
+                (click)="todoFilter = 'completed'"
+                style="font-size: 0.72rem; padding: 2px 8px;">
+          Completed
+        </button>
+      </div>
+    </div>
+
+    <!-- 1. TASKS TAB CONTENT -->
+    <div *ngIf="activityActiveTab === 'tasks'" class="table-responsive">
+      <table class="table table-hover align-middle mb-0 custom-todo-table">
+        <thead class="table-light text-uppercase text-muted" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+          <tr>
+            <th class="ps-3 text-center" style="width: 44px;">Done</th>
+            <th style="min-width: 105px;">Date</th>
+            <th style="min-width: 95px;">Time</th>
+            <th style="min-width: 200px;">Task Title</th>
+            <th style="min-width: 220px;">Description</th>
+            <th style="min-width: 120px;">Assigned To</th>
+            <th style="min-width: 100px;">Status</th>
+            <th class="text-center pe-3" style="min-width: 85px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Empty State -->
+          <tr *ngIf="filteredTodos.length === 0">
+            <td colspan="8" class="text-center py-4 text-muted">
+              <i class="bi bi-clipboard-check fs-2 d-block mb-1 text-secondary opacity-40"></i>
+              <div class="fw-semibold small">No to-do items found</div>
+              <small class="text-muted" style="font-size: 0.72rem;">Click "+ Add To-Do" above to record a new task with date and time.</small>
+            </td>
+          </tr>
+
+          <!-- Rows -->
+          <tr *ngFor="let todo of filteredTodos" [class.todo-completed-row]="todo.status === 'Completed'">
+            <!-- Done Checkbox -->
+            <td class="ps-3 text-center">
+              <input type="checkbox"
+                     class="form-check-input cursor-pointer"
+                     [checked]="todo.status === 'Completed'"
+                     [disabled]="!canChangeTodoStatus(todo)"
+                     (change)="toggleTodoStatus(todo)"
+                     [title]="canChangeTodoStatus(todo) ? 'Mark task completed / pending' : 'Only assigned employee (' + todo.assignedTo + ') can update status'"
+                     style="width: 17px; height: 17px;">
+            </td>
+
+            <!-- Date -->
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5 text-nowrap" style="font-size: 0.72rem;">
+                <i class="bi bi-calendar3 me-1 text-secondary"></i>{{ formatDate(todo.dueDate) }}
+              </span>
+            </td>
+
+            <!-- Time -->
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                <i class="bi bi-clock me-1 text-primary"></i>{{ todo.time || '10:00 AM' }}
+              </span>
+            </td>
+
+            <!-- Title -->
+            <td>
+              <div class="fw-bold text-dark text-break" 
+                   [class.text-decoration-line-through]="todo.status === 'Completed'"
+                   [class.text-muted]="todo.status === 'Completed'"
+                   style="font-size: 0.8rem;">
+                {{ todo.title }}
+              </div>
+              <small class="text-muted" *ngIf="todo.relatedTo" style="font-size: 0.7rem;">
+                Ref: {{ todo.relatedTo }}
+              </small>
+            </td>
+
+            <!-- Description -->
+            <td>
+              <div class="text-secondary small text-break" style="font-size: 0.76rem; max-width: 280px;">
+                {{ todo.description || '—' }}
+              </div>
+            </td>
+
+            <!-- Assigned To -->
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                <i class="bi bi-person me-1 text-primary"></i>{{ todo.assignedTo || 'Unassigned' }}
+              </span>
+            </td>
+
+            <!-- Status Badge -->
+            <td>
+              <span class="badge rounded-pill px-2 py-0.5"
+                    [ngClass]="{
+                      'bg-success-subtle text-success border border-success-subtle': todo.status === 'Completed',
+                      'bg-warning-subtle text-warning-emphasis border border-warning-subtle': todo.status === 'In Progress',
+                      'bg-secondary-subtle text-secondary border border-secondary-subtle': todo.status === 'Pending'
+                    }"
+                    style="font-size: 0.7rem;">
+                {{ todo.status }}
+              </span>
+            </td>
+
+            <!-- Actions (Edit & Delete) -->
+            <td class="text-center pe-3">
+              <div class="d-inline-flex gap-1">
+                <button type="button" 
+                        class="btn btn-sm btn-outline-primary todo-action-btn shadow-none"
+                        (click)="openEditTodoModal(todo)"
+                        title="Edit To-Do">
+                  <i class="bi bi-pencil-square"></i>
+                </button>
+                <button type="button" 
+                        class="btn btn-sm btn-outline-danger todo-action-btn shadow-none"
+                        (click)="deleteTodo(todo)"
+                        title="Delete To-Do">
+                  <i class="bi bi-trash3"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 2. MEETINGS TAB CONTENT -->
+    <div *ngIf="activityActiveTab === 'meetings'" class="table-responsive">
+      <table class="table table-hover align-middle mb-0 custom-todo-table">
+        <thead class="table-light text-uppercase text-muted" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+          <tr>
+            <th class="ps-3" style="min-width: 105px;">Date</th>
+            <th style="min-width: 95px;">Time</th>
+            <th style="min-width: 180px;">Client / Subject</th>
+            <th style="min-width: 130px;">Engineer</th>
+            <th style="min-width: 130px;">Coordinator</th>
+            <th style="min-width: 220px;">Agenda / Notes</th>
+            <th class="pe-3" style="min-width: 100px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="filteredMeetingsList.length === 0">
+            <td colspan="7" class="text-center py-4 text-muted">
+              <i class="bi bi-calendar-x fs-2 d-block mb-1 text-secondary opacity-40"></i>
+              <div class="fw-semibold small">No scheduled meetings found</div>
+            </td>
+          </tr>
+          <tr *ngFor="let m of filteredMeetingsList">
+            <td class="ps-3">
+              <span class="badge bg-light text-dark border px-2 py-0.5 text-nowrap" style="font-size: 0.72rem;">
+                <i class="bi bi-calendar3 me-1 text-secondary"></i>{{ formatDate(m.date) }}
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                <i class="bi bi-clock me-1 text-warning"></i>{{ m.time || '10:00 AM' }}
+              </span>
+            </td>
+            <td>
+              <div class="fw-bold text-dark" style="font-size: 0.8rem;">{{ m.clientName || m.title || 'Client' }}</div>
+              <small class="text-muted" style="font-size: 0.7rem;">{{ m.purpose || 'Discussion' }}</small>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                {{ m.engineer || 'Unassigned' }}
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                {{ m.coordinator || 'Unassigned' }}
+              </span>
+            </td>
+            <td>
+              <div class="text-secondary small text-break" style="font-size: 0.76rem; max-width: 280px;">
+                {{ m.description || '—' }}
+              </div>
+            </td>
+            <td class="pe-3">
+              <span class="badge rounded-pill px-2 py-0.5"
+                    [ngClass]="{
+                      'bg-success-subtle text-success border border-success-subtle': m.status === 'Completed',
+                      'bg-warning-subtle text-warning-emphasis border border-warning-subtle': m.status === 'Scheduled',
+                      'bg-secondary-subtle text-secondary border border-secondary-subtle': !m.status || m.status === 'Pending'
+                    }"
+                    style="font-size: 0.7rem;">
+                {{ m.status || 'Scheduled' }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 3. CALLS TAB CONTENT -->
+    <div *ngIf="activityActiveTab === 'calls'" class="table-responsive">
+      <table class="table table-hover align-middle mb-0 custom-todo-table">
+        <thead class="table-light text-uppercase text-muted" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+          <tr>
+            <th class="ps-3" style="min-width: 105px;">Date</th>
+            <th style="min-width: 95px;">Time</th>
+            <th style="min-width: 180px;">Client / Contact</th>
+            <th style="min-width: 130px;">Caller</th>
+            <th style="min-width: 240px;">Discussion Details</th>
+            <th class="pe-3" style="min-width: 100px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="filteredCallsList.length === 0">
+            <td colspan="6" class="text-center py-4 text-muted">
+              <i class="bi bi-telephone-x fs-2 d-block mb-1 text-secondary opacity-40"></i>
+              <div class="fw-semibold small">No call logs found</div>
+            </td>
+          </tr>
+          <tr *ngFor="let c of filteredCallsList">
+            <td class="ps-3">
+              <span class="badge bg-light text-dark border px-2 py-0.5 text-nowrap" style="font-size: 0.72rem;">
+                <i class="bi bi-calendar3 me-1 text-secondary"></i>{{ formatDate(c.date) }}
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                <i class="bi bi-clock me-1 text-info"></i>{{ c.time || '10:00 AM' }}
+              </span>
+            </td>
+            <td>
+              <div class="fw-bold text-dark" style="font-size: 0.8rem;">{{ c.clientVendorName || 'Client' }}</div>
+              <small class="text-muted" *ngIf="c.phoneNumber" style="font-size: 0.7rem;">{{ c.phoneNumber }}</small>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                <i class="bi bi-person me-1 text-secondary"></i>{{ c.callerName || 'Staff' }}
+              </span>
+            </td>
+            <td>
+              <div class="text-secondary small text-break" style="font-size: 0.76rem; max-width: 320px;">
+                {{ c.description || c.title || '—' }}
+              </div>
+            </td>
+            <td class="pe-3">
+              <span class="badge rounded-pill bg-light text-dark border px-2 py-0.5" style="font-size: 0.7rem;">
+                {{ c.status || 'Logged' }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 4. SITE PLANS TAB CONTENT -->
+    <div *ngIf="activityActiveTab === 'siteplans'" class="table-responsive">
+      <table class="table table-hover align-middle mb-0 custom-todo-table">
+        <thead class="table-light text-uppercase text-muted" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+          <tr>
+            <th class="ps-3" style="min-width: 105px;">Date</th>
+            <th style="min-width: 95px;">Time</th>
+            <th style="min-width: 200px;">Client Site Name</th>
+            <th style="min-width: 150px;">Assigned Engineer</th>
+            <th style="min-width: 150px;">Assigned By</th>
+            <th class="pe-3" style="min-width: 240px;">Site Survey Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="filteredSitePlansList.length === 0">
+            <td colspan="6" class="text-center py-4 text-muted">
+              <i class="bi bi-geo-alt fs-2 d-block mb-1 text-secondary opacity-40"></i>
+              <div class="fw-semibold small">No site visits or plans found</div>
+            </td>
+          </tr>
+          <tr *ngFor="let sp of filteredSitePlansList">
+            <td class="ps-3">
+              <span class="badge bg-light text-dark border px-2 py-0.5 text-nowrap" style="font-size: 0.72rem;">
+                <i class="bi bi-calendar3 me-1 text-secondary"></i>{{ formatDate(sp.date) }}
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                <i class="bi bi-clock me-1 text-primary"></i>{{ sp.time || '10:00 AM' }}
+              </span>
+            </td>
+            <td>
+              <div class="fw-bold text-dark" style="font-size: 0.8rem;">{{ sp.clientName }}</div>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                <i class="bi bi-tools me-1 text-info"></i>{{ sp.engineerName || 'Unassigned' }}
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-light text-secondary border px-2 py-0.5" style="font-size: 0.72rem;">
+                {{ sp.assignedBy || 'Admin' }}
+              </span>
+            </td>
+            <td class="pe-3">
+              <div class="text-secondary small text-break" style="font-size: 0.76rem; max-width: 320px;">
+                {{ sp.description || 'Site inspection & feasibility visit' }}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Table Footer Summary -->
+    <div class="p-2.5 px-3 border-top bg-light d-flex align-items-center justify-content-between text-muted small" style="font-size: 0.72rem;">
+      <div *ngIf="activityActiveTab === 'tasks'">Showing {{ filteredTodos.length }} of {{ todos.length }} tasks ({{ activeTasksCount }} pending)</div>
+      <div *ngIf="activityActiveTab === 'meetings'">Showing {{ filteredMeetingsList.length }} scheduled meetings</div>
+      <div *ngIf="activityActiveTab === 'calls'">Showing {{ filteredCallsList.length }} call records</div>
+      <div *ngIf="activityActiveTab === 'siteplans'">Showing {{ filteredSitePlansList.length }} site visits</div>
+      <div>{{ currentUser?.name }} &bull; Role: {{ userResponsibility }}</div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- 5. BREAKDOWN DETAILS MODAL (Drilldown for 4 KPI Cards)              -->
+  <!-- =================================================================== -->
+  <div class="modal fade show d-block" tabindex="-1" *ngIf="isBreakdownModalOpen" style="background-color: rgba(15, 23, 42, 0.65); z-index: 1070;">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content shadow-lg border-0 rounded-3 overflow-hidden">
+        
+        <!-- Modal Header -->
+        <div class="modal-header bg-dark text-white py-2.5 px-3.5">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-line-fill text-warning fs-5"></i>
+            <div>
+              <h6 class="modal-title fw-bold mb-0">
+                Dashboard Metrics Breakdown
+              </h6>
+              <small class="text-light opacity-75" style="font-size: 0.72rem;">
+                Timeframe: {{ fromDateStr ? (formatDate(fromDateStr) + ' to ' + formatDate(toDateStr)) : 'All Time' }}
+              </small>
+            </div>
+          </div>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeBreakdownModal()"></button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body p-3 bg-light">
+          <!-- Filter Controls & Tab Switcher inside Modal -->
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 bg-white p-2.5 rounded-3 border">
+            <!-- Tabs -->
+            <ul class="nav nav-pills" style="gap: 4px;">
+              <li class="nav-item">
+                <button class="nav-link btn-sm py-1 px-3" 
+                        [class.active]="breakdownActiveTab === 'awarded'"
+                        (click)="breakdownActiveTab = 'awarded'"
+                        style="font-size: 0.75rem;">
+                  Awarded Sites ({{ breakdownAwardedList.length }}) &bull; ₹ {{ awardedValue | number:'1.2-2' }}
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link btn-sm py-1 px-3" 
+                        [class.active]="breakdownActiveTab === 'payments'"
+                        (click)="breakdownActiveTab = 'payments'"
+                        style="font-size: 0.75rem;">
+                  Received Payments ({{ breakdownPaymentsList.length }}) &bull; ₹ {{ receivedValue | number:'1.2-2' }}
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link btn-sm py-1 px-3" 
+                        [class.active]="breakdownActiveTab === 'powo'"
+                        (click)="breakdownActiveTab = 'powo'"
+                        style="font-size: 0.75rem;">
+                  PO/WO Registered ({{ breakdownPoWoList.length }})
+                </button>
+              </li>
+              <li class="nav-item" *ngIf="userResponsibility === 'Purchase' || userResponsibility === 'Admin'">
+                <button class="nav-link btn-sm py-1 px-3" 
+                        [class.active]="breakdownActiveTab === 'expenses'"
+                        (click)="breakdownActiveTab = 'expenses'"
+                        style="font-size: 0.75rem;">
+                  Total Expenses ({{ breakdownExpensesList.length }}) &bull; ₹ {{ totalExpensesValue | number:'1.2-2' }}
+                </button>
+              </li>
+            </ul>
+
+            <!-- Search Inside Breakdown -->
+            <div class="input-group input-group-sm" style="max-width: 240px;">
+              <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+              <input type="text" 
+                     class="form-control border-start-0 shadow-none" 
+                     placeholder="Search breakdown records..."
+                     [(ngModel)]="breakdownSearchTerm"
+                     style="font-size: 0.75rem;">
+            </div>
+          </div>
+
+          <!-- TAB 1: Awarded Sites Breakdown Table -->
+          <div *ngIf="breakdownActiveTab === 'awarded'" class="card border-0 shadow-xs rounded-3 overflow-hidden">
+            <div class="table-responsive" style="max-height: 420px;">
+              <table class="table table-hover align-middle mb-0 custom-todo-table">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th class="ps-3">Site ID</th>
+                    <th>Client Name</th>
+                    <th>Awarded Date</th>
+                    <th>Site Capacity</th>
+                    <th>Order By</th>
+                    <th class="text-end pe-3">Site Value (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngIf="breakdownAwardedList.length === 0">
+                    <td colspan="6" class="text-center py-4 text-muted">No awarded sites found in this timeframe.</td>
+                  </tr>
+                  <tr *ngFor="let p of breakdownAwardedList">
+                    <td class="ps-3 fw-bold text-primary">{{ p.siteId }}</td>
+                    <td class="fw-semibold text-dark">{{ p.clientName }}</td>
+                    <td>{{ formatDate(p.awardedDate) }}</td>
+                    <td>{{ p.siteCapacity || '-' }}</td>
+                    <td>{{ p.orderBy || '-' }}</td>
+                    <td class="text-end pe-3 fw-bold text-success">
+                      ₹ {{ (p.siteValue || 0) | number:'1.2-2' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card-footer bg-light p-2.5 px-3 d-flex justify-content-between text-dark fw-bold small">
+              <span>Total Sites: {{ breakdownAwardedList.length }}</span>
+              <span>Total Awarded Value: ₹ {{ awardedValue | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <!-- TAB 2: Received Payments Breakdown Table -->
+          <div *ngIf="breakdownActiveTab === 'payments'" class="card border-0 shadow-xs rounded-3 overflow-hidden">
+            <div class="table-responsive" style="max-height: 420px;">
+              <table class="table table-hover align-middle mb-0 custom-todo-table">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th class="ps-3">Site ID</th>
+                    <th>Client Name</th>
+                    <th>Payment Date</th>
+                    <th>Payment Mode</th>
+                    <th>Reference / MOP</th>
+                    <th class="text-end pe-3">Received Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngIf="breakdownPaymentsList.length === 0">
+                    <td colspan="6" class="text-center py-4 text-muted">No client payments recorded in this timeframe.</td>
+                  </tr>
+                  <tr *ngFor="let p of breakdownPaymentsList">
+                    <td class="ps-3 fw-bold text-primary">{{ p.siteId }}</td>
+                    <td class="fw-semibold text-dark">{{ p.clientName }}</td>
+                    <td>{{ formatDate(p.paymentDate) }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ p.paymentMode || 'Bank Transfer' }}</span></td>
+                    <td>{{ p.referenceNo || p.mop || '-' }}</td>
+                    <td class="text-end pe-3 fw-bold" style="color: #7c3aed;">
+                      ₹ {{ (p.amount || 0) | number:'1.2-2' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card-footer bg-light p-2.5 px-3 d-flex justify-content-between text-dark fw-bold small">
+              <span>Total Collections: {{ breakdownPaymentsList.length }} receipts</span>
+              <span>Total Received Value: ₹ {{ receivedValue | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <!-- TAB 3: PO/WO Registered Breakdown Table -->
+          <div *ngIf="breakdownActiveTab === 'powo'" class="card border-0 shadow-xs rounded-3 overflow-hidden">
+            <div class="table-responsive" style="max-height: 420px;">
+              <table class="table table-hover align-middle mb-0 custom-todo-table">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th class="ps-3">Site ID</th>
+                    <th>Client / Vendor</th>
+                    <th>Expense Date</th>
+                    <th>Payment Through</th>
+                    <th>Bill / Voucher</th>
+                    <th>Purpose</th>
+                    <th class="text-end pe-3">Voucher Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngIf="breakdownPoWoList.length === 0">
+                    <td colspan="7" class="text-center py-4 text-muted">No PO/WO registered records found in this timeframe.</td>
+                  </tr>
+                  <tr *ngFor="let e of breakdownPoWoList">
+                    <td class="ps-3 fw-bold text-primary">{{ e.siteId }}</td>
+                    <td class="fw-semibold text-dark">{{ e.vendorName || e.clientName }}</td>
+                    <td>{{ formatDate(e.expenseDate) }}</td>
+                    <td><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ e.paymentThrough }}</span></td>
+                    <td>{{ e.billVoucher || '-' }}</td>
+                    <td>{{ e.purpose || '-' }}</td>
+                    <td class="text-end pe-3 fw-bold text-dark">
+                      ₹ {{ (e.amount || 0) | number:'1.2-2' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card-footer bg-light p-2.5 px-3 d-flex justify-content-between text-dark fw-bold small">
+              <span>Total Registered: {{ breakdownPoWoList.length }} PO/WO entries</span>
+              <span>Total PO/WO Value: ₹ {{ poWoTotalAmount | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <!-- TAB 4: All Expenses Breakdown Table (Purchase / Admin) -->
+          <div *ngIf="breakdownActiveTab === 'expenses'" class="card border-0 shadow-xs rounded-3 overflow-hidden">
+            <div class="table-responsive" style="max-height: 420px;">
+              <table class="table table-hover align-middle mb-0 custom-todo-table">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th class="ps-3">Site ID</th>
+                    <th>Client / Vendor</th>
+                    <th>Expense Date</th>
+                    <th>Paid By</th>
+                    <th>Bill / Voucher</th>
+                    <th>Purpose</th>
+                    <th class="text-end pe-3">Expense Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngIf="breakdownExpensesList.length === 0">
+                    <td colspan="7" class="text-center py-4 text-muted">No expense records found in this timeframe.</td>
+                  </tr>
+                  <tr *ngFor="let e of breakdownExpensesList">
+                    <td class="ps-3 fw-bold text-primary">{{ e.siteId }}</td>
+                    <td class="fw-semibold text-dark">{{ e.vendorName || e.clientName }}</td>
+                    <td>{{ formatDate(e.expenseDate) }}</td>
+                    <td>{{ e.paidBy || '-' }}</td>
+                    <td>{{ e.billVoucher || '-' }}</td>
+                    <td>{{ e.purpose || '-' }}</td>
+                    <td class="text-end pe-3 fw-bold text-danger">
+                      ₹ {{ (e.amount || 0) | number:'1.2-2' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card-footer bg-light p-2.5 px-3 d-flex justify-content-between text-dark fw-bold small">
+              <span>Total Incurred: {{ breakdownExpensesList.length }} vouchers</span>
+              <span>Total Expenses Value: ₹ {{ totalExpensesValue | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer bg-white py-2 px-3.5 d-flex justify-content-end">
+          <button type="button" class="btn btn-sm btn-secondary" (click)="closeBreakdownModal()">Close Breakdown</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- 6. ADD / EDIT TO-DO MODAL                                           -->
+  <!-- =================================================================== -->
+  <div class="modal fade show d-block" tabindex="-1" *ngIf="isTodoModalOpen" style="background-color: rgba(15, 23, 42, 0.6); z-index: 1080;">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow-lg border-0 rounded-3 overflow-hidden">
+        <div class="modal-header text-white" style="background-color: #0f766e;">
+          <h6 class="modal-title fw-bold mb-0">
+            <i class="bi" [ngClass]="isEditMode ? 'bi-pencil-square' : 'bi-plus-circle'"></i>
+            <span class="ms-1.5">{{ isEditMode ? 'Edit To-Do Item' : 'New To-Do Item' }}</span>
+          </h6>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeTodoModal()"></button>
+        </div>
+        <form (ngSubmit)="saveTodo()">
+          <div class="modal-body p-3.5 bg-white">
+
+            <!-- Title -->
+            <div class="mb-2.5">
+              <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.04em;">
+                Task / To-Do Title <span class="text-danger">*</span>
+              </label>
+              <input type="text"
+                     class="form-control form-control-sm rounded-2 shadow-none"
+                     [(ngModel)]="todoForm.title"
+                     name="todoTitle"
+                     placeholder="e.g. Call client regarding quote approval, site review..."
+                     required>
+            </div>
+
+            <!-- Date & Time Row -->
+            <div class="row g-2 mb-2.5">
+              <div class="col-6">
+                <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.04em;">
+                  Date <span class="text-danger">*</span>
+                </label>
+                <input type="date"
+                       class="form-control form-control-sm rounded-2 shadow-none"
+                       [(ngModel)]="todoForm.dueDate"
+                       name="todoDate"
+                       required>
+              </div>
+              <div class="col-6">
+                <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.04em;">
+                  Time
+                </label>
+                <input type="text"
+                       class="form-control form-control-sm rounded-2 shadow-none"
+                       [(ngModel)]="todoForm.time"
+                       name="todoTime"
+                       placeholder="e.g. 10:30 AM or 15:00">
+              </div>
+            </div>
+
+            <!-- Assigned To (Admin can assign to any employee) -->
+            <div class="mb-2.5" *ngIf="isAdmin">
+              <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.04em;">
+                Assign To Employee
+              </label>
+              <select class="form-select form-select-sm rounded-2 shadow-none" [(ngModel)]="todoForm.assignedTo" name="todoAssignedTo">
+                <option *ngFor="let emp of allEmployees" [value]="emp.name">{{ emp.name }} ({{ emp.responsibility || 'Staff' }})</option>
+              </select>
+            </div>
+
+            <!-- Description -->
+            <div class="mb-2.5">
+              <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.04em;">
+                Description / Notes
+              </label>
+              <textarea class="form-control form-control-sm rounded-2 shadow-none"
+                        rows="3"
+                        [(ngModel)]="todoForm.description"
+                        name="todoDescription"
+                        placeholder="Add checklist, customer remarks, or deliverables..."></textarea>
+            </div>
+
+            <!-- Priority & Status -->
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.04em;">
+                  Priority
+                </label>
+                <select class="form-select form-select-sm rounded-2 shadow-none" [(ngModel)]="todoForm.priority" name="todoPriority">
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.04em;">
+                  Status
+                </label>
+                <select class="form-select form-select-sm rounded-2 shadow-none" [(ngModel)]="todoForm.status" name="todoStatus">
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+            </div>
+
+          </div>
+          <div class="modal-footer bg-light py-2 px-3.5 d-flex justify-content-between">
+            <button type="button" class="btn btn-sm btn-secondary" (click)="closeTodoModal()">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-primary fw-semibold px-3" style="background-color: #0f766e; border-color: #0f766e;">
+              <i class="bi bi-check-circle me-1"></i> {{ isEditMode ? 'Save Changes' : 'Create To-Do' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>

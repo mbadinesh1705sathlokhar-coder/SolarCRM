@@ -1,0 +1,216 @@
+<div class="container-fluid p-3 p-md-4">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage" 
+       class="alert alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg border-0 z-3"
+       [class.alert-success]="toastType === 'success'"
+       [class.alert-danger]="toastType === 'danger'"
+       [class.alert-info]="toastType === 'info'"
+       style="min-width: 320px; z-index: 1099;">
+    <i class="bi me-2" 
+       [class.bi-check-circle-fill]="toastType === 'success'"
+       [class.bi-exclamation-triangle-fill]="toastType === 'danger'"
+       [class.bi-info-circle-fill]="toastType === 'info'"></i>
+    {{ toastMessage }}
+    <button type="button" class="btn-close" (click)="toastMessage = ''"></button>
+  </div>
+
+  <!-- Header with Office Navigation Pill Tabs -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
+    <div class="d-flex align-items-center gap-3">
+      <div class="office-icon-box bg-success-subtle text-success shadow-sm p-2 rounded-3">
+        <i class="bi bi-truck fs-4"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold mb-0 text-dark tracking-tight">Office Administration</h4>
+      </div>
+    </div>
+
+    <!-- Office Pill Navigation Tabs -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/office/employees" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-person-badge me-1 text-primary"></i> Employees
+      </a>
+      <a routerLink="/office/vendors" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-truck-flatbed me-1 text-success"></i> Vendor List
+      </a>
+      <a routerLink="/office/add-list" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-card-checklist me-1 text-warning"></i> Add List
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="card border-0 shadow-sm rounded-3 p-2 px-3 bg-white mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="input-group input-group-sm" style="max-width: 340px;">
+        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" class="form-control border-start-0 bg-light" placeholder="Search vendor name, coordinator, location..." [(ngModel)]="searchTerm">
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="small text-muted">Total Vendors: <strong>{{ filteredVendors.length }}</strong></span>
+        <button class="btn btn-sm btn-primary fw-semibold shadow-sm px-3 py-1 d-flex align-items-center gap-1"
+                style="background-color: #0f766e; border-color: #0f766e;"
+                (click)="openAddModal()">
+          <i class="bi bi-plus-lg"></i> Add Vendor
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor Table (Simple, clean, non-fancy) -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 compact-table">
+        <thead class="table-light">
+          <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+            <th>Vendor Name</th>
+            <th style="width: 140px;">SalesCoordinator</th>
+            <th style="width: 130px;">Phone No</th>
+            <th style="width: 150px;">Location</th>
+            <th>Materials / Spec</th>
+            <th style="width: 120px;" class="text-center">Credit Days</th>
+            <th style="width: 80px;" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="7" class="text-center py-4 text-muted">
+              <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+              Loading vendors...
+            </td>
+          </tr>
+          <tr *ngIf="!loading && filteredVendors.length === 0">
+            <td colspan="7" class="text-center py-5 text-muted">
+              <i class="bi bi-truck fs-2 d-block mb-2 text-secondary"></i>
+              No vendor records found. Click <strong>Add Vendor</strong> to register suppliers.
+            </td>
+          </tr>
+          <tr *ngFor="let v of filteredVendors">
+            <!-- Vendor Name (Clickable to view/edit - no edit button in actions column) -->
+            <td>
+              <a href="javascript:void(0)" 
+                 class="fw-bold text-dark text-decoration-none name-link"
+                 (click)="openEditModal(v)"
+                 title="Click to view and edit details">
+                {{ v.vendorName }}
+              </a>
+            </td>
+
+            <!-- SalesCoordinator -->
+            <td>
+              <span class="badge bg-light text-dark border">
+                <i class="bi bi-person me-1"></i>{{ v.salesCoordinator }}
+              </span>
+            </td>
+
+            <!-- Phone No -->
+            <td class="font-mono text-nowrap" style="font-size: 0.82rem;">
+              <a *ngIf="v.phoneNo" [href]="'tel:' + v.phoneNo" class="text-decoration-none text-dark">
+                <i class="bi bi-telephone text-muted me-1"></i>{{ v.phoneNo }}
+              </a>
+              <span *ngIf="!v.phoneNo" class="text-muted">-</span>
+            </td>
+
+            <!-- Location -->
+            <td class="text-secondary small">
+              <i class="bi bi-geo-alt text-muted me-1"></i>{{ v.location || '-' }}
+            </td>
+
+            <!-- Materials / Spec -->
+            <td class="text-secondary small" style="max-width: 320px;">
+              {{ v.materialsSpec || '-' }}
+            </td>
+
+            <!-- Credit Days -->
+            <td class="text-center font-mono">
+              <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">
+                {{ v.creditDays || '30 Days' }}
+              </span>
+            </td>
+
+            <!-- Actions: ONLY Delete (No edit button per user instructions) -->
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-danger border-0 p-1"
+                      (click)="confirmDelete(v)"
+                      title="Delete Vendor">
+                <i class="bi bi-trash3 fs-6"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: ADD / EDIT VENDOR                                 -->
+  <!-- ======================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+        <div class="modal-header bg-dark text-white py-3 px-4">
+          <h6 class="modal-title fw-bold mb-0">
+            <i class="bi bi-truck me-2 text-warning"></i>
+            {{ isEditMode ? 'Vendor Details (View / Edit)' : 'Add New Vendor' }}
+          </h6>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeModal()"></button>
+        </div>
+        <form (ngSubmit)="saveVendor()">
+          <div class="modal-body p-4 bg-light">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label small fw-bold text-dark mb-1">Vendor Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. TATA POWER SOLAR SYSTEMS" [(ngModel)]="vendorForm.vendorName" name="vendorName" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Sales Coordinator</label>
+                <select class="form-select shadow-sm" [(ngModel)]="vendorForm.salesCoordinator" name="salesCoordinator">
+                  <option *ngFor="let c of coordinatorOptions" [value]="c">{{ c }}</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Phone No</label>
+                <input type="text" class="form-control font-mono shadow-sm" placeholder="e.g. +91 98400 11223" [(ngModel)]="vendorForm.phoneNo" name="phoneNo">
+              </div>
+              <div class="col-md-7">
+                <label class="form-label small fw-bold text-dark mb-1">Location</label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. Ambattur, Chennai" [(ngModel)]="vendorForm.location" name="location">
+              </div>
+              <div class="col-md-5">
+                <label class="form-label small fw-bold text-dark mb-1">Credit Days</label>
+                <input type="text" class="form-control shadow-sm font-mono" placeholder="e.g. 30 Days / 45 Days" [(ngModel)]="vendorForm.creditDays" name="creditDays">
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-bold text-dark mb-1">Materials / Spec</label>
+                <textarea class="form-control shadow-sm" rows="3" placeholder="e.g. Mono PERC Bifacial Solar PV Modules, On-grid Solar Inverters..." [(ngModel)]="vendorForm.materialsSpec" name="materialsSpec"></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-success px-3 fw-bold shadow-sm">
+              <i class="bi bi-check2-circle me-1"></i> {{ isEditMode ? 'Update Vendor' : 'Save Vendor' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETE CONFIRMATION MODAL -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteModalOpen && vendorToDelete" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden text-center p-4">
+        <i class="bi bi-trash3 text-danger fs-1 mb-2"></i>
+        <h6 class="fw-bold mb-2">Delete Vendor?</h6>
+        <p class="small text-muted mb-4">
+          Are you sure you want to delete vendor <strong>{{ vendorToDelete.vendorName }}</strong>?
+        </p>
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteModal()">Cancel</button>
+          <button type="button" class="btn btn-sm btn-danger px-3 fw-bold" (click)="deleteVendor()">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

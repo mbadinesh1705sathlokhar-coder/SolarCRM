@@ -1,0 +1,696 @@
+<div class="ledger-container p-3">
+  <!-- Top Notification Alert -->
+  <div *ngIf="alertMessage" class="alert alert-{{ alertMessage.type }} alert-dismissible fade show shadow-sm" role="alert">
+    <div class="d-flex align-items-center">
+      <i class="bi me-2" [class.bi-check-circle-fill]="alertMessage.type === 'success'" [class.bi-exclamation-triangle-fill]="alertMessage.type === 'danger'"></i>
+      <div>{{ alertMessage.text }}</div>
+    </div>
+    <button type="button" class="btn-close" (click)="alertMessage = null" aria-label="Close"></button>
+  </div>
+
+  <!-- Top Navigation Bar: Title on Left, Finances Pill Navigation Tabs on Right -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <!-- Page Title -->
+    <div>
+      <h3 class="fw-bold mb-0 text-dark fs-5">Expenses Ledger</h3>
+    </div>
+
+    <!-- Finances Pill Navigation Tabs (Right-Aligned) -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/payment-ledger" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-wallet2 me-1 text-success"></i> Client Payment Ledger
+      </a>
+      <a routerLink="/expense-ledger" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-receipt me-1 text-danger"></i> Expenses Ledger
+        <span class="badge rounded-pill ms-1" style="background-color: #fee2e2; color: #b91c1c;">{{ expenses.length }}</span>
+      </a>
+      <a routerLink="/vendor-ledger" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-truck me-1 text-info"></i> Vendor Ledger
+      </a>
+      <a routerLink="/expo-expenses" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-calendar-event me-1 text-danger"></i> Expo Expenses
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Metric Cards (Compact & Simple) -->
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <div class="border rounded bg-white px-2.5 py-1.5 d-flex align-items-center gap-2 shadow-xs">
+      <div class="metric-icon-box bg-danger-subtle text-danger">
+        <i class="bi bi-cash-coin fs-6"></i>
+      </div>
+      <div>
+        <div class="text-muted fw-semibold text-uppercase" style="font-size: 0.66rem; line-height: 1.1;">Total Incurred Expenses</div>
+        <div class="fw-bold text-danger font-mono" style="font-size: 0.95rem;">₹ {{ totalAllExpenses | number:'1.2-2' }}</div>
+        <div class="text-muted" style="font-size: 0.66rem; line-height: 1;">Sites: ₹{{ totalSiteExpenses | number:'1.0-0' }} &bull; Store: ₹{{ totalWarehouseExpenses | number:'1.0-0' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Search Toolbar -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-3">
+      <div class="d-flex flex-wrap flex-md-nowrap align-items-center gap-3">
+        <!-- Search Input -->
+        <div class="flex-grow-1" style="min-width: 260px;">
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0 text-muted">
+              <i class="bi bi-search"></i>
+            </span>
+            <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by Site ID, Client Name, Warehouse, Location, Order By..." [(ngModel)]="searchQuery" (input)="onSearchChange()">
+          </div>
+        </div>
+
+        <!-- Margin Filter -->
+        <div style="min-width: 210px;">
+          <select class="form-select" [(ngModel)]="marginFilter" (change)="onMarginFilterChange()">
+            <option value="All">All Entities ({{ totalEntitiesCount }})</option>
+            <option value="HasExpenses">With Recorded Expenses</option>
+            <option value="ZeroExpenses">Zero Expenses (₹0)</option>
+          </select>
+        </div>
+
+        <!-- Export PDF button & Record counter text -->
+        <div class="d-flex align-items-center gap-3 ms-auto text-nowrap">
+          <div class="text-muted small text-nowrap d-none d-sm-block">
+            Showing <strong>{{ paginatedClients.length }}</strong> of <strong>{{ filteredClients.length }}</strong> Entities
+          </div>
+          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportAllClientsPdf()" title="Export unique clients expenses ledger as PDF">
+            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
+            <span>Export PDF</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Table Container: Entities (Central Warehouse + 114 Clients) -->
+  <div class="card border-0 shadow-sm">
+    <!-- Top Horizontal Scrollbar (Synchronized with Table Scroll) -->
+    <div class="top-scrollbar-track" #topScrollWrapper (scroll)="onTopScroll()" [style.display]="tableScrollWidth > tableClientWidth ? 'block' : 'none'">
+      <div class="top-scrollbar-thumb-shim" [style.width.px]="tableScrollWidth"></div>
+    </div>
+
+    <div class="table-responsive" #tableWrapper (scroll)="onTableScroll()">
+      <table class="table table-hover align-middle mb-0 custom-table" #dataTableEl>
+        <thead class="table-light text-uppercase fs-8 text-secondary">
+          <tr>
+            <th class="cursor-pointer user-select-none text-nowrap" (click)="toggleSiteIdSort()" title="Click to sort Site ID: Small to Big / Big to Small" style="min-width: 120px; cursor: pointer;">
+              <div class="d-inline-flex align-items-center gap-1.5">
+                <span>Site ID</span>
+                <i class="bi fs-7" [ngClass]="siteIdSortDirection === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : (siteIdSortDirection === 'desc' ? 'bi-sort-numeric-down-alt text-primary fw-bold' : 'bi-arrow-down-up text-muted opacity-50')"></i>
+              </div>
+            </th>
+            <th style="min-width: 240px;">Client / Site Name</th>
+            <th style="min-width: 140px;">Location</th>
+            <th class="text-end" style="min-width: 140px;">Site Value</th>
+            <th class="text-end" style="min-width: 150px;">Site Expenses</th>
+            <th class="text-end" style="min-width: 150px;">Net Margin</th>
+            <th class="text-center" style="min-width: 110px;">Margin %</th>
+            <th class="text-center" style="min-width: 80px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="8" class="text-center py-5">
+              <div class="spinner-border text-danger spinner-border-sm me-2" role="status"></div>
+              <span class="text-muted">Loading expenses ledger...</span>
+            </td>
+          </tr>
+          <tr *ngIf="!loading && filteredClients.length === 0">
+            <td colspan="8" class="text-center py-5 text-muted">
+              <i class="bi bi-folder-x fs-2 d-block mb-2 text-secondary"></i>
+              No entities found matching filters.
+            </td>
+          </tr>
+          <tr *ngFor="let c of paginatedClients; let i = index" class="cursor-pointer" [class.warehouse-row]="c.siteId === 'WAREHOUSE'" (click)="openClientExpenseModal(c.siteId)" title="Click to view full expense records and manage costs">
+            <td>
+              <span *ngIf="c.siteId === 'WAREHOUSE'" class="badge bg-dark text-white font-mono fw-bold px-2 py-1">
+                <i class="bi bi-box-seam me-1"></i>WAREHOUSE
+              </span>
+              <span *ngIf="c.siteId !== 'WAREHOUSE'" class="badge bg-danger-subtle text-danger border border-danger-subtle font-mono fw-bold">{{ c.siteId }}</span>
+            </td>
+            <td class="text-dark fw-bold">
+              <a href="javascript:void(0)" class="text-decoration-none text-dark hover-primary" (click)="openClientExpenseModal(c.siteId)">
+                <i *ngIf="c.siteId === 'WAREHOUSE'" class="bi bi-box-seam-fill text-primary me-1"></i>
+                <i *ngIf="c.siteId !== 'WAREHOUSE'" class="bi bi-person-fill text-danger me-1"></i>
+                {{ c.clientName }}
+              </a>
+              <div class="small text-muted fw-normal" style="font-size: 0.72rem;">
+                <ng-container *ngIf="c.siteId === 'WAREHOUSE'">
+                  <span class="text-primary fw-semibold">Central Inventory Store</span> &bull; Materials & Equipment
+                </ng-container>
+                <ng-container *ngIf="c.siteId !== 'WAREHOUSE'">
+                  {{ c.siteCapacity }} kW &bull; {{ c.siteType }}
+                </ng-container>
+              </div>
+            </td>
+            <td class="text-secondary small">
+              <i class="bi bi-geo-alt me-1 text-muted"></i>{{ c.location || 'Chennai' }}
+            </td>
+            <td class="text-end font-mono text-dark fw-semibold">
+              <span *ngIf="c.siteId === 'WAREHOUSE'" class="text-muted font-mono small">— (Internal)</span>
+              <span *ngIf="c.siteId !== 'WAREHOUSE'">₹ {{ c.siteValue | number:'1.2-2' }}</span>
+            </td>
+            <td class="text-end fw-bold text-danger font-mono fs-7">
+              ₹ {{ c.siteExpenses | number:'1.2-2' }}
+            </td>
+            <td class="text-end fw-bold font-mono fs-7" [ngClass]="c.siteId === 'WAREHOUSE' ? 'text-muted' : ((c.margin || 0) >= 0 ? 'text-success' : 'text-danger')">
+              <span *ngIf="c.siteId === 'WAREHOUSE'" class="text-muted font-mono small">—</span>
+              <span *ngIf="c.siteId !== 'WAREHOUSE'">₹ {{ c.margin | number:'1.2-2' }}</span>
+            </td>
+            <td class="text-center">
+              <span *ngIf="c.siteId === 'WAREHOUSE'" class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                Stock
+              </span>
+              <span *ngIf="c.siteId !== 'WAREHOUSE'" class="badge" [ngClass]="(c.marginPercentage || 0) >= 50 ? 'bg-success-subtle text-success border border-success-subtle' : ((c.marginPercentage || 0) > 0 ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle')">
+                {{ c.marginPercentage || 0 }}%
+              </span>
+            </td>
+            <td class="text-center" (click)="$event.stopPropagation()">
+              <button class="btn btn-outline-danger border-0 btn-sm p-1" (click)="deleteClientAllExpenses(c, $event)" [title]="c.siteId === 'WAREHOUSE' ? 'Clear all recorded expenses for Warehouse' : 'Delete/Clear all recorded expenses for ' + c.clientName">
+                <i class="bi bi-trash3 fs-6"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination for Unique Clients -->
+    <div class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center" *ngIf="totalPages > 1">
+      <span class="text-muted small">Page {{ currentPage }} of {{ totalPages }} ({{ filteredClients.length }} total clients)</span>
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item" [class.disabled]="currentPage === 1">
+          <button class="page-link" (click)="changePage(currentPage - 1)">Previous</button>
+        </li>
+        <li class="page-item" *ngFor="let p of [].constructor(totalPages); let idx = index" [class.active]="currentPage === idx + 1">
+          <button class="page-link" (click)="changePage(idx + 1)">{{ idx + 1 }}</button>
+        </li>
+        <li class="page-item" [class.disabled]="currentPage === totalPages">
+          <button class="page-link" (click)="changePage(currentPage + 1)">Next</button>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 1. QUICK CLIENT SELECTOR MODAL (Used when clicking "+ Add / Record Expense")-->
+  <!-- ========================================================================= -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isClientPickerOpen" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+        <div class="modal-header bg-danger text-white py-3 px-4">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-person-check-fill fs-5"></i>
+            <h5 class="modal-title fw-bold mb-0">Select Client to Manage Expenses</h5>
+          </div>
+          <button type="button" class="btn-close btn-close-white" (click)="closeClientPicker()"></button>
+        </div>
+        <div class="modal-body p-4 bg-light">
+          <div class="input-group mb-3 shadow-sm">
+            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control border-start-0" placeholder="Type Client Name or Site ID (e.g. Anbuselvan, SP242)..." [(ngModel)]="clientPickerSearch" autofocus>
+          </div>
+          <div class="list-group list-group-flush border rounded-3 overflow-auto bg-white shadow-sm" style="max-height: 380px;">
+            <button *ngFor="let pr of filteredPickerProjects" type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 border-bottom" [class.bg-light]="pr.siteId === 'WAREHOUSE'" (click)="selectClientFromPicker(pr)">
+              <div>
+                <div class="d-flex align-items-center gap-2">
+                  <span *ngIf="pr.siteId === 'WAREHOUSE'" class="badge bg-dark text-white font-mono fw-bold"><i class="bi bi-box-seam me-1"></i>WAREHOUSE</span>
+                  <span *ngIf="pr.siteId !== 'WAREHOUSE'" class="badge bg-danger-subtle text-danger font-mono fw-bold">{{ pr.siteId }}</span>
+                  <span class="fw-bold text-dark">{{ pr.clientName }}</span>
+                  <span *ngIf="pr.siteId === 'WAREHOUSE'" class="badge bg-primary-subtle text-primary border">Central Store</span>
+                  <span *ngIf="pr.siteId !== 'WAREHOUSE'" class="badge bg-light text-muted border">{{ pr.siteCapacity }} kW &bull; {{ pr.siteType }}</span>
+                </div>
+                <small class="text-muted d-block mt-1"><i class="bi bi-geo-alt me-1"></i>{{ pr.location || 'Location not specified' }}</small>
+              </div>
+              <div class="text-end font-mono">
+                <div *ngIf="pr.siteId === 'WAREHOUSE'" class="text-primary fw-bold fs-7">
+                  Expenses: ₹{{ pr.siteExpenses | number:'1.0-0' }}
+                  <div class="text-muted fs-8 fw-normal">Material Receipt / Stock</div>
+                </div>
+                <div *ngIf="pr.siteId !== 'WAREHOUSE'">
+                  <div class="text-muted fs-8">Value: ₹{{ pr.siteValue | number:'1.0-0' }}</div>
+                  <div class="text-danger small fw-semibold">Expenses: ₹{{ pr.siteExpenses | number:'1.0-0' }}</div>
+                  <div class="text-success fs-8 fw-bold">Margin: ₹{{ pr.margin | number:'1.0-0' }} ({{ pr.marginPercentage || 0 }}%)</div>
+                </div>
+              </div>
+            </button>
+            <div *ngIf="filteredPickerProjects.length === 0" class="text-center py-4 text-muted">
+              No clients or entities found matching "{{ clientPickerSearch }}".
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-white border-top py-2 px-4">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeClientPicker()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 2. CLIENT / WAREHOUSE EXPENSE STATEMENT & VOUCHERS MODAL                  -->
+  <!-- ========================================================================= -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isClientModalOpen && selectedProjectRef" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        
+        <!-- Entity Identity Header -->
+        <div class="modal-header modal-header-luxury py-3 px-4 border-0" [style.background]="selectedProjectRef.siteId === 'WAREHOUSE' ? 'linear-gradient(135deg, #0b1329 0%, #1e293b 100%)' : 'linear-gradient(135deg, #4c0519 0%, #881337 50%, #0b1329 100%)'">
+          <div class="d-flex align-items-center gap-3">
+            <div class="client-avatar-box" [ngClass]="selectedProjectRef.siteId === 'WAREHOUSE' ? 'text-warning' : 'text-danger'">
+              <i *ngIf="selectedProjectRef.siteId === 'WAREHOUSE'" class="bi bi-box-seam-fill"></i>
+              <i *ngIf="selectedProjectRef.siteId !== 'WAREHOUSE'" class="bi bi-receipt-cutoff"></i>
+            </div>
+            <div>
+              <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                <h4 class="modal-title fw-bold mb-0 text-white tracking-tight">{{ selectedProjectRef.clientName }}</h4>
+                <span class="badge bg-warning text-dark font-mono px-2 py-1 fw-bold shadow-xs">{{ selectedProjectRef.siteId }}</span>
+              </div>
+              <div class="d-flex align-items-center gap-2 flex-wrap text-white-50 small">
+                <span *ngIf="selectedProjectRef.siteId === 'WAREHOUSE'" class="meta-pill"><i class="bi bi-building me-1 text-info"></i>Central Store &bull; Stock Inventory</span>
+                <span *ngIf="selectedProjectRef.siteId !== 'WAREHOUSE'" class="meta-pill"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>{{ selectedProjectRef.siteCapacity }} kW &bull; {{ selectedProjectRef.siteType }}</span>
+                <span class="meta-pill" *ngIf="selectedProjectRef.location"><i class="bi bi-geo-alt-fill text-info me-1"></i>{{ selectedProjectRef.location }}</span>
+                <span class="meta-pill text-white-50">&bull; {{ selectedProjectRef.siteId === 'WAREHOUSE' ? 'Central Material Receipt & Expense Ledger' : 'Site Expenses Ledger' }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-3 ms-auto">
+            <button type="button" class="btn-pdf-statement" (click)="exportClientStatementPdf()" title="Show Statement in PDF & Download">
+              <i class="bi bi-file-earmark-pdf-fill"></i>
+              <span>PDF Statement</span>
+            </button>
+            <button type="button" class="modal-close-btn" (click)="closeClientModal()" title="Close dialog" aria-label="Close">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-body p-4 bg-light">
+          
+          <!-- Financial Balance Summary Bar -->
+          <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white p-3">
+            <div class="row text-center g-3" *ngIf="selectedProjectRef.siteId !== 'WAREHOUSE'">
+              <div class="col-4 border-end">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem;">Site Contract Value</span>
+                <div class="fs-4 fw-bold text-dark font-mono mt-1">₹ {{ selectedProjectRef.siteValue | number:'1.2-2' }}</div>
+                <div class="text-muted fs-8">Total Project Agreement</div>
+              </div>
+              <div class="col-4 border-end">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem;">Incurred Site Expenses</span>
+                <div class="fs-4 fw-bold text-danger font-mono mt-1">₹ {{ clientTotalExpenses | number:'1.2-2' }}</div>
+                <div class="text-danger fs-8 fw-semibold">{{ clientExpensesList.length }} Expense Records</div>
+              </div>
+              <div class="col-4">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem;">Net Margin</span>
+                <div class="fs-4 fw-bold font-mono mt-1" [ngClass]="clientCurrentMargin >= 0 ? 'text-success' : 'text-danger'">₹ {{ clientCurrentMargin | number:'1.2-2' }}</div>
+                <div class="text-muted fs-8">Margin: {{ clientCurrentMarginPercentage }}%</div>
+              </div>
+            </div>
+
+            <!-- Warehouse summary bar -->
+            <div class="row text-center g-3" *ngIf="selectedProjectRef.siteId === 'WAREHOUSE'">
+              <div class="col-4 border-end">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem;">Facility / Location</span>
+                <div class="fs-4 fw-bold text-dark mt-1">Sathlokhar H.O</div>
+                <div class="text-muted fs-8">Central Inventory & Materials Store</div>
+              </div>
+              <div class="col-4 border-end">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem;">Total Incurred Material Expenses</span>
+                <div class="fs-4 fw-bold text-danger font-mono mt-1">₹ {{ clientTotalExpenses | number:'1.2-2' }}</div>
+                <div class="text-danger fs-8 fw-semibold">Central Stock Procurements</div>
+              </div>
+              <div class="col-4">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem;">Material Receipt Vouchers</span>
+                <div class="fs-4 fw-bold text-primary font-mono mt-1">{{ clientExpensesList.length }} Records</div>
+                <div class="text-muted fs-8">Active Recorded Transactions</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Expense Records List Header + Add Button -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-journal-text text-danger fs-5"></i>
+              <h6 class="fw-bold mb-0 text-dark">
+                {{ selectedProjectRef.siteId === 'WAREHOUSE' ? 'Material Receipts & Procurement Records for Central Warehouse' : ('Expense History & Procurement Records for ' + selectedProjectRef.clientName) }}
+              </h6>
+              <span class="badge bg-danger-subtle text-danger border border-danger-subtle font-mono">{{ clientExpensesList.length }} Records</span>
+              <div *ngIf="loadingClientExpenses" class="spinner-border spinner-border-sm text-danger ms-1" role="status"></div>
+            </div>
+            
+            <button class="btn btn-danger btn-sm px-3 shadow-sm fw-semibold d-flex align-items-center" *ngIf="!isAddingOrEditingExpense && canAdd()" (click)="startAddNewExpense()">
+              <i class="bi bi-plus-circle me-1"></i> {{ selectedProjectRef.siteId === 'WAREHOUSE' ? '+ Record Material Received' : '+ Add New Expense' }}
+            </button>
+          </div>
+
+          <!-- Section: Add / Edit Expense Box (Compact & Non-oversized) -->
+          <div *ngIf="isAddingOrEditingExpense" id="expense-form-card" class="card border border-2 shadow-sm rounded-3 bg-white p-3 mb-3" [ngClass]="isEditingPastRecord ? 'border-primary' : 'border-danger'">
+            <div class="d-flex justify-content-between align-items-center mb-2.5 pb-2 border-bottom">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi fs-5" [ngClass]="isEditingPastRecord ? 'bi-pencil-square text-primary' : 'bi-plus-circle-fill text-danger'"></i>
+                <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
+                  {{ isEditingPastRecord ? 'Edit Expense Voucher' : (selectedProjectRef.siteId === 'WAREHOUSE' ? '+ Record Material Received for Central Warehouse' : '+ Add New Expense for ' + selectedProjectRef.clientName) }}
+                </h6>
+              </div>
+              <button type="button" class="btn-close btn-sm" (click)="cancelExpenseSubForm()" title="Cancel and close form"></button>
+            </div>
+
+            <form (ngSubmit)="submitClientExpense()">
+              <div class="row g-2.5">
+                <!-- Date (dd-mm-yyyy) with Date Picker -->
+                <div class="col-6 col-md-3 col-lg-2">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Date (dd-mm-yyyy) <span class="text-danger">*</span>
+                  </label>
+                  <div class="input-group input-group-sm">
+                    <input type="text" class="form-control form-control-sm font-mono fw-bold" [(ngModel)]="formData.dateInput" name="dateInput" placeholder="dd-mm-yyyy" required>
+                    <button type="button" class="btn btn-sm btn-outline-secondary bg-light border px-2" (click)="openDatePicker(datePickerInput)" title="Choose date from calendar">
+                      <i class="bi bi-calendar-date-fill text-danger"></i>
+                    </button>
+                    <input #datePickerInput type="date" class="position-absolute" style="opacity: 0; pointer-events: none; width: 0; height: 0;" [ngModel]="toIsoDate(formData.dateInput)" (ngModelChange)="onDatePickerChange($event)">
+                  </div>
+                </div>
+
+                <!-- Site ID (Auto-populated and locked) -->
+                <div class="col-6 col-md-3 col-lg-2">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Site ID
+                  </label>
+                  <input type="text" class="form-control form-control-sm font-mono fw-bold bg-light" [(ngModel)]="formData.siteId" name="siteId" readonly>
+                </div>
+
+                <!-- Payment Through Dropdown -->
+                <div class="col-6 col-md-3 col-lg-2">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Payment Through <span class="text-danger">*</span>
+                  </label>
+                  <select class="form-select form-select-sm" [(ngModel)]="formData.paymentThrough" name="paymentThrough" required>
+                    <option *ngFor="let pt of paymentThroughOptions" [value]="pt">{{ pt }}</option>
+                  </select>
+                </div>
+
+                <!-- Purpose Dropdown -->
+                <div class="col-6 col-md-3 col-lg-3">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Purpose <span class="text-danger">*</span>
+                  </label>
+                  <select class="form-select form-select-sm" [(ngModel)]="formData.purpose" name="purpose" required>
+                    <option *ngFor="let p of purposeOptions" [value]="p">{{ p }}</option>
+                  </select>
+                </div>
+
+                <!-- Paid By Dropdown -->
+                <div class="col-6 col-md-3 col-lg-3">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Paid By <span class="text-danger">*</span>
+                  </label>
+                  <select class="form-select form-select-sm" [(ngModel)]="formData.paidBy" name="paidBy" required>
+                    <option *ngFor="let pb of paidByOptions" [value]="pb">{{ pb }}</option>
+                  </select>
+                </div>
+
+                <!-- Vendor Dropdown (New Column & Selection) -->
+                <div class="col-12 col-md-4 col-lg-3">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Vendor Name <span class="text-muted fw-normal">(Supplier)</span>
+                  </label>
+                  <select class="form-select form-select-sm" [(ngModel)]="formData.vendor" name="vendor">
+                    <option value="">-- Select Vendor --</option>
+                    <option *ngFor="let v of vendorOptions" [value]="v">{{ v }}</option>
+                  </select>
+                </div>
+
+                <!-- Bill Voucher Dropdown -->
+                <div class="col-6 col-md-3 col-lg-2">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Bill Voucher
+                  </label>
+                  <select class="form-select form-select-sm" [(ngModel)]="formData.billVoucher" name="billVoucher">
+                    <option *ngFor="let bv of billVoucherOptions" [value]="bv">{{ bv }}</option>
+                  </select>
+                </div>
+
+                <!-- Invoice No. (Shown when Bill Voucher is Submitted) -->
+                <div class="col-6 col-md-3 col-lg-2" *ngIf="formData.billVoucher === 'Submitted'">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Invoice No. <span class="text-danger">*</span>
+                  </label>
+                  <input type="text" class="form-control form-control-sm font-mono" [(ngModel)]="formData.invoiceNo" name="invoiceNo" placeholder="e.g. INV-2024-8842">
+                </div>
+
+                <!-- Expense Amount (₹) - Compact, Not oversized! -->
+                <div class="col-6 col-md-3 col-lg-2">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Expense Amount (₹) <span class="text-danger">*</span>
+                  </label>
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white fw-bold text-danger py-0 px-2" style="font-size: 0.82rem;">₹</span>
+                    <input type="number" class="form-control form-control-sm fw-bold text-danger font-mono" [(ngModel)]="formData.amount" name="amount" placeholder="e.g. 25000" min="1" step="any" required>
+                  </div>
+                </div>
+
+                <!-- Remarks / Description -->
+                <div class="col-12 col-md-6" [ngClass]="formData.billVoucher === 'Submitted' ? 'col-lg-3' : 'col-lg-5'">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Remarks / Description
+                  </label>
+                  <input type="text" class="form-control form-control-sm" [(ngModel)]="formData.remarks" name="remarks" placeholder="e.g. Electrical materials, Mounting Structure, Package payment">
+                </div>
+
+                <!-- Live Dashboard Sync Feedback Alert -->
+                <div class="col-12" *ngIf="formData.amount && formData.amount > 0">
+                  <div class="alert alert-warning py-1.5 px-3 mb-0 w-100 small d-flex align-items-center border-warning">
+                    <i class="bi bi-arrow-repeat fs-6 me-2 text-danger"></i>
+                    <div *ngIf="selectedProjectRef.siteId !== 'WAREHOUSE'" style="font-size: 0.76rem;">
+                      <strong>Dashboard Live Reflection:</strong>
+                      Total Site Expenses: <strong class="text-danger font-mono">₹ {{ liveNewExpenses | number:'1.2-2' }}</strong> &bull;
+                      Margin: <strong class="text-success font-mono">₹ {{ liveNewMargin | number:'1.2-2' }} ({{ liveNewMarginPct }}%)</strong>.
+                    </div>
+                    <div *ngIf="selectedProjectRef.siteId === 'WAREHOUSE'" style="font-size: 0.76rem;">
+                      <strong>Warehouse Ledger Reflection:</strong>
+                      Total Warehouse Stock Expenses: <strong class="text-danger font-mono">₹ {{ liveNewExpenses | number:'1.2-2' }}</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Form Buttons -->
+              <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3" (click)="cancelExpenseSubForm()">Cancel</button>
+                <button type="submit" class="btn btn-sm px-4 fw-bold shadow-sm" [ngClass]="isEditingPastRecord ? 'btn-primary' : 'btn-danger'" [disabled]="!formData.amount || formData.amount <= 0">
+                  <i class="bi bi-check2-circle me-1"></i>
+                  {{ isEditingPastRecord ? 'Update Expense & Sync Dashboard' : 'Save Expense & Sync Dashboard' }}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Past Records Table Box (No # column, Unbroken Date, Clickable Site ID, Vendor Column, Compact Bill Voucher) -->
+          <div class="card border-0 shadow-sm rounded-3 bg-white mb-4 overflow-hidden">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 custom-table">
+                <thead class="table-light text-uppercase fs-8 text-secondary border-bottom">
+                  <tr>
+                    <th style="width: 105px;" class="text-nowrap">Date</th>
+                    <th style="width: 90px;">Site ID</th>
+                    <th style="width: 150px;">Vendor</th>
+                    <th style="width: 120px;">Payment Through</th>
+                    <th class="text-end" style="width: 135px;">Expense Amount</th>
+                    <th style="width: 140px;">Purpose</th>
+                    <th style="width: 110px;">Paid By</th>
+                    <th>Remarks</th>
+                    <th style="width: 110px;" class="text-center">Bill Voucher</th>
+                    <th class="text-center" style="width: 50px;">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngIf="loadingClientExpenses && clientExpensesList.length === 0">
+                    <td colspan="10" class="text-center py-4 text-muted">
+                      <div class="spinner-border spinner-border-sm text-danger me-2" role="status"></div>
+                      Loading expense records...
+                    </td>
+                  </tr>
+                  <tr *ngIf="!loadingClientExpenses && clientExpensesList.length === 0">
+                    <td colspan="10" class="text-center py-4 text-muted">
+                      <i class="bi bi-receipt fs-2 d-block mb-1 text-secondary"></i>
+                      No expense records found yet for this client.
+                      <div class="mt-2" *ngIf="canAdd()">
+                        <button class="btn btn-sm btn-outline-danger" (click)="startAddNewExpense()">
+                          <i class="bi bi-plus-circle me-1"></i> Add 1st Expense
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngFor="let e of clientExpensesList; let idx = index" [class.table-active]="editingExpenseId === e.id">
+                    <!-- Date: text-nowrap, never broken! -->
+                    <td class="fw-semibold text-dark font-mono small text-nowrap">
+                      {{ e.formattedDate || toDisplayDate(e.expenseDate) }}
+                    </td>
+                    <!-- Site ID: Clickable to edit if canEdit -->
+                    <td>
+                      <a *ngIf="canEdit()" href="javascript:void(0)"
+                         (click)="startEditPastRecord(e)"
+                         class="badge bg-danger-subtle text-danger border border-danger-subtle font-mono fw-bold text-decoration-none cursor-pointer hover-edit-siteid d-inline-flex align-items-center gap-1"
+                         title="Click Site ID to edit this expense voucher">
+                        <span>{{ e.siteId }}</span>
+                      </a>
+                      <span *ngIf="!canEdit()" class="badge bg-light text-dark border font-mono">
+                        {{ e.siteId }}
+                      </span>
+                    </td>
+                    <!-- Vendor: New Column! -->
+                    <td class="small fw-semibold text-dark text-truncate" style="max-width: 150px;" [title]="e.vendorName || ''">
+                      <span *ngIf="e.vendorName" class="badge bg-light text-dark border px-2 py-1 text-truncate" style="max-width: 145px;">
+                        <i class="bi bi-shop me-1 text-secondary"></i>{{ e.vendorName }}
+                      </span>
+                      <span *ngIf="!e.vendorName" class="text-muted small">—</span>
+                    </td>
+                    <td>
+                      <span class="badge" [ngClass]="{
+                        'bg-info-subtle text-info border border-info-subtle': e.paymentThrough === 'P.O',
+                        'bg-warning-subtle text-warning-emphasis border border-warning-subtle': e.paymentThrough === 'Petty Cash',
+                        'bg-success-subtle text-success border border-success-subtle': e.paymentThrough === 'Accounts',
+                        'bg-primary-subtle text-primary border border-primary-subtle': e.paymentThrough === 'W.O',
+                        'bg-secondary-subtle text-secondary border border-secondary-subtle': !e.paymentThrough || e.paymentThrough === '(Blanks)'
+                      }">{{ e.paymentThrough || '(Blanks)' }}</span>
+                    </td>
+                    <!-- Expense Amount: Prominently placed in Column 5 -->
+                    <td class="text-end fw-bold text-danger font-mono fs-7">
+                      ₹ {{ (e.amount || 0) | number:'1.2-2' }}
+                    </td>
+                    <td>
+                      <span class="badge bg-light text-dark border px-2 py-1 text-truncate" style="max-width: 140px;" [title]="e.purpose || ''">
+                        {{ e.purpose || 'Consumables' }}
+                      </span>
+                    </td>
+                    <td class="small fw-semibold text-dark text-truncate" style="max-width: 110px;" [title]="e.paidBy || ''">
+                      {{ e.paidBy || 'OFFICE' }}
+                    </td>
+                    <td class="text-dark small fw-medium text-truncate" style="max-width: 150px;" [title]="e.remarks || ''">
+                      {{ e.remarks || '—' }}
+                    </td>
+                    <!-- Bill Voucher: Only applicable for W.O or P.O -->
+                    <td class="text-center">
+                      <ng-container *ngIf="isPoWo(e.paymentThrough)">
+                        <button *ngIf="e.billVoucher === 'Submitted'"
+                                type="button"
+                                class="btn btn-sm btn-voucher-submitted d-inline-flex flex-column align-items-center justify-content-center px-2 py-0.5 shadow-xs border"
+                                style="min-width: 95px;"
+                                (click)="openInvoiceModal(e)"
+                                title="Click to view/edit Invoice No. or change status">
+                          <div class="d-flex align-items-center gap-1 text-success fw-bold" style="font-size: 0.72rem;">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>Submitted</span>
+                          </div>
+                          <div class="voucher-invoice-text text-truncate font-mono" style="font-size: 0.67rem; color: #047857; font-weight: 600; max-width: 90px;">
+                            {{ e.invoiceNo ? ('Inv: ' + e.invoiceNo) : 'Add Inv #' }}
+                          </div>
+                        </button>
+
+                        <button *ngIf="e.billVoucher !== 'Submitted'"
+                                type="button"
+                                class="btn btn-sm btn-voucher-pending d-inline-flex flex-column align-items-center justify-content-center px-2 py-0.5 shadow-xs border"
+                                style="min-width: 95px;"
+                                (click)="openInvoiceModal(e)"
+                                title="Click to mark as Submitted and enter Invoice No.">
+                          <div class="d-flex align-items-center gap-1 text-secondary fw-semibold" style="font-size: 0.72rem;">
+                            <i class="bi bi-clock"></i>
+                            <span>Pending</span>
+                          </div>
+                          <small class="text-muted" style="font-size: 0.64rem;">Click to Submit</small>
+                        </button>
+                      </ng-container>
+
+                      <span *ngIf="!isPoWo(e.paymentThrough)" class="text-muted font-mono small">—</span>
+                    </td>
+                    <!-- Action: Only delete (edit is done by clicking Site ID) -->
+                    <td class="text-center">
+                      <button *ngIf="canDelete()" class="btn btn-outline-danger border-0 p-1" (click)="deleteClientExpenseRow(e)" title="Delete this expense voucher">
+                        <i class="bi bi-trash3 fs-6"></i>
+                      </button>
+                      <span *ngIf="!canDelete()" class="text-muted small">—</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between align-items-center">
+          <small class="text-muted">
+            <i class="bi bi-shield-check text-success me-1"></i> All recorded expenses automatically reflect in Dashboard "Site Expenses" and recalculate "Margin" in real-time.
+          </small>
+          <button type="button" class="btn btn-secondary btn-sm px-4" (click)="closeClientModal()">Close</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 3. QUICK INVOICE NUMBER PROMPT MODAL FOR BILL VOUCHER                      -->
+  <!-- ========================================================================= -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isInvoiceModalOpen && invoiceModalExpense" tabindex="-1" role="dialog" style="z-index: 1070;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;" role="document">
+      <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+        <div class="modal-header bg-success text-white py-3 px-4">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-receipt fs-5"></i>
+            <h6 class="modal-title fw-bold mb-0">Bill Voucher & Invoice No.</h6>
+          </div>
+          <button type="button" class="btn-close btn-close-white" (click)="closeInvoiceModal()"></button>
+        </div>
+        <div class="modal-body p-4 bg-light">
+          <div class="mb-3">
+            <small class="text-muted d-block mb-1">Expense Item:</small>
+            <strong class="text-dark">{{ invoiceModalExpense.purpose || 'Expense' }}</strong> &bull;
+            <span class="font-mono text-danger fw-bold">₹ {{ invoiceModalExpense.amount | number:'1.2-2' }}</span>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-sm-5">
+              <label class="form-label small fw-bold text-dark mb-1">Date</label>
+              <input type="date"
+                     class="form-control font-mono shadow-sm"
+                     [(ngModel)]="invoiceModalDate">
+            </div>
+            <div class="col-sm-7">
+              <label class="form-label small fw-bold text-dark mb-1">
+                Invoice Number <span class="text-danger">*</span>
+              </label>
+              <input type="text"
+                     class="form-control font-mono shadow-sm"
+                     placeholder="e.g. INV-2024-8842 / Bill #..."
+                     [(ngModel)]="invoiceModalInput"
+                     autofocus
+                     (keyup.enter)="saveInvoiceModal()">
+            </div>
+            <div class="col-12">
+              <small class="text-muted mt-1 d-block" style="font-size: 0.72rem;">
+                This invoice number will display directly below "Submitted" inside the button.
+              </small>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+          <button *ngIf="invoiceModalExpense.billVoucher === 'Submitted'"
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  (click)="markAsNotSubmittedFromModal()">
+            <i class="bi bi-x-circle me-1"></i> Mark Not Submitted
+          </button>
+          <div *ngIf="invoiceModalExpense.billVoucher !== 'Submitted'"></div>
+
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeInvoiceModal()">Cancel</button>
+            <button type="button" class="btn btn-sm btn-success px-3 shadow-sm fw-bold" (click)="saveInvoiceModal()">
+              <i class="bi bi-check2-circle me-1"></i> Save & Submit
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

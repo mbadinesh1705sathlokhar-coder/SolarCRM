@@ -1,0 +1,34 @@
+.ledger-container {
+  min-height: 80vh;
+}
+
+.custom-table th {
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  background-color: #f8fafc;
+  vertical-align: middle;
+}
+
+.custom-table td {
+  padding: 0.65rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.modal-backdrop-custom {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.metric-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}

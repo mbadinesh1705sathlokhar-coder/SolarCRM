@@ -1,0 +1,166 @@
+:root {
+  --primary-color: #0f766e;
+  --primary-hover: #115e59;
+  --primary-light: #ccfbf1;
+  --accent-solar: #f59e0b;
+  --accent-solar-light: #fef3c7;
+  --dark-slate: #0f172a;
+  --border-color: #e2e8f0;
+  --bg-page: #f8fafc;
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-page);
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+code, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Table Card */
+.table-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+/* Data Table header */
+.custom-table th {
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  white-space: nowrap;
+  vertical-align: middle;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.custom-table td {
+  padding: 10px 12px;
+  font-size: 0.84rem;
+  color: #1e293b;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.custom-table tr:hover td {
+  background-color: #f8fafc;
+}
+
+/* Status Badges */
+.badge-site-type {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-commercial { background: #e0f2fe; color: #0369a1; }
+.badge-industrial { background: #fef3c7; color: #b45309; }
+.badge-residential { background: #dcfce7; color: #15803d; }
+.badge-residential-common { background: #f3e8ff; color: #7e22ce; }
+.badge-ground-mount { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+
+/* Eliminate annoying blue glow / box-shadow on input focus across the entire application */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: #94a3b8 !important;
+}
+
+.input-group:focus-within {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.input-group:focus-within .input-group-text,
+.input-group:focus-within .form-control {
+  border-color: #94a3b8 !important;
+}
+
+/* Filter Popup */
+.filter-popup-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1050;
+  min-width: 230px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  margin-top: 4px;
+}
+
+/* Global Navigation Pill Tabs (Matching Contacts, Sales & Project Master) */
+.nav-tabs-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.tab-pill-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tab-pill-btn:hover {
+  color: #1e293b;
+  background-color: rgba(255, 255, 255, 0.65);
+}
+
+.tab-pill-btn.active {
+  background-color: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+

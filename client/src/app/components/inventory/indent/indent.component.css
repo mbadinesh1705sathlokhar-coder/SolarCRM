@@ -1,0 +1,156 @@
+/* Pill Navigation Tabs */
+.nav-tabs-wrapper {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.tab-pill-btn {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tab-pill-btn:hover {
+  color: #0f172a;
+  background-color: #f1f5f9;
+}
+
+.tab-pill-btn.active {
+  background-color: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.inventory-icon-box {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Compact Table */
+.compact-table th {
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  padding: 8px 10px !important;
+  letter-spacing: 0.02em;
+}
+
+.compact-table td {
+  font-size: 0.82rem !important;
+  padding: 8px 10px !important;
+}
+
+.hover-link:hover {
+  text-decoration: underline !important;
+  color: #0f766e !important;
+}
+
+/* Requested Materials Table from Screenshot 1 */
+.border-bottom-custom {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.border-bottom-custom td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* Status Pill Select (Screenshot 1: "Ready to Iss...") */
+.status-pill {
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  border-radius: 5px !important;
+  padding: 3px 20px 3px 8px !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-pill.status-ready {
+  background-color: #dcfce7 !important;
+  color: #15803d !important;
+  border: 1px solid #86efac !important;
+  padding: 3px 20px 3px 8px !important;
+  border-radius: 5px !important;
+}
+
+.status-pill.status-requested {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a !important;
+}
+
+.status-pill.status-pending {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
+}
+
+/* PO/WO Styled Badge Checkbox (Screenshot 1) */
+.po-wo-badge-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  transition: all 0.15s ease-in-out;
+  user-select: none;
+}
+
+.po-wo-badge-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+.po-wo-badge-checkbox.checked {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+.po-wo-badge-checkbox .check-icon {
+  font-size: 0.85rem;
+  stroke-width: 2px;
+}
+
+/* Remove Row Button (Screenshot 1: red ✕) */
+.remove-row-btn {
+  color: #ef4444;
+  background-color: #fef2f2;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remove-row-btn:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+/* Custom Modal Backdrop */
+.modal-backdrop-custom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.6);
+  z-index: 1060;
+  padding: 1rem;
+}

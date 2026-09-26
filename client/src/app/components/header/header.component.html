@@ -1,0 +1,253 @@
+<header class="global-navbar">
+  <!-- Brand on far left -->
+  <div class="navbar-brand-section">
+    <a routerLink="/home" class="brand-link">
+      <img src="logo-icon.png" alt="Sathlokhar Emblem" class="brand-emblem-small">
+      <span class="brand-title">Sathlokhar<span class="brand-highlight">SOLAR</span></span>
+    </a>
+  </div>
+
+  <!-- Horizontal Navigation Menu -->
+  <nav class="navbar-center-menu">
+    <ul class="nav-links-list">
+      <li *ngFor="let item of visibleTopMenuItems" class="nav-item">
+        <a class="top-nav-link"
+           [class.active]="activeTopMenu === item.label"
+           (click)="selectMenu(item)">
+          {{ item.label }}
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Far Right Utilities -->
+  <div class="navbar-right-section">
+    <!-- Notification Bell & Dropdown Popover -->
+    <div class="position-relative notification-wrapper">
+      <button class="util-btn bell-btn position-relative" 
+              [class.active]="isNotificationOpen"
+              (click)="toggleNotification($event)" 
+              title="Notifications">
+        <i class="bi bi-bell-fill text-warning"></i>
+        <!-- Active Notification Dot -->
+        <span class="notification-dot" [class.pulse]="totalUnreadCount > 0" *ngIf="totalUnreadCount > 0"></span>
+      </button>
+
+      <!-- Dropdown Popover Menu -->
+      <div class="notifications-popover shadow-lg" *ngIf="isNotificationOpen" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="p-3 border-bottom bg-light">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-bell-fill text-warning"></i>
+              <span class="fw-bold text-dark" style="font-size: 0.88rem;">Notifications</span>
+              <span class="badge bg-danger rounded-pill px-2 py-0.5" style="font-size: 0.7rem;" *ngIf="totalUnreadCount > 0">
+                {{ totalUnreadCount }}
+              </span>
+            </div>
+            <button class="btn btn-sm btn-link text-muted text-decoration-none p-0" 
+                    style="font-size: 0.78rem;" 
+                    *ngIf="totalUnreadCount > 0"
+                    (click)="dismissAll($event)">
+              Dismiss all
+            </button>
+          </div>
+
+          <!-- Category Filter Pills -->
+          <div class="d-flex align-items-center gap-1.5 flex-wrap">
+            <button class="notif-filter-pill" [class.active]="activeTabFilter === 'all'" (click)="setFilter('all', $event)">
+              All <span class="ms-0.5 opacity-75">({{ totalUnreadCount }})</span>
+            </button>
+            <button class="notif-filter-pill" [class.active]="activeTabFilter === 'task'" (click)="setFilter('task', $event)">
+              <i class="bi bi-check2-square me-1"></i>Tasks <span class="ms-0.5 opacity-75">({{ taskCount }})</span>
+            </button>
+            <button class="notif-filter-pill" [class.active]="activeTabFilter === 'call'" (click)="setFilter('call', $event)">
+              <i class="bi bi-telephone me-1"></i>Calls <span class="ms-0.5 opacity-75">({{ callCount }})</span>
+            </button>
+            <button class="notif-filter-pill" [class.active]="activeTabFilter === 'meeting'" (click)="setFilter('meeting', $event)">
+              <i class="bi bi-calendar-event me-1"></i>Meetings <span class="ms-0.5 opacity-75">({{ meetingCount }})</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Notifications List / Content -->
+        <div class="notifications-body p-2" style="max-height: 420px; overflow-y: auto;">
+          <div *ngIf="filteredNotifications.length > 0">
+            <div *ngFor="let item of filteredNotifications" 
+                 class="notification-item-card p-2.5 mb-2 rounded-3 shadow-xs"
+                 [ngClass]="{
+                   'alarm-item-card': item.isAlarm,
+                   'notif-task-card': item.category === 'task',
+                   'notif-call-card': item.category === 'call',
+                   'notif-meeting-card': item.category === 'meeting' && !item.isAlarm
+                 }"
+                 (click)="onNotificationClick(item, $event)">
+              <div class="d-flex align-items-start gap-2.5">
+                <!-- Icon Avatar -->
+                <div *ngIf="item.isAlarm" class="alarm-bell-icon-wrapper flex-shrink-0">
+                  <i class="bi bi-bell-fill text-danger"></i>
+                </div>
+                <div *ngIf="!item.isAlarm && item.category === 'task'" class="notif-icon-wrapper bg-primary-subtle text-primary flex-shrink-0">
+                  <i class="bi bi-check2-square"></i>
+                </div>
+                <div *ngIf="!item.isAlarm && item.category === 'call'" class="notif-icon-wrapper bg-success-subtle text-success flex-shrink-0">
+                  <i class="bi bi-telephone-fill"></i>
+                </div>
+                <div *ngIf="!item.isAlarm && item.category === 'meeting'" class="notif-icon-wrapper bg-warning-subtle text-warning-emphasis flex-shrink-0">
+                  <i class="bi bi-calendar-event-fill"></i>
+                </div>
+
+                <!-- Info Content -->
+                <div class="flex-grow-1 min-w-0">
+                  <!-- Tag & Title -->
+                  <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
+                    <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                      <span class="badge text-uppercase fw-bold px-1.5 py-0.5" [ngClass]="item.tagClass" style="font-size: 0.65rem;">
+                        {{ item.tagBadge }}
+                      </span>
+                      <span *ngIf="item.statusBadge" class="badge px-1.5 py-0.5 fw-semibold" [ngClass]="item.statusClass" style="font-size: 0.65rem;">
+                        {{ item.statusBadge }}
+                      </span>
+                    </div>
+                    <button class="btn btn-sm btn-link text-muted p-0 border-0" 
+                            style="font-size: 0.72rem; line-height: 1;" 
+                            title="Dismiss"
+                            (click)="dismissNotification(item.id, $event)">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </div>
+
+                  <!-- Headline / Title -->
+                  <div class="fw-semibold text-dark" style="font-size: 0.82rem;">
+                    {{ item.title }}
+                  </div>
+
+                  <!-- Message body -->
+                  <div class="text-secondary small mt-0.5" style="font-size: 0.78rem; line-height: 1.35;">
+                    {{ item.message }}
+                  </div>
+
+                  <!-- Time & Deep Link Button -->
+                  <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top border-light-subtle">
+                    <span class="text-muted" style="font-size: 0.72rem;">
+                      <i class="bi bi-clock me-1" *ngIf="item.timeInfo"></i>{{ item.timeInfo || '' }}
+                    </span>
+                    <button class="btn btn-sm btn-light border px-2 py-0.5 text-primary fw-medium d-flex align-items-center gap-1 shadow-2xs" 
+                            style="font-size: 0.72rem;" 
+                            (click)="onNotificationClick(item, $event)">
+                      <span>View</span>
+                      <i class="bi bi-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div *ngIf="filteredNotifications.length === 0" class="text-center py-4 px-3">
+            <div class="empty-bell-icon mb-2">
+              <i class="bi bi-bell-slash text-muted" style="font-size: 2rem; opacity: 0.35;"></i>
+            </div>
+            <div class="fw-bold text-dark" style="font-size: 0.88rem;">No notifications</div>
+            <div class="text-muted small mt-1" style="font-size: 0.76rem;">
+              {{ activeTabFilter === 'all' ? 'You have no pending tasks, calls, or upcoming meetings.' : 'No active notifications in this category.' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Profile Badge & Avatar (Clickable to view details) -->
+    <div class="position-relative user-profile-wrapper" *ngIf="authService.currentUser() as user">
+      <div class="d-flex align-items-center gap-2 user-profile-btn" 
+           (click)="toggleProfile($event)" 
+           role="button" 
+           tabindex="0"
+           title="Click to view profile details">
+        <div class="d-none d-md-flex flex-column text-end" style="line-height: 1.2; gap: 3px;">
+          <span class="fw-bold text-dark small" style="font-size: 0.8rem;">{{ user.name }}</span>
+          <span class="badge" [ngClass]="authService.isAdmin() ? 'bg-primary-subtle text-primary' : 'bg-secondary-subtle text-secondary'" style="font-size: 0.65rem; width: fit-content; align-self: flex-end;">
+            {{ authService.isAdmin() ? 'Admin' : 'Staff' }}
+          </span>
+        </div>
+        <div class="user-avatar-btn shadow-xs overflow-hidden" [class.active-ring]="isProfileOpen">
+          <img *ngIf="user.photo" [src]="user.photo" [alt]="user.name" class="w-100 h-100 rounded-circle object-fit-cover">
+          <i *ngIf="!user.photo" class="bi" [ngClass]="authService.isAdmin() ? 'bi-shield-check text-primary' : 'bi-person-fill text-dark'"></i>
+        </div>
+      </div>
+
+      <!-- User Profile Details Popover Dropdown (Screenshot 3) -->
+      <div class="user-profile-popover shadow-lg" *ngIf="isProfileOpen" (click)="$event.stopPropagation()">
+        <!-- Header Banner -->
+        <div class="profile-popover-banner p-3 text-white text-center position-relative">
+          <div class="profile-popover-avatar mx-auto mb-2 shadow-sm rounded-circle position-relative">
+            <img *ngIf="user.photo" [src]="user.photo" [alt]="user.name" class="w-100 h-100 rounded-circle object-fit-cover">
+            <i *ngIf="!user.photo" class="bi bi-person-fill text-white-50" style="font-size: 2.5rem; line-height: 72px;"></i>
+          </div>
+          <h6 class="fw-bold mb-0 text-white" style="font-size: 0.98rem;">{{ user.name }}</h6>
+          <div class="d-flex align-items-center justify-content-center mt-1.5 flex-wrap" style="gap: 3px !important;">
+            <span class="badge bg-primary text-uppercase px-2 py-0.5" style="font-size: 0.68rem; letter-spacing: 0.04em;">
+              {{ authService.isAdmin() ? 'Administrator' : 'Employee' }}
+            </span>
+            <span class="badge bg-success text-uppercase px-2 py-0.5" *ngIf="user.responsibility" style="font-size: 0.68rem;">
+              {{ user.responsibility }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Popover Body with User Details -->
+        <div class="profile-popover-body p-3 bg-white">
+          <div class="profile-detail-row d-flex align-items-center gap-2.5 py-2 border-bottom border-light">
+            <div class="detail-icon text-muted"><i class="bi bi-briefcase-fill text-primary"></i></div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="text-muted small" style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em;">Designation</div>
+              <div class="fw-semibold text-dark text-truncate" style="font-size: 0.84rem;">{{ user.designation || 'Staff' }}</div>
+            </div>
+          </div>
+
+          <div class="profile-detail-row d-flex align-items-center gap-2.5 py-2 border-bottom border-light">
+            <div class="detail-icon text-muted"><i class="bi bi-envelope-fill text-warning"></i></div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="text-muted small" style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em;">Email</div>
+              <div class="fw-semibold text-dark text-truncate" style="font-size: 0.84rem;">{{ user.emailId || user.username || '-' }}</div>
+            </div>
+          </div>
+
+          <div class="profile-detail-row d-flex align-items-center gap-2.5 py-2 border-bottom border-light" *ngIf="user.phoneNo">
+            <div class="detail-icon text-muted"><i class="bi bi-telephone-fill text-success"></i></div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="text-muted small" style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em;">Phone Number</div>
+              <div class="fw-semibold text-dark" style="font-size: 0.84rem;">{{ user.phoneNo }}</div>
+            </div>
+          </div>
+
+          <div class="profile-detail-row d-flex align-items-center gap-2.5 py-2 border-bottom border-light" *ngIf="user.experience">
+            <div class="detail-icon text-muted"><i class="bi bi-clock-history text-info"></i></div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="text-muted small" style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em;">Experience</div>
+              <div class="fw-semibold text-dark" style="font-size: 0.84rem;">{{ user.experience }} years</div>
+            </div>
+          </div>
+
+          <div class="profile-detail-row d-flex align-items-center gap-2.5 py-2" *ngIf="user.address">
+            <div class="detail-icon text-muted"><i class="bi bi-geo-alt-fill text-danger"></i></div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="text-muted small" style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em;">Location / Address</div>
+              <div class="fw-semibold text-dark text-truncate" style="font-size: 0.84rem;">{{ user.address }}</div>
+            </div>
+          </div>
+
+          <!-- Sign Out Action -->
+          <div class="mt-3 pt-2.5 border-top">
+            <button class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center gap-2 w-100 py-1.5 fw-medium rounded-3"
+                    (click)="logout($event)"
+                    style="font-size: 0.78rem;">
+              <i class="bi bi-box-arrow-right"></i> Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

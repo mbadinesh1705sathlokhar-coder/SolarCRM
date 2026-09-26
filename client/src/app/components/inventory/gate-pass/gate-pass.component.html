@@ -1,0 +1,316 @@
+<div class="container-fluid p-3 p-md-4">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage" 
+       class="alert alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg border-0 z-3"
+       [class.alert-success]="toastType === 'success'"
+       [class.alert-danger]="toastType === 'danger'"
+       [class.alert-info]="toastType === 'info'"
+       style="min-width: 320px; z-index: 1099;">
+    <i class="bi me-2" 
+       [class.bi-check-circle-fill]="toastType === 'success'"
+       [class.bi-exclamation-triangle-fill]="toastType === 'danger'"
+       [class.bi-info-circle-fill]="toastType === 'info'"></i>
+    {{ toastMessage }}
+    <button type="button" class="btn-close" (click)="toastMessage = ''"></button>
+  </div>
+
+  <!-- Header with Pill Tabs -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
+    <div class="d-flex align-items-center gap-3">
+      <div class="inventory-icon-box bg-warning-subtle text-warning-emphasis shadow-sm p-2 rounded-3">
+        <i class="bi bi-pass-fill fs-4"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold mb-0 text-dark tracking-tight">Inventory Management</h4>
+      </div>
+    </div>
+
+    <!-- Inventory Pill Navigation Tabs -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/inventory/indent" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-file-earmark-text me-1 text-primary"></i> Indent
+      </a>
+      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-seam me-1 text-success"></i> Warehouse
+      </a>
+      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-pass me-1 text-warning"></i> Gate Pass
+      </a>
+      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-cart3 me-1 text-danger"></i> Add to cart
+      </a>
+    </div>
+
+    <!-- Top Action -->
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportGatePassPdf()" title="Download Material Gate Pass PDF">
+        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      </button>
+      <button class="btn btn-sm btn-warning text-dark fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
+              *ngIf="canAdd()"
+              (click)="openAddModal()">
+        <i class="bi bi-plus-lg"></i> Create Gate Pass
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="card border-0 shadow-sm rounded-3 p-2 px-3 bg-white mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="input-group input-group-sm" style="max-width: 320px;">
+        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" class="form-control border-start-0 bg-light" placeholder="Search description, client, engineer..." [(ngModel)]="searchTerm">
+      </div>
+      <div class="small text-muted">
+        Total Gate Passes: <strong class="text-dark">{{ filteredGatePasses.length }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gate Pass Table -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 compact-table">
+        <thead class="table-light">
+          <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+            <th style="width: 70px;" class="text-center">S.No</th>
+            <th style="width: 120px;">Date</th>
+            <th>Descriptions</th>
+            <th style="width: 95px;">Unit</th>
+            <th style="width: 95px;" class="text-center">Quantity</th>
+            <th>Client Name</th>
+            <th>SiteEngineer</th>
+            <th style="width: 90px;" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="8" class="text-center py-4 text-muted">
+              <div class="spinner-border spinner-border-sm text-warning me-2"></div>
+              Loading gate passes...
+            </td>
+          </tr>
+          <tr *ngIf="!loading && filteredGatePasses.length === 0">
+            <td colspan="8" class="text-center py-5 text-muted">
+              <i class="bi bi-card-checklist fs-2 d-block mb-2 text-secondary"></i>
+              No gate passes recorded. Click <strong>Create Gate Pass</strong> to record a dispatch.
+            </td>
+          </tr>
+          <tr *ngFor="let gp of filteredGatePasses; let i = index">
+            <!-- S.No -->
+            <td class="text-center font-mono text-muted small fw-bold">{{ i + 1 }}</td>
+            <!-- Date (dd-mm-yyyy) -->
+            <td class="font-mono text-nowrap" style="font-size: 0.82rem;">{{ formatDate(gp.gatePassDate) }}</td>
+            <!-- Descriptions: Clickable to edit only (Client Name is non-clickable) -->
+            <td>
+              <a *ngIf="canEdit()" href="javascript:void(0)" 
+                 class="fw-semibold text-dark text-decoration-none hover-link d-block"
+                 (click)="openEditModal(gp)" 
+                 title="Click to edit gate pass details">
+                <div *ngIf="gp.items && gp.items.length > 0" class="d-flex flex-column gap-1">
+                  <div *ngFor="let it of gp.items" class="text-dark fw-medium" style="font-size: 0.83rem;">
+                    {{ it.materialName }}
+                  </div>
+                </div>
+                <span *ngIf="!gp.items || gp.items.length === 0" class="text-dark fw-medium" style="font-size: 0.83rem;">{{ cleanDescription(gp.descriptions) }}</span>
+              </a>
+              <div *ngIf="!canEdit()">
+                <div *ngIf="gp.items && gp.items.length > 0" class="d-flex flex-column gap-1">
+                  <div *ngFor="let it of gp.items" class="text-dark fw-medium" style="font-size: 0.83rem;">
+                    {{ it.materialName }}
+                  </div>
+                </div>
+                <span *ngIf="!gp.items || gp.items.length === 0" class="text-dark fw-medium" style="font-size: 0.83rem;">{{ cleanDescription(gp.descriptions) }}</span>
+              </div>
+              <div class="small text-muted font-italic mt-1" *ngIf="gp.remarks" style="font-size: 0.72rem;">
+                <i class="bi bi-info-circle me-1"></i>{{ gp.remarks }}
+              </div>
+            </td>
+            <!-- Unit -->
+            <td>
+              <span class="badge bg-light text-dark border">{{ gp.unit }}</span>
+            </td>
+            <!-- Quantity -->
+            <td class="text-center font-mono fw-bold text-dark">
+              {{ gp.quantity }}
+            </td>
+            <!-- Client Name: Plain text (not clickable, as requested) -->
+            <td>
+              <span class="fw-semibold text-dark">{{ gp.clientName }}</span>
+            </td>
+            <!-- SiteEngineer -->
+            <td>
+              <span class="badge bg-light text-dark border">{{ gp.siteEngineer }}</span>
+            </td>
+            <!-- Actions: Strictly DELETE button only (no icons) -->
+            <td class="text-center">
+              <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
+                      style="font-size: 0.76rem;"
+                      (click)="confirmDelete(gp)"
+                      title="Delete Gate Pass">
+                Delete
+              </button>
+              <span *ngIf="!canDelete()" class="text-muted small">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: ADD / EDIT GATE PASS                              -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-warning text-dark py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-pass"></i>
+          {{ isEditMode ? 'Edit Gate Pass: ' + passForm.clientName : 'Create New Gate Pass' }}
+        </h6>
+        <button type="button" class="btn-close shadow-none" (click)="closeModal()"></button>
+      </div>
+      <form (ngSubmit)="saveGatePass()">
+        <div class="modal-body p-4 bg-light" style="max-height: 80vh; overflow-y: auto;">
+          <!-- 1. Dispatch Header Details -->
+          <div class="bg-white p-3 rounded-3 border mb-3 shadow-xs">
+            <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+              <span class="badge bg-warning text-dark px-2.5 py-1 fw-bold">1. Dispatch Header Details</span>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Date <span class="text-danger">*</span></label>
+                <input type="date" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="passForm.gatePassDate" name="gatePassDate" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">Site Engineer <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm shadow-sm" [(ngModel)]="passForm.siteEngineer" name="siteEngineer" required>
+                  <option *ngFor="let eng of engineers" [value]="eng">{{ eng }}</option>
+                </select>
+              </div>
+              <div class="col-md-5">
+                <label class="form-label small fw-bold text-dark mb-1">Client Name <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm shadow-sm" [(ngModel)]="passForm.clientName" name="clientName" required>
+                  <option value="" disabled selected>Select Awarded Client</option>
+                  <option *ngFor="let client of clientOptions" [value]="client">{{ client }}</option>
+                  <option *ngIf="passForm.clientName && !clientOptions.includes(passForm.clientName)" [value]="passForm.clientName">{{ passForm.clientName }}</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-bold text-dark mb-1">Remarks / Dispatch Info</label>
+                <input type="text" class="form-control form-control-sm shadow-sm" placeholder="e.g. Dispatched via vehicle TN-05-AB-1234 with driver Mr. Ramesh" [(ngModel)]="passForm.remarks" name="remarks">
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. DISPATCH MATERIALS (Multiple materials: Materials, Qty, Unit) -->
+          <div class="bg-white p-3 rounded-3 border shadow-xs">
+            <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+              <div>
+                <h6 class="fw-bold text-uppercase mb-0 text-dark" style="letter-spacing: 0.04em; font-size: 0.9rem;">
+                  DISPATCH MATERIALS
+                </h6>
+                <small class="text-muted">Select materials from stock, specify quantity, and unit.</small>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1"
+                      (click)="addMaterialRow()">
+                <i class="bi bi-plus-lg"></i> Add Material
+              </button>
+            </div>
+
+            <!-- Material Rows Table -->
+            <div class="table-responsive">
+              <table class="table table-borderless align-middle mb-0">
+                <thead>
+                  <tr class="text-uppercase text-secondary" style="font-size: 0.72rem; font-weight: 700;">
+                    <th style="min-width: 250px;">MATERIAL (FROM STOCK) *</th>
+                    <th style="width: 140px;">QUANTITY *</th>
+                    <th style="width: 130px;">UNIT *</th>
+                    <th style="width: 50px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let m of dispatchMaterials; let i = index" class="border-bottom-custom">
+                    <!-- MATERIAL (FROM STOCK) -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-semibold text-dark" 
+                              [(ngModel)]="m.materialName" 
+                              [name]="'mat_name_' + i"
+                              required>
+                        <option *ngFor="let opt of stockMaterialOptions" [value]="opt">{{ opt }}</option>
+                      </select>
+                    </td>
+
+                    <!-- QUANTITY -->
+                    <td>
+                      <input type="number" 
+                             min="0.01" 
+                             step="any"
+                             class="form-control form-control-sm font-mono text-center shadow-xs rounded-3 fw-bold" 
+                             [(ngModel)]="m.quantity" 
+                             [name]="'mat_qty_' + i"
+                             required>
+                    </td>
+
+                    <!-- UNIT -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary" 
+                              [(ngModel)]="m.unit" 
+                              [name]="'mat_unit_' + i"
+                              required>
+                        <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
+                      </select>
+                    </td>
+
+                    <!-- REMOVE BUTTON -->
+                    <td class="text-center">
+                      <button type="button" 
+                              class="btn btn-link text-danger p-0 border-0 fs-5 text-decoration-none shadow-none" 
+                              (click)="removeMaterialRow(i)" 
+                              [disabled]="dispatchMaterials.length <= 1"
+                              title="Remove row">
+                        &times;
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">Cancel</button>
+          <button type="submit" *ngIf="isEditMode ? canEdit() : canAdd()" class="btn btn-sm btn-warning text-dark px-4 fw-bold shadow-sm">
+            <i class="bi bi-check2-circle me-1"></i> {{ isEditMode ? 'Update Gate Pass' : 'Save Gate Pass' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: CONFIRM DELETE GATE PASS                          -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-danger text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0">Confirm Delete Gate Pass</h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeDeleteModal()"></button>
+      </div>
+      <div class="modal-body p-4 bg-light text-center">
+        <p class="mb-1 text-dark">Are you sure you want to delete this gate pass?</p>
+        <p class="fw-bold text-danger mb-0 fs-6">{{ passToDelete?.clientName }}</p>
+        <small class="text-muted d-block mt-2">{{ passToDelete?.descriptions }}</small>
+      </div>
+      <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteModal()">Cancel</button>
+        <button type="button" *ngIf="canDelete()" class="btn btn-sm btn-danger px-4 fw-bold shadow-sm" (click)="deleteGatePass()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>

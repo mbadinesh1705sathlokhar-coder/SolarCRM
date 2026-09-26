@@ -1,0 +1,893 @@
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, inject, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule, ActivatedRoute, Router } from '@angular/router';
+import Chart from 'chart.js/auto';
+import { VendorLedgerService, VendorPoWo, VendorPayment, VendorWithLedgerData } from '../../services/vendor-ledger.service';
+import { OfficeVendor } from '../../services/office.service';
+import { MasterListService } from '../../services/master-list.service';
+import { ProjectService } from '../../services/project.service';
+import { AuthService } from '../../services/auth.service';
+
+@Component({
+  selector: 'app-vendor-ledger',
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule],
+  templateUrl: './vendor-ledger.component.html',
+  styleUrls: ['./vendor-ledger.component.css']
+})
+export class VendorLedgerComponent implements OnInit, OnDestroy {
+  private vendorService = inject(VendorLedgerService);
+  private masterListService = inject(MasterListService);
+  private projectService = inject(ProjectService);
+  public authService = inject(AuthService);
+  private cdr = inject(ChangeDetectorRef);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+
+  // Charts
+  @ViewChild('barChartCanvas') barChartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('pieChartCanvas') pieChartCanvas?: ElementRef<HTMLCanvasElement>;
+  financialChart: Chart | null = null;
+  materialPieChart: Chart | null = null;
+
+  // Vendor list state
+  vendors: (OfficeVendor & { description?: string })[] = [];
+  loading = false;
+  searchTerm = '';
+
+  // Toast notification
+  toastMessage = '';
+  toastType: 'success' | 'danger' | 'info' = 'success';
+
+  // Selected Vendor View (drill-down profile + tabs)
+  selectedVendor: (OfficeVendor & { description?: string }) | null = null;
+  ledgerData: VendorWithLedgerData | null = null;
+  loadingLedger = false;
+  activeTab: 'powo' | 'ledger' = 'powo';
+
+  // Master dropdown options from Add List
+  availableMaterials: string[] = [];
+  paymentThroughOptions: string[] = ['P.O', 'W.O', 'Petty Cash', 'Accounts'];
+  billVoucherOptions: string[] = ['Submitted', 'Not Submitted'];
+  generatedByOptions: string[] = [];
+  projectsList: { siteId: string; clientName: string; displayName: string }[] = [];
+  salesCoordinatorOptions: string[] = ['Renuka', 'Daya', 'Sharath', 'Sathish', 'K Karthikeyan'];
+
+  // Add / Edit Vendor Modal (for all vendors list view)
+  isVendorModalOpen = false;
+  isEditVendorModal = false;
+  vendorForm = this.getEmptyVendor();
+  vendorModalMaterials: { [mat: string]: boolean } = {};
+
+  // Delete Vendor Modal
+  isDeleteVendorModalOpen = false;
+  vendorToDelete: (OfficeVendor & { description?: string }) | null = null;
+
+  // Selected Vendor Details Form (in drill-down)
+  vendorDetailsForm: {
+    vendorName: string;
+    salesCoordinator: string;
+    phoneNo: string;
+    location: string;
+    creditDays: string;
+    description: string;
+    materials: { [mat: string]: boolean };
+  } = {
+    vendorName: '',
+    salesCoordinator: 'Renuka',
+    phoneNo: '',
+    location: '',
+    creditDays: '30 Days',
+    description: '',
+    materials: {}
+  };
+  savingVendorDetails = false;
+
+  // PO / WO Modal State
+  isPoWoModalOpen = false;
+  isEditPoWo = false;
+  editingPoWoId: number | null = null;
+  poWoForm = this.getEmptyPoWoForm();
+  savingPoWo = false;
+
+  // Delete PO / WO Modal State
+  isDeletePoWoModalOpen = false;
+  poWoToDelete: VendorPoWo | null = null;
+
+  // DR Payment Modal State
+  isPaymentModalOpen = false;
+  isEditPayment = false;
+  editingPaymentId: number | null = null;
+  paymentForm = this.getEmptyPaymentForm();
+  savingPayment = false;
+
+  // Delete Payment Modal State
+  isDeletePaymentModalOpen = false;
+  paymentToDelete: VendorPayment | null = null;
+
+  ngOnInit(): void {
+    this.loadVendors();
+    this.loadMasterOptions();
+    this.loadProjects();
+
+    // Check query params if vendor specified e.g. ?id=8
+    this.route.queryParams.subscribe(params => {
+      const id = params['id'];
+      if (id) {
+        const numId = parseInt(id, 10);
+        if (numId) {
+          this.selectVendorById(numId);
+        }
+      }
+    });
+  }
+
+  loadVendors(): void {
+    this.loading = true;
+    this.vendorService.getVendors().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.vendors = res.data;
+        }
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loading = false;
+        this.showToast('Failed to load vendors list.', 'danger');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  loadMasterOptions(): void {
+    this.masterListService.getAllLists().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const matList = res.data.find(l => l.title.toLowerCase().trim() === 'materials');
+          if (matList?.items && matList.items.length > 0) {
+            this.availableMaterials = matList.items;
+          } else {
+            this.availableMaterials = [
+              'Cable Tray Materials', 'Cables', 'Civil Work Labour', 'Consumables',
+              'DB Boxes', 'Earthing Materials', 'Expo / Event Expenses', 'Labour/Manpower',
+              'Lead Acid Batteries', 'Lightning Arrestors', 'Lithium Batteries', 'Material Transport',
+              'Panles Cleaning Liquid', 'Rental Tools', 'Solar CEIG Works', 'Solar I&C Works',
+              'Solar Inverters', 'Solar Meters', 'Solar MMS', 'Solar Panels', 'TATA SPG Package'
+            ];
+          }
+
+          const ptList = res.data.find(l => l.title.toLowerCase().trim() === 'payment through');
+          if (ptList?.items && ptList.items.length > 0) {
+            this.paymentThroughOptions = ptList.items;
+          }
+
+          const bvList = res.data.find(l => l.title.toLowerCase().trim() === 'bill / voucher status');
+          if (bvList?.items && bvList.items.length > 0) {
+            this.billVoucherOptions = bvList.items;
+          }
+
+          const ppList = res.data.find(l => l.title.toLowerCase().trim() === 'payment purpose');
+          if (ppList?.items && ppList.items.length > 0) {
+            this.generatedByOptions = ppList.items;
+          } else {
+            this.generatedByOptions = ['K SATHISH', 'K KARTHIKEYAN', 'V SHARATH', 'RENUKA S', 'OFFICE'];
+          }
+          this.cdr.markForCheck();
+        }
+      }
+    });
+  }
+
+  loadProjects(): void {
+    this.projectService.getProjects().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.projectsList = res.data.map(p => ({
+            siteId: p.siteId,
+            clientName: p.clientName,
+            displayName: `${p.siteId} : ${p.clientName}`
+          }));
+          this.cdr.markForCheck();
+        }
+      }
+    });
+  }
+
+  get filteredVendors(): (OfficeVendor & { description?: string })[] {
+    if (!this.searchTerm.trim()) return this.vendors;
+    const term = this.searchTerm.trim().toLowerCase();
+    return this.vendors.filter(v =>
+      (v.vendorName || '').toLowerCase().includes(term) ||
+      (v.salesCoordinator || '').toLowerCase().includes(term) ||
+      (v.phoneNo || '').toLowerCase().includes(term) ||
+      (v.location || '').toLowerCase().includes(term) ||
+      (v.materialsSpec || '').toLowerCase().includes(term) ||
+      (v.creditDays || '').toLowerCase().includes(term) ||
+      (v.description || '').toLowerCase().includes(term)
+    );
+  }
+
+  // --- VENDOR SELECTION & PROFILE VIEW ---
+  selectVendor(vendor: OfficeVendor & { description?: string }): void {
+    this.selectedVendor = vendor;
+    this.activeTab = 'powo';
+    this.initVendorDetailsForm(vendor);
+    this.loadVendorLedger(vendor.id!);
+  }
+
+  selectVendorById(id: number): void {
+    this.vendorService.getVendorWithLedger(id).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.selectedVendor = res.data.vendor;
+          this.ledgerData = res.data;
+          this.initVendorDetailsForm(res.data.vendor);
+          this.cdr.markForCheck();
+        }
+      }
+    });
+  }
+
+  initVendorDetailsForm(vendor: OfficeVendor & { description?: string }): void {
+    const matMap: { [mat: string]: boolean } = {};
+    const existing = (vendor.materialsSpec || '')
+      .split(',')
+      .map(m => m.trim().toLowerCase())
+      .filter(Boolean);
+
+    for (const mat of this.availableMaterials) {
+      matMap[mat] = existing.includes(mat.toLowerCase());
+    }
+
+    this.vendorDetailsForm = {
+      vendorName: vendor.vendorName || '',
+      salesCoordinator: vendor.salesCoordinator || 'Renuka',
+      phoneNo: vendor.phoneNo || '',
+      location: vendor.location || '',
+      creditDays: vendor.creditDays || '30 Days',
+      description: vendor.description || '',
+      materials: matMap
+    };
+  }
+
+  loadVendorLedger(id: number): void {
+    this.loadingLedger = true;
+    this.vendorService.getVendorWithLedger(id).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.ledgerData = res.data;
+          if (res.data.vendor) {
+            this.selectedVendor = res.data.vendor;
+            this.initVendorDetailsForm(res.data.vendor);
+          }
+          this.renderCharts();
+        }
+        this.loadingLedger = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingLedger = false;
+        this.showToast('Failed to load vendor ledger records.', 'danger');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroyCharts();
+  }
+
+  backToVendorList(): void {
+    this.destroyCharts();
+    this.selectedVendor = null;
+    this.ledgerData = null;
+    this.router.navigate([], { queryParams: {}, replaceUrl: true });
+    this.loadVendors();
+  }
+
+  // Helper to extract just the number from credit days (e.g. "30 Days" -> "30")
+  getCreditDaysNumber(val?: string): string {
+    if (!val) return '30';
+    const m = val.toString().match(/\d+/);
+    return m ? m[0] : val.toString();
+  }
+
+  // --- CHART RENDERING (Bar Chart & Pie Chart) ---
+  renderCharts(): void {
+    if (!this.ledgerData) return;
+    this.destroyCharts();
+
+    setTimeout(() => {
+      this.initBarChart();
+      this.initPieChart();
+    }, 100);
+  }
+
+  destroyCharts(): void {
+    if (this.financialChart) {
+      this.financialChart.destroy();
+      this.financialChart = null;
+    }
+    if (this.materialPieChart) {
+      this.materialPieChart.destroy();
+      this.materialPieChart = null;
+    }
+  }
+
+  initBarChart(): void {
+    if (!this.barChartCanvas?.nativeElement || !this.ledgerData) return;
+    const ctx = this.barChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    const cr = this.ledgerData.totalCr || 0;
+    const dr = this.ledgerData.totalDr || 0;
+    const due = this.ledgerData.dueToPay || 0;
+
+    this.financialChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Expenses Incurred (CR)', 'Payments Settled (DR)', 'Outstanding Due'],
+        datasets: [{
+          label: 'Amount (₹)',
+          data: [cr, dr, due],
+          backgroundColor: [
+            'rgba(239, 68, 68, 0.85)',   // Red for CR Incurred
+            'rgba(16, 185, 129, 0.85)',  // Green for DR Settled
+            'rgba(245, 158, 11, 0.85)'   // Amber for Due to Pay
+          ],
+          borderColor: [
+            '#ef4444',
+            '#10b981',
+            '#f59e0b'
+          ],
+          borderWidth: 1.5,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (item) => ` ₹ ${Number(item.raw).toLocaleString('en-IN')}`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (val) => '₹' + Number(val).toLocaleString('en-IN')
+            }
+          }
+        }
+      }
+    });
+  }
+
+  initPieChart(): void {
+    if (!this.pieChartCanvas?.nativeElement || !this.ledgerData) return;
+    const ctx = this.pieChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    // Aggregate by materials from poWos
+    const poList = this.ledgerData.poWos || [];
+    const matTotals: { [k: string]: number } = {};
+    for (const po of poList) {
+      const mat = po.materialDescription?.trim() || 'General';
+      matTotals[mat] = (matTotals[mat] || 0) + (Number(po.orderValue) || 0);
+    }
+
+    let labels = Object.keys(matTotals);
+    let data = Object.values(matTotals);
+
+    // If no material breakdown available, show Settled vs Due
+    if (labels.length === 0 || data.every(v => v === 0)) {
+      labels = ['Settled (DR)', 'Outstanding Due'];
+      data = [this.ledgerData.totalDr || 0, this.ledgerData.dueToPay || 0];
+      if (data.every(v => v === 0)) {
+        labels = ['Settled'];
+        data = [1];
+      }
+    }
+
+    const palette = [
+      '#0f766e', '#0284c7', '#84cc16', '#f59e0b', '#ec4899', 
+      '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4', '#64748b'
+    ];
+
+    this.materialPieChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: palette.slice(0, labels.length),
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              boxWidth: 11,
+              font: { size: 10 }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: (item) => ` ₹ ${Number(item.raw).toLocaleString('en-IN')}`
+            }
+          }
+        },
+        cutout: '55%'
+      }
+    });
+  }
+
+  saveVendorProfileDetails(): void {
+    if (!this.selectedVendor?.id) return;
+    if (!this.vendorDetailsForm.vendorName?.trim()) {
+      this.showToast('Vendor Name is required.', 'danger');
+      return;
+    }
+
+    const selectedMats = Object.keys(this.vendorDetailsForm.materials)
+      .filter(k => this.vendorDetailsForm.materials[k]);
+
+    this.savingVendorDetails = true;
+    const payload = {
+      vendorName: this.vendorDetailsForm.vendorName.trim(),
+      salesCoordinator: this.vendorDetailsForm.salesCoordinator,
+      phoneNo: this.vendorDetailsForm.phoneNo,
+      location: this.vendorDetailsForm.location,
+      creditDays: this.vendorDetailsForm.creditDays,
+      description: this.vendorDetailsForm.description,
+      materialsSpec: selectedMats.join(', ')
+    };
+
+    this.vendorService.updateVendor(this.selectedVendor.id, payload).subscribe({
+      next: (res) => {
+        this.savingVendorDetails = false;
+        if (res.success && res.data) {
+          this.selectedVendor = { ...this.selectedVendor, ...res.data };
+          this.showToast('Vendor details updated successfully!', 'success');
+          // Update in local list
+          const idx = this.vendors.findIndex(v => v.id === this.selectedVendor!.id);
+          if (idx !== -1) {
+            this.vendors[idx] = { ...this.vendors[idx], ...res.data };
+          }
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.savingVendorDetails = false;
+        this.showToast('Failed to update vendor details.', 'danger');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // --- ADD / EDIT VENDOR MODAL (Master List) ---
+  openAddVendorModal(): void {
+    this.isEditVendorModal = false;
+    this.vendorForm = this.getEmptyVendor();
+    this.vendorModalMaterials = {};
+    for (const m of this.availableMaterials) {
+      this.vendorModalMaterials[m] = false;
+    }
+    this.isVendorModalOpen = true;
+  }
+
+  openEditVendorModal(v: OfficeVendor & { description?: string }): void {
+    this.isEditVendorModal = true;
+    this.vendorForm = { ...v };
+    this.vendorModalMaterials = {};
+    const existing = (v.materialsSpec || '').split(',').map(m => m.trim().toLowerCase());
+    for (const m of this.availableMaterials) {
+      this.vendorModalMaterials[m] = existing.includes(m.toLowerCase());
+    }
+    this.isVendorModalOpen = true;
+  }
+
+  closeVendorModal(): void {
+    this.isVendorModalOpen = false;
+  }
+
+  saveVendorFromModal(): void {
+    if (!this.vendorForm.vendorName?.trim()) {
+      this.showToast('Vendor Name is required.', 'danger');
+      return;
+    }
+
+    const mats = Object.keys(this.vendorModalMaterials)
+      .filter(k => this.vendorModalMaterials[k]);
+
+    const payload = {
+      ...this.vendorForm,
+      materialsSpec: mats.join(', ')
+    };
+
+    if (this.isEditVendorModal && this.vendorForm.id) {
+      this.vendorService.updateVendor(this.vendorForm.id, payload).subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.showToast('Vendor updated successfully!', 'success');
+            this.closeVendorModal();
+            this.loadVendors();
+          }
+        },
+        error: () => this.showToast('Failed to update vendor.', 'danger')
+      });
+    } else {
+      this.vendorService.createVendor(payload).subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.showToast('Vendor registered successfully!', 'success');
+            this.closeVendorModal();
+            this.loadVendors();
+          }
+        },
+        error: () => this.showToast('Failed to register vendor.', 'danger')
+      });
+    }
+  }
+
+  confirmDeleteVendor(v: OfficeVendor & { description?: string }): void {
+    this.vendorToDelete = v;
+    this.isDeleteVendorModalOpen = true;
+  }
+
+  closeDeleteVendorModal(): void {
+    this.isDeleteVendorModalOpen = false;
+    this.vendorToDelete = null;
+  }
+
+  deleteVendor(): void {
+    if (!this.vendorToDelete?.id) return;
+    this.vendorService.deleteVendor(this.vendorToDelete.id).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.vendors = this.vendors.filter(v => v.id !== this.vendorToDelete!.id);
+          this.showToast('Vendor deleted successfully.', 'success');
+          this.closeDeleteVendorModal();
+          if (this.selectedVendor?.id === this.vendorToDelete?.id) {
+            this.backToVendorList();
+          }
+        }
+      },
+      error: () => this.showToast('Failed to delete vendor.', 'danger')
+    });
+  }
+
+  // --- PO / WO METHODS ---
+  openCreatePoWoModal(): void {
+    this.isEditPoWo = false;
+    this.editingPoWoId = null;
+    this.poWoForm = this.getEmptyPoWoForm();
+    this.isPoWoModalOpen = true;
+  }
+
+  openEditPoWoModal(po: VendorPoWo): void {
+    this.isEditPoWo = true;
+    this.editingPoWoId = po.id || null;
+    this.poWoForm = {
+      date: po.date,
+      poWoNumber: po.poWoNumber,
+      orderValue: po.orderValue,
+      materialDescription: po.materialDescription || '',
+      clientName: po.clientName || '',
+      orderType: po.orderType || 'P.O',
+      generatedBy: po.generatedBy || '',
+      billVoucherStatus: po.billVoucherStatus || 'Not Submitted',
+      invoiceNo: po.invoiceNo || '',
+      remarks: po.remarks || ''
+    };
+    this.isPoWoModalOpen = true;
+  }
+
+  closePoWoModal(): void {
+    this.isPoWoModalOpen = false;
+    this.poWoForm = this.getEmptyPoWoForm();
+  }
+
+  savePoWo(): void {
+    if (!this.selectedVendor?.id) return;
+    if (!this.poWoForm.poWoNumber?.trim()) {
+      this.showToast('PO/WO Number is required.', 'danger');
+      return;
+    }
+    const val = Number(this.poWoForm.orderValue) || 0;
+    if (val <= 0) {
+      this.showToast('Please enter a valid Order Value.', 'danger');
+      return;
+    }
+
+    this.savingPoWo = true;
+    const payload: Partial<VendorPoWo> = {
+      date: this.poWoForm.date || new Date().toISOString().split('T')[0],
+      poWoNumber: this.poWoForm.poWoNumber.trim().substring(0, 20),
+      orderValue: val,
+      materialDescription: this.poWoForm.materialDescription,
+      clientName: this.poWoForm.clientName,
+      orderType: this.poWoForm.orderType,
+      generatedBy: this.poWoForm.generatedBy,
+      billVoucherStatus: this.poWoForm.billVoucherStatus,
+      invoiceNo: this.poWoForm.invoiceNo ? this.poWoForm.invoiceNo.trim() : '',
+      remarks: this.poWoForm.remarks
+    };
+
+    if (this.isEditPoWo && this.editingPoWoId) {
+      this.vendorService.updatePoWo(this.selectedVendor.id, this.editingPoWoId, payload).subscribe({
+        next: (res) => {
+          this.savingPoWo = false;
+          if (res.success) {
+            this.showToast('PO/WO record updated successfully!', 'success');
+            this.closePoWoModal();
+            this.loadVendorLedger(this.selectedVendor!.id!);
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.savingPoWo = false;
+          this.showToast('Failed to update PO/WO record.', 'danger');
+          this.cdr.markForCheck();
+        }
+      });
+    } else {
+      this.vendorService.createPoWo(this.selectedVendor.id, payload).subscribe({
+        next: (res) => {
+          this.savingPoWo = false;
+          if (res.success) {
+            this.showToast('PO/WO record created successfully!', 'success');
+            this.closePoWoModal();
+            this.loadVendorLedger(this.selectedVendor!.id!);
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.savingPoWo = false;
+          this.showToast('Failed to create PO/WO record.', 'danger');
+          this.cdr.markForCheck();
+        }
+      });
+    }
+  }
+
+  confirmDeletePoWo(po: VendorPoWo): void {
+    this.poWoToDelete = po;
+    this.isDeletePoWoModalOpen = true;
+  }
+
+  closeDeletePoWoModal(): void {
+    this.isDeletePoWoModalOpen = false;
+    this.poWoToDelete = null;
+  }
+
+  deletePoWo(): void {
+    if (!this.selectedVendor?.id || !this.poWoToDelete?.id) return;
+    this.vendorService.deletePoWo(this.selectedVendor.id, this.poWoToDelete.id).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.showToast('PO/WO deleted successfully.', 'success');
+          this.closeDeletePoWoModal();
+          this.loadVendorLedger(this.selectedVendor!.id!);
+        }
+      },
+      error: () => this.showToast('Failed to delete PO/WO.', 'danger')
+    });
+  }
+
+  // --- DR PAYMENT METHODS ---
+  openRecordPaymentModal(): void {
+    this.isEditPayment = false;
+    this.editingPaymentId = null;
+    this.paymentForm = this.getEmptyPaymentForm();
+    this.isPaymentModalOpen = true;
+  }
+
+  openEditPaymentModal(pay: VendorPayment): void {
+    this.isEditPayment = true;
+    this.editingPaymentId = pay.id || null;
+    this.paymentForm = {
+      date: pay.date,
+      amount: pay.amount,
+      urnNumber: pay.urnNumber || '',
+      paymentMode: pay.paymentMode || 'Bank Transfer / NEFT',
+      remarks: pay.remarks || ''
+    };
+    this.isPaymentModalOpen = true;
+  }
+
+  closePaymentModal(): void {
+    this.isPaymentModalOpen = false;
+    this.paymentForm = this.getEmptyPaymentForm();
+  }
+
+  savePayment(): void {
+    if (!this.selectedVendor?.id) return;
+    const val = Number(this.paymentForm.amount) || 0;
+    if (val <= 0) {
+      this.showToast('Please enter a valid payment amount.', 'danger');
+      return;
+    }
+
+    this.savingPayment = true;
+    const payload: Partial<VendorPayment> = {
+      date: this.paymentForm.date || new Date().toISOString().split('T')[0],
+      amount: val,
+      urnNumber: this.paymentForm.urnNumber?.trim() || '',
+      paymentMode: this.paymentForm.paymentMode,
+      remarks: this.paymentForm.remarks
+    };
+
+    if (this.isEditPayment && this.editingPaymentId) {
+      this.vendorService.updatePayment(this.selectedVendor.id, this.editingPaymentId, payload).subscribe({
+        next: (res) => {
+          this.savingPayment = false;
+          if (res.success) {
+            this.showToast('Payment record updated successfully!', 'success');
+            this.closePaymentModal();
+            this.loadVendorLedger(this.selectedVendor!.id!);
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.savingPayment = false;
+          this.showToast('Failed to update payment record.', 'danger');
+          this.cdr.markForCheck();
+        }
+      });
+    } else {
+      this.vendorService.createPayment(this.selectedVendor.id, payload).subscribe({
+        next: (res) => {
+          this.savingPayment = false;
+          if (res.success) {
+            this.showToast('Payment recorded successfully!', 'success');
+            this.closePaymentModal();
+            this.loadVendorLedger(this.selectedVendor!.id!);
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.savingPayment = false;
+          this.showToast('Failed to record payment.', 'danger');
+          this.cdr.markForCheck();
+        }
+      });
+    }
+  }
+
+  confirmDeletePayment(pay: VendorPayment): void {
+    this.paymentToDelete = pay;
+    this.isDeletePaymentModalOpen = true;
+  }
+
+  closeDeletePaymentModal(): void {
+    this.isDeletePaymentModalOpen = false;
+    this.paymentToDelete = null;
+  }
+
+  deletePayment(): void {
+    if (!this.selectedVendor?.id || !this.paymentToDelete?.id) return;
+    this.vendorService.deletePayment(this.selectedVendor.id, this.paymentToDelete.id).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.showToast('Payment record removed.', 'success');
+          this.closeDeletePaymentModal();
+          this.loadVendorLedger(this.selectedVendor!.id!);
+        }
+      },
+      error: () => this.showToast('Failed to delete payment.', 'danger')
+    });
+  }
+
+  // --- COUNTDOWN CALCULATION ---
+  getCountdown(po: VendorPoWo): { daysLeft: number; status: 'safe' | 'warning' | 'overdue' | 'pending'; label: string } {
+    if (!po.invoiceNo || !po.invoiceNo.trim()) {
+      return { daysLeft: 0, status: 'pending', label: 'Invoice Pending' };
+    }
+    const creditDaysStr = this.selectedVendor?.creditDays || '30 Days';
+    const match = creditDaysStr.match(/\d+/);
+    const creditDays = match ? parseInt(match[0], 10) : 30;
+
+    const poDate = new Date(po.date);
+    const today = new Date();
+    const poMidnight = new Date(poDate.getFullYear(), poDate.getMonth(), poDate.getDate()).getTime();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const daysElapsed = Math.floor((todayMidnight - poMidnight) / (1000 * 60 * 60 * 24));
+    const daysLeft = creditDays - daysElapsed;
+
+    if (daysLeft > 3) {
+      return { daysLeft, status: 'safe', label: `${daysLeft} days left` };
+    } else if (daysLeft > 0) {
+      return { daysLeft, status: 'warning', label: `${daysLeft} day${daysLeft > 1 ? 's' : ''} left` };
+    } else if (daysLeft === 0) {
+      return { daysLeft, status: 'warning', label: 'Due Today' };
+    } else {
+      return { daysLeft, status: 'overdue', label: `Overdue by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) > 1 ? 's' : ''}` };
+    }
+  }
+
+  // Quick attach invoice from synced Expenses Ledger
+  attachInvoiceToPo(po: VendorPoWo, invNo: string): void {
+    if (!this.selectedVendor?.id || !po.id) return;
+    this.vendorService.updatePoWo(this.selectedVendor.id, po.id, { invoiceNo: invNo, billVoucherStatus: 'Submitted' }).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.showToast(`Invoice #${invNo} attached to PO #${po.poWoNumber}!`, 'success');
+          this.loadVendorLedger(this.selectedVendor!.id!);
+        }
+      }
+    });
+  }
+
+  // Form helpers
+  getEmptyVendor(): Partial<OfficeVendor & { description?: string }> {
+    return {
+      vendorName: '',
+      salesCoordinator: 'Renuka',
+      phoneNo: '',
+      location: '',
+      materialsSpec: '',
+      creditDays: '30 Days',
+      description: ''
+    };
+  }
+
+  getEmptyPoWoForm() {
+    return {
+      date: new Date().toISOString().split('T')[0],
+      poWoNumber: '',
+      orderValue: null as number | null,
+      materialDescription: '',
+      clientName: '',
+      orderType: 'P.O',
+      generatedBy: 'K SATHISH',
+      billVoucherStatus: 'Not Submitted',
+      invoiceNo: '',
+      remarks: ''
+    };
+  }
+
+  getEmptyPaymentForm() {
+    return {
+      date: new Date().toISOString().split('T')[0],
+      amount: null as number | null,
+      urnNumber: '',
+      paymentMode: 'Bank Transfer / NEFT',
+      remarks: ''
+    };
+  }
+
+  formatDate(dateStr?: string): string {
+    if (!dateStr) return '—';
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  }
+
+  showToast(msg: string, type: 'success' | 'danger' | 'info' = 'success'): void {
+    this.toastMessage = msg;
+    this.toastType = type;
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.toastMessage = '';
+      this.cdr.markForCheck();
+    }, 4500);
+  }
+}

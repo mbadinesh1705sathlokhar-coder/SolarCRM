@@ -1,0 +1,892 @@
+<div class="contacts-container p-3 p-md-4">
+
+  <!-- Header & Tab Navigation -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4 pb-3 border-bottom">
+    <div class="d-flex align-items-center gap-3">
+      <div class="contacts-header-icon shadow-sm">
+        <i class="bi bi-person-lines-fill text-primary"></i>
+      </div>
+      <div>
+        <h4 class="mb-0 fw-bold text-dark">Activity & Operations</h4>
+      </div>
+    </div>
+
+    <!-- Main Tabs: Meetings, Calls, Tasks, Site Plan -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <button class="tab-pill-btn" 
+              [class.active]="activeTab === 'meetings'" 
+              (click)="switchTab('meetings')">
+        <i class="bi bi-calendar-event me-1 text-primary"></i> Meetings
+        <span class="badge bg-primary-subtle text-primary rounded-pill ms-1">{{ meetings.length }}</span>
+      </button>
+      <button class="tab-pill-btn" 
+              [class.active]="activeTab === 'calls'" 
+              (click)="switchTab('calls')">
+        <i class="bi bi-telephone-outbound me-1 text-pink" style="color: #ec4899;"></i> Calls
+        <span class="badge bg-pink-subtle rounded-pill ms-1" style="background-color: #fce7f3; color: #db2777;">{{ calls.length }}</span>
+      </button>
+      <button class="tab-pill-btn" 
+              [class.active]="activeTab === 'tasks'" 
+              (click)="switchTab('tasks')">
+        <i class="bi bi-card-checklist me-1 text-amber" style="color: #f59e0b;"></i> Tasks
+        <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill ms-1">{{ tasks.length }}</span>
+      </button>
+      <a routerLink="/activity/site-plan" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-geo-alt-fill me-1 text-success"></i> Site Plan
+      </a>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 1. MEETINGS TAB (TEAMS-STYLE CALENDAR)                   -->
+  <!-- ======================================================== -->
+  <div *ngIf="activeTab === 'meetings'" class="tab-content-area">
+    <!-- Microsoft Teams Calendar Top Header (Matching screenshot) -->
+    <div class="card border-0 shadow-sm rounded-3 mb-3 bg-white overflow-hidden">
+      <!-- Teams Header Bar -->
+      <div class="teams-top-bar d-flex flex-wrap align-items-center justify-content-between px-3 py-2 border-bottom">
+        <div class="d-flex align-items-center gap-2">
+          <div class="teams-icon-badge">
+            <i class="bi bi-calendar-week-fill text-white"></i>
+          </div>
+          <h5 class="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+            Calendar
+          </h5>
+        </div>
+
+        <!-- Right Side Header Action Buttons (Teams style) -->
+        <div class="d-flex align-items-center gap-2">
+          <!-- + New meeting -->
+          <div class="btn-group btn-group-sm" *ngIf="canAdd()">
+            <button class="btn text-white px-3 fw-semibold d-flex align-items-center gap-1 shadow-sm"
+                    style="background-color: #5b5fc7; border-color: #5b5fc7;"
+                    (click)="openNewMeetingModal('Client')">
+              <i class="bi bi-plus-lg"></i>
+              <span>New meeting</span>
+            </button>
+            <button type="button" 
+                    class="btn text-white dropdown-toggle dropdown-toggle-split" 
+                    style="background-color: #4f52b2; border-color: #4f52b2;"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+              <span class="visually-hidden">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+              <li><a class="dropdown-item py-2 small" href="javascript:void(0)" (click)="openNewMeetingModal('Client')"><i class="bi bi-person-badge me-2 text-primary"></i>Schedule Client Meeting</a></li>
+              <li><a class="dropdown-item py-2 small" href="javascript:void(0)" (click)="openNewMeetingModal('Site Visit')"><i class="bi bi-geo-alt me-2 text-warning"></i>Schedule Site Visit</a></li>
+              <li><a class="dropdown-item py-2 small" href="javascript:void(0)" (click)="openNewMeetingModal('Personal')"><i class="bi bi-calendar-event me-2 text-secondary"></i>Internal / Personal Meeting</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teams Sub-Bar (Navigation & Filters) -->
+      <div class="teams-sub-bar d-flex flex-wrap align-items-center justify-content-between px-3 py-2 bg-light-subtle">
+        <!-- Date Navigation -->
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-outline-secondary btn-sm px-3 fw-semibold bg-white shadow-xs" (click)="todayWeek()">
+            <i class="bi bi-calendar4-week me-1"></i> Today
+          </button>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary btn-sm bg-white" (click)="prevWeek()" title="Previous Week">
+              <i class="bi bi-chevron-left"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm bg-white" (click)="nextWeek()" title="Next Week">
+              <i class="bi bi-chevron-right"></i>
+            </button>
+          </div>
+          <span class="fw-bold text-dark ms-2 d-flex align-items-center gap-1" style="font-size: 0.95rem;">
+            {{ currentCalendarDate | date:'MMMM yyyy' }}
+            <i class="bi bi-chevron-down text-muted small" style="font-size: 0.75rem;"></i>
+          </span>
+        </div>
+
+        <!-- Meeting Visibility Controls -->
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <!-- Admin View Toggle: All Meetings vs My Meetings -->
+          <div class="d-flex align-items-center gap-2" *ngIf="authService.isAdmin()">
+            <span class="small text-muted fw-semibold"><i class="bi bi-eye"></i> View:</span>
+            <div class="btn-group btn-group-sm shadow-xs">
+              <button type="button" class="btn btn-sm" 
+                      [ngClass]="adminShowAllMeetings ? 'btn-primary text-white' : 'btn-outline-secondary bg-white'"
+                      (click)="toggleAdminMeetingsView(true)">
+                All Meetings
+              </button>
+              <button type="button" class="btn btn-sm" 
+                      [ngClass]="!adminShowAllMeetings ? 'btn-primary text-white' : 'btn-outline-secondary bg-white'"
+                      (click)="toggleAdminMeetingsView(false)">
+                My Meetings
+              </button>
+            </div>
+          </div>
+
+          <!-- Staff View Indicator -->
+          <div class="d-flex align-items-center gap-1.5 px-2.5 py-1 rounded bg-white border small shadow-xs text-muted" *ngIf="!authService.isAdmin()">
+            <i class="bi bi-person-check-fill text-primary"></i>
+            <span class="fw-semibold text-dark">My Meetings</span>
+            <span class="badge bg-primary-subtle text-primary rounded-pill ms-1">{{ filteredMeetings.length }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Teams Calendar Time-Grid (Work week / Week) -->
+    <div *ngIf="calendarViewMode === 'workweek' || calendarViewMode === 'week'" 
+         class="card border-0 shadow-sm rounded-3 overflow-hidden bg-white mb-4 teams-grid-card">
+      
+      <!-- Notice / Hint Banner -->
+      <div class="px-3 py-1 bg-light border-bottom d-flex align-items-center justify-content-between small text-muted">
+        <span><i class="bi bi-info-circle text-primary me-1"></i><strong>Teams Calendar:</strong> Click any hourly slot to schedule a meeting. Outline highlights your chosen slot.</span>
+        <span class="badge bg-white text-secondary border">Working Hours: 8:00 AM – 7:00 PM</span>
+      </div>
+
+      <div class="teams-grid-scroll-wrapper">
+        <div class="teams-grid-matrix" [class.full-week]="calendarViewMode === 'week'">
+          
+          <!-- Column Headers: Time Gutter Header + Days -->
+          <div class="teams-grid-header-row">
+            <div class="teams-gutter-header">
+              <!-- Empty spacer for gutter -->
+            </div>
+            <div *ngFor="let day of getWeekDays()" 
+                 class="teams-day-header-cell"
+                 [class.today-header-cell]="day.isToday">
+              <div class="day-number-large" [class.today-color]="day.isToday">{{ day.dateNum }}</div>
+              <div class="day-name-small" [class.today-color]="day.isToday">{{ day.name }}</div>
+            </div>
+          </div>
+
+          <!-- Grid Rows: One per hour slot (8 AM to 7 PM) -->
+          <div class="teams-grid-body-container">
+            <!-- Current Time Red Line Indicator (Teams style) -->
+            <div *ngIf="isCurrentTimeVisible()" class="teams-current-time-indicator" [style.top.%]="getCurrentTimeOffsetPercent()">
+              <span class="teams-current-time-dot"></span>
+            </div>
+
+            <div class="teams-hour-grid-row" *ngFor="let hour of timeSlots">
+              <!-- Left Time Gutter Label (e.g. 8 AM, 12 PM) -->
+              <div class="teams-hour-gutter-label">
+                <span>{{ formatHourLabel(hour) }}</span>
+              </div>
+
+              <!-- Day Slot Cells -->
+              <div *ngFor="let day of getWeekDays()" 
+                   class="teams-slot-cell"
+                   [class.today-slot]="day.isToday"
+                   [class.slot-selected]="selectedSlot?.dateStr === day.dateStr && selectedSlot?.hour === hour"
+                   (click)="onSlotClick(day.dateStr, hour)"
+                   title="Click to schedule at {{ day.name }} {{ formatHourLabel(hour) }}">
+                
+                <!-- Meetings in this specific slot -->
+                <div *ngFor="let m of getMeetingsForSlot(day.dateStr, hour)"
+                     class="teams-meeting-tile"
+                     [class.tile-client]="m.purpose === 'Client'"
+                     [class.tile-site]="m.purpose === 'Site Visit' || m.purpose === 'Site Plan'"
+                     [class.tile-personal]="m.purpose === 'Personal' || m.purpose === 'All'"
+                     (click)="openEditMeetingModal(m); $event.stopPropagation()"
+                     title="Click to edit: {{ m.title || m.clientName }}">
+                  
+                  <div class="tile-top-row">
+                    <span class="tile-title text-truncate fw-bold">{{ m.title || m.clientName }}</span>
+                    <button *ngIf="canDelete()" class="btn btn-xs tile-delete-btn text-danger p-0" (click)="deleteMeeting(m, $event)" title="Delete">
+                      <i class="bi bi-x"></i>
+                    </button>
+                  </div>
+
+                  <div class="tile-meta-row text-truncate">
+                    <i class="bi bi-microsoft-teams me-1" style="color: #5b5fc7;"></i>
+                    <span *ngIf="m.purpose === 'Client'">{{ m.clientName || 'Client Meeting' }}</span>
+                    <span *ngIf="m.purpose === 'Site Visit' || m.purpose === 'Site Plan'">Site: {{ m.engineer || m.clientName }}</span>
+                    <span *ngIf="m.purpose === 'All'">All Employees: {{ m.title || 'General Meeting' }}</span>
+                    <span *ngIf="m.purpose === 'Personal'">Internal / Personal</span>
+                  </div>
+
+                  <div class="tile-bottom-row d-flex align-items-center justify-content-between mt-1">
+                    <span class="tile-time"><i class="bi bi-clock me-1"></i>{{ m.time }}</span>
+                    <span class="badge tile-purpose-tag" [class.bg-info-subtle]="m.purpose === 'Site Plan'" [class.text-info-emphasis]="m.purpose === 'Site Plan'">{{ m.purpose }}</span>
+                  </div>
+                </div>
+
+                <!-- Empty slot hint on hover -->
+                <div *ngIf="getMeetingsForSlot(day.dateStr, hour).length === 0" class="empty-slot-placeholder">
+                  <span class="slot-add-icon"><i class="bi bi-plus"></i></span>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar List / Agenda View -->
+    <div *ngIf="calendarViewMode === 'list'" class="card border-0 shadow-sm rounded-3 bg-white p-3 mb-4">
+      <h6 class="fw-bold text-dark mb-3"><i class="bi bi-list-check me-2 text-primary"></i>All Scheduled Meetings</h6>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr style="font-size: 0.78rem;" class="text-uppercase text-muted">
+              <th>Date & Time</th>
+              <th>Purpose</th>
+              <th>Meeting Title / Client</th>
+              <th>Engineer / Staff</th>
+              <th>Description</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of filteredMeetings" class="cursor-pointer" (click)="openEditMeetingModal(m)">
+              <td>
+                <div class="fw-bold text-dark">{{ formatCallDate(m.date) }}</div>
+                <small class="badge bg-light text-dark border">{{ m.time }}</small>
+              </td>
+              <td>
+                <span class="badge" 
+                      [class.bg-primary-subtle]="m.purpose === 'Client'"
+                      [class.text-primary]="m.purpose === 'Client'"
+                      [class.bg-info-subtle]="m.purpose === 'Site Plan' || m.purpose === 'Site Visit'"
+                      [class.text-info-emphasis]="m.purpose === 'Site Plan' || m.purpose === 'Site Visit'"
+                      [class.bg-purple-subtle]="m.purpose === 'All'"
+                      [class.text-purple]="m.purpose === 'All'"
+                      [class.bg-secondary-subtle]="m.purpose === 'Personal'"
+                      [class.text-secondary]="m.purpose === 'Personal'">
+                  {{ m.purpose }}
+                </span>
+              </td>
+              <td>
+                <div class="fw-bold text-dark">{{ m.title || m.clientName }}</div>
+                <small class="text-muted" *ngIf="m.clientName && m.title">{{ m.clientName }}</small>
+              </td>
+              <td>
+                <span *ngIf="m.engineer" class="badge bg-info-subtle text-info-emphasis me-1">
+                  <i class="bi bi-cone-striped me-1"></i>{{ m.engineer }}
+                </span>
+                <span *ngIf="m.coordinator" class="badge bg-light text-secondary border">
+                  {{ m.coordinator }}
+                </span>
+              </td>
+              <td class="text-secondary small" style="max-width: 250px;">
+                <span class="text-truncate d-block">{{ m.description || '-' }}</span>
+              </td>
+              <td>
+                <small class="text-muted"><i class="bi bi-camera-video me-1"></i>{{ m.location || 'Teams' }}</small>
+              </td>
+              <td>
+                <span class="badge bg-success-subtle text-success">{{ m.status || 'Scheduled' }}</span>
+              </td>
+              <td class="text-end" (click)="$event.stopPropagation()">
+                <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger" (click)="deleteMeeting(m, $event)">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredMeetings.length === 0">
+              <td colspan="8" class="text-center py-4 text-muted">No meetings found matching current filters.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 2. CALLS TAB (SALES TEAM CALL LOGGER)                   -->
+  <!-- ======================================================== -->
+  <div *ngIf="activeTab === 'calls'" class="tab-content-area">
+    <!-- Sales Call Stats Ribbon -->
+    <div class="row g-2 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 stats-card-compact bg-white border-start border-4 border-primary">
+          <small class="text-muted text-uppercase fw-semibold stat-sub-compact">Total Calls</small>
+          <div class="stat-num-compact text-dark mt-1">{{ calls.length }}</div>
+          <small class="text-muted stat-sub-compact">Sales logs</small>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 stats-card-compact bg-white border-start border-4 border-info">
+          <small class="text-muted text-uppercase fw-semibold stat-sub-compact">New Leads</small>
+          <div class="stat-num-compact text-info mt-1">{{ getCallStatusCount('New Lead') }}</div>
+          <small class="text-muted stat-sub-compact">Inbound inquiries</small>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 stats-card-compact bg-white border-start border-4 border-warning">
+          <small class="text-muted text-uppercase fw-semibold stat-sub-compact">Offers Submitted</small>
+          <div class="stat-num-compact text-warning mt-1">{{ getCallStatusCount('Offer-Submission') }}</div>
+          <small class="text-muted stat-sub-compact">Awaiting review</small>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 stats-card-compact bg-white border-start border-4 border-success">
+          <small class="text-muted text-uppercase fw-semibold stat-sub-compact">In Negotiation</small>
+          <div class="stat-num-compact text-success mt-1">{{ getCallStatusCount('Negotiation') }}</div>
+          <small class="text-muted stat-sub-compact">Near closing</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Bar & Log Call Button -->
+    <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <!-- Search box -->
+          <div class="input-group input-group-sm" style="width: 260px;">
+            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control border-start-0 bg-light" placeholder="Search client, vendor, notes..." [(ngModel)]="callSearchTerm" (input)="filterCalls()">
+          </div>
+
+          <!-- Status Dropdown Filter -->
+          <div class="d-flex align-items-center gap-1">
+            <label class="small text-muted fw-semibold">Status:</label>
+            <select class="form-select form-select-sm" [(ngModel)]="callStatusFilter" (change)="filterCalls()" style="width: 170px;">
+              <option value="All">All Statuses</option>
+              <option *ngFor="let opt of callStatusOptions" [value]="opt">{{ opt }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-danger shadow-sm d-flex align-items-center gap-1.5"
+                  (click)="exportCallsToPdf()"
+                  title="Export Sales Call logs to PDF">
+            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
+            <span class="fw-semibold">Export PDF</span>
+          </button>
+          <button *ngIf="canAdd()" class="btn btn-sm btn-primary px-3 shadow-sm d-flex align-items-center gap-1" 
+                  style="background-color: #db2777; border-color: #db2777;"
+                  (click)="openNewCallModal()">
+            <i class="bi bi-telephone-plus"></i>
+            <span class="fw-semibold">Log Sales Call</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calls Data Table -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr style="font-size: 0.78rem;" class="text-uppercase text-muted">
+              <th>Date & Time</th>
+              <th>Client / Vendor Name</th>
+              <th>Call Title / Subject</th>
+              <th>Status</th>
+              <th>Discussion / Description</th>
+              <th>Employee</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let call of filteredCalls">
+              <td>
+                <div class="fw-bold text-dark">{{ formatCallDate(call.date) }}</div>
+                <small class="text-muted"><i class="bi bi-clock me-1"></i>{{ formatTime12Hour(call.time) }}</small>
+              </td>
+              <td>
+                <div class="fw-bold text-dark">{{ call.clientVendorName }}</div>
+              </td>
+              <td>
+                <span class="fw-semibold text-dark">{{ call.title }}</span>
+              </td>
+              <td>
+                <span class="badge" 
+                      [ngClass]="{
+                        'bg-info-subtle text-info-emphasis border border-info-subtle': call.status === 'New Lead',
+                        'bg-warning-subtle text-warning-emphasis border border-warning-subtle': call.status === 'Offer-Submission',
+                        'bg-primary-subtle text-primary border border-primary-subtle': call.status === 'Queries',
+                        'bg-success-subtle text-success border border-success-subtle': call.status === 'Negotiation',
+                        'bg-secondary-subtle text-secondary border': call.status === 'Others' || (!['New Lead', 'Offer-Submission', 'Queries', 'Negotiation'].includes(call.status))
+                      }">
+                  {{ call.status }}
+                </span>
+              </td>
+              <td class="text-secondary small" style="max-width: 280px;">
+                <span>{{ call.description || '-' }}</span>
+              </td>
+              <td>
+                <span class="badge bg-light text-dark border">{{ call.callerName || 'Renuka' }}</span>
+              </td>
+              <td class="text-end">
+                <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger" (click)="deleteCall(call)" title="Delete Call Log">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngFor="let empty of (filteredCalls.length === 0 ? [1] : [])">
+              <td colspan="7" class="text-center py-4 text-muted">No call logs found matching current filters.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 3. TASKS TAB (DATA TABLE FORMAT)                         -->
+  <!-- ======================================================== -->
+  <div *ngIf="activeTab === 'tasks'" class="tab-content-area">
+    <!-- Filter Bar & Add Task Button -->
+    <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <!-- Search box -->
+          <div class="input-group input-group-sm" style="width: 260px;">
+            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control border-start-0 bg-light" placeholder="Search task, assignee, project..." [(ngModel)]="taskSearchTerm" (input)="filterTasks()">
+          </div>
+
+          <!-- Status Filter -->
+          <div class="d-flex align-items-center gap-1">
+            <label class="small text-muted fw-semibold">Status:</label>
+            <select class="form-select form-select-sm" [(ngModel)]="taskStatusFilter" (change)="filterTasks()" style="width: 140px;">
+              <option value="All">All Statuses</option>
+              <option *ngFor="let opt of taskStatusOptions" [value]="opt">{{ opt }}</option>
+            </select>
+          </div>
+
+          <!-- Priority Filter -->
+          <div class="d-flex align-items-center gap-1">
+            <label class="small text-muted fw-semibold">Priority:</label>
+            <select class="form-select form-select-sm" [(ngModel)]="taskPriorityFilter" (change)="filterTasks()" style="width: 130px;">
+              <option value="All">All Priorities</option>
+              <option *ngFor="let opt of taskPriorityOptions" [value]="opt">{{ opt }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-danger shadow-sm d-flex align-items-center gap-1.5"
+                  (click)="exportTasksToPdf()"
+                  title="Export Tasks to PDF">
+            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
+            <span class="fw-semibold">Export PDF</span>
+          </button>
+          <button *ngIf="canAdd()" class="btn btn-sm btn-primary px-3 shadow-sm d-flex align-items-center gap-1" 
+                  style="background-color: #0f766e; border-color: #0f766e;"
+                  (click)="openNewTaskModal()">
+            <i class="bi bi-plus-circle"></i>
+            <span class="fw-semibold">Add New Task</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasks Data Table -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr style="font-size: 0.78rem;" class="text-uppercase text-muted">
+              <th>Task Title</th>
+              <th>Assigned From</th>
+              <th>Assigned To</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Related Client / Project</th>
+              <th>Description</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let task of filteredTasks">
+              <td>
+                <a *ngIf="canEdit()" href="javascript:void(0)" class="fw-bold text-dark text-decoration-none" (click)="openEditTaskModal(task)" title="Click to edit task">
+                  {{ task.title }}
+                </a>
+                <span *ngIf="!canEdit()" class="fw-bold text-dark">
+                  {{ task.title }}
+                </span>
+              </td>
+              <td>
+                <span class="badge bg-light text-dark border">
+                  <i class="bi bi-person-up me-1 text-secondary"></i>{{ getEmployeeDisplayName(task.assignedFrom) }}
+                </span>
+              </td>
+              <td>
+                <div class="d-flex align-items-center gap-1">
+                  <span class="badge bg-light text-primary border border-primary-subtle">
+                    <i class="bi bi-person-down me-1 text-primary"></i>{{ getEmployeeDisplayName(task.assignedTo) }}
+                  </span>
+                </div>
+              </td>
+              <td>
+                <span class="badge"
+                      [class.bg-danger-subtle]="task.priority === 'High'"
+                      [class.text-danger]="task.priority === 'High'"
+                      [class.bg-warning-subtle]="task.priority === 'Medium'"
+                      [class.text-warning-emphasis]="task.priority === 'Medium'"
+                      [class.bg-info-subtle]="task.priority === 'Low'"
+                      [class.text-info-emphasis]="task.priority === 'Low'">
+                  {{ task.priority }}
+                </span>
+              </td>
+              <td>
+                <!-- Quick Status Dropdown -->
+                <select class="form-select form-select-sm fw-semibold" 
+                        [ngModel]="task.status" 
+                        (ngModelChange)="updateTaskStatus(task, $event)"
+                        [disabled]="!canChangeTaskStatus(task)"
+                        [title]="canChangeTaskStatus(task) ? 'Change task status' : 'Only assigned employee (' + getEmployeeDisplayName(task.assignedTo) + ') can update status'"
+                        style="width: 130px; font-size: 0.78rem;"
+                        [class.text-success]="task.status === 'Completed'"
+                        [class.text-warning]="task.status === 'In Progress'"
+                        [class.text-danger]="task.status === 'Pending'">
+                  <option *ngFor="let opt of taskStatusOptions" [value]="opt">{{ opt }}</option>
+                </select>
+              </td>
+              <td>
+                <span class="text-secondary small">{{ task.relatedTo || '-' }}</span>
+              </td>
+              <td class="text-secondary small" style="max-width: 250px;">
+                <span class="text-truncate d-block">{{ task.description || '-' }}</span>
+              </td>
+              <td class="text-end">
+                <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger" (click)="deleteTask(task)" title="Delete Task">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngFor="let empty of (filteredTasks.length === 0 ? [1] : [])">
+              <td colspan="8" class="text-center py-4 text-muted">No tasks found matching current filters.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: JOIN WITH AN ID (MICROSOFT TEAMS STYLE)            -->
+<!-- ======================================================== -->
+<div *ngIf="isJoinModalOpen" class="modal-backdrop-custom d-flex align-items-center justify-content-center">
+  <div class="modal-dialog-custom card border-0 shadow-lg rounded-3 overflow-hidden animate__animated animate__zoomIn" style="max-width: 440px; width: 100%;">
+    <div class="p-3 d-flex align-items-center justify-content-between text-white" style="background-color: #5b5fc7;">
+      <div class="d-flex align-items-center gap-2">
+        <span class="fw-bold fs-5">#</span>
+        <h6 class="mb-0 fw-bold">Join a meeting with an ID</h6>
+      </div>
+      <button type="button" class="btn-close btn-close-white" (click)="closeJoinModal()"></button>
+    </div>
+    <div class="p-4 bg-white">
+      <p class="small text-muted mb-3">Type the meeting ID and passcode provided in the invite to join directly.</p>
+      <div class="mb-3">
+        <label class="form-label fw-bold text-dark small">Meeting ID <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" [(ngModel)]="joinMeetingId" placeholder="e.g. 284 920 184 912" autofocus>
+      </div>
+      <div class="mb-4">
+        <label class="form-label fw-bold text-dark small">Passcode</label>
+        <input type="text" class="form-control" [(ngModel)]="joinPasscode" placeholder="e.g. 7kXw9P">
+      </div>
+      <div class="d-flex align-items-center justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3" (click)="closeJoinModal()">Cancel</button>
+        <button type="button" class="btn btn-sm text-white px-4" style="background-color: #5b5fc7;" (click)="joinMeetingSubmit()">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Join meeting
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: MEET NOW (MICROSOFT TEAMS STYLE)                   -->
+<!-- ======================================================== -->
+<div *ngIf="isMeetNowModalOpen" class="modal-backdrop-custom d-flex align-items-center justify-content-center">
+  <div class="modal-dialog-custom card border-0 shadow-lg rounded-3 overflow-hidden animate__animated animate__zoomIn" style="max-width: 440px; width: 100%;">
+    <div class="p-3 d-flex align-items-center justify-content-between text-white" style="background-color: #5b5fc7;">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-camera-video-fill fs-5"></i>
+        <h6 class="mb-0 fw-bold">Start an instant meeting</h6>
+      </div>
+      <button type="button" class="btn-close btn-close-white" (click)="closeMeetNowModal()"></button>
+    </div>
+    <div class="p-4 bg-white">
+      <div class="mb-3">
+        <label class="form-label fw-bold text-dark small">Meeting Name <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" [(ngModel)]="meetNowTitle" placeholder="Instant Meeting Name">
+      </div>
+      <div class="alert alert-light border p-2 small mb-3 text-secondary d-flex align-items-center gap-2">
+        <i class="bi bi-link-45deg fs-5 text-primary"></i>
+        <span>Meeting will be scheduled immediately and added to your calendar.</span>
+      </div>
+      <div class="d-flex align-items-center justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3" (click)="closeMeetNowModal()">Cancel</button>
+        <button type="button" class="btn btn-sm text-white px-4" style="background-color: #5b5fc7;" (click)="startMeetNow()">
+          <i class="bi bi-play-circle me-1"></i> Start meeting
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: SCHEDULE / EDIT MEETING (PURPOSE-CONDITIONAL)      -->
+<!-- ======================================================== -->
+<div *ngIf="isMeetingModalOpen" class="modal-backdrop-custom d-flex align-items-center justify-content-center">
+  <div class="modal-dialog-custom card border-0 shadow-lg rounded-3 overflow-hidden animate__animated animate__zoomIn">
+    <!-- Header -->
+    <div class="p-3 d-flex align-items-center justify-content-between text-white" style="background-color: #5b5fc7;">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-microsoft-teams fs-5"></i>
+        <h6 class="mb-0 fw-bold">{{ editingMeetingId ? 'Edit Scheduled Meeting' : 'Schedule New Meeting' }}</h6>
+      </div>
+      <button type="button" class="btn-close btn-close-white" (click)="closeMeetingModal()"></button>
+    </div>
+
+    <!-- Body Form -->
+    <div class="p-3 p-md-4 bg-white" style="max-height: 80vh; overflow-y: auto;">
+      <form (ngSubmit)="saveMeeting()">
+        <!-- Purpose Selector (Dropdown) -->
+        <div class="mb-3">
+          <label class="form-label fw-bold text-dark small">
+            Purpose <span class="text-danger">*</span>
+          </label>
+          <select class="form-select" [(ngModel)]="meetingForm.purpose" name="purpose" required [disabled]="meetingForm.purpose === 'Site Plan'">
+            <option value="Client">Client</option>
+            <option value="All">All (All Employees)</option>
+            <option *ngIf="meetingForm.purpose === 'Site Plan'" value="Site Plan">Site Plan</option>
+          </select>
+          <small class="text-muted" style="font-size: 0.72rem;">
+            {{ meetingForm.purpose === 'All' ? 'This meeting applies to all employees across the organization.' : 'Client-specific meeting.' }}
+          </small>
+        </div>
+
+        <!-- Conditional Fields Based on Purpose: CLIENT -->
+        <div *ngIf="meetingForm.purpose === 'Client'" class="purpose-block p-3 rounded-2 mb-3 bg-light border-start border-3 border-primary">
+          <div class="mb-3">
+            <label class="form-label fw-bold text-dark small">Client Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" [(ngModel)]="meetingForm.clientName" name="clientName" placeholder="e.g. Tata Power / Apex Mills" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-bold text-dark small">Description</label>
+            <textarea class="form-control" rows="3" [(ngModel)]="meetingForm.description" name="description" placeholder="Discussion topics, solar capacity proposal details..."></textarea>
+          </div>
+        </div>
+
+        <!-- Conditional Fields Based on Purpose: ALL (ALL EMPLOYEES) -->
+        <div *ngIf="meetingForm.purpose === 'All'" class="purpose-block p-3 rounded-2 mb-3 bg-light border-start border-3 border-purple" style="border-left-color: #8b5cf6 !important;">
+          <div class="mb-3">
+            <label class="form-label fw-bold text-dark small">Meeting Title / Topic <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" [(ngModel)]="meetingForm.title" name="allTitle" placeholder="e.g. Monthly All-Hands / Safety Briefing" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-bold text-dark small">Description</label>
+            <textarea class="form-control" rows="3" [(ngModel)]="meetingForm.description" name="allDescription" placeholder="Meeting agenda, deliverables, points for all staff..."></textarea>
+          </div>
+        </div>
+
+        <!-- Conditional Fields for Allocated SITE PLAN -->
+        <div *ngIf="meetingForm.purpose === 'Site Plan' || meetingForm.purpose === 'Site Visit'" class="purpose-block p-3 rounded-2 mb-3 bg-light border-start border-3 border-info">
+          <div class="mb-3">
+            <label class="form-label fw-bold text-dark small">Client Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" [(ngModel)]="meetingForm.clientName" name="spClientName" placeholder="e.g. Sri Krishna Textiles" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold text-dark small">Assigned Engineer <span class="text-danger">*</span></label>
+            <select class="form-select" [(ngModel)]="meetingForm.engineer" name="spEngineer" required>
+              <option *ngFor="let eng of dynamicEngineersList" [value]="eng">{{ eng }}</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-bold text-dark small">Description</label>
+            <textarea class="form-control" rows="3" [(ngModel)]="meetingForm.description" name="spDescription" placeholder="Rooftop structural feasibility, shadow analysis notes..."></textarea>
+          </div>
+        </div>
+
+        <!-- Date & Time & Coordinator -->
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Date <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" [(ngModel)]="meetingForm.date" name="meetingDate" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Time <span class="text-danger">*</span></label>
+            <input type="time" class="form-control" [(ngModel)]="meetingForm.time" name="meetingTime" required>
+          </div>
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Sales Coordinator / Host</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-person-badge"></i></span>
+              <input type="text" class="form-control border-start-0 bg-light fw-semibold text-dark" [value]="meetingForm.coordinator" readonly>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Status</label>
+            <select class="form-select" [(ngModel)]="meetingForm.status" name="status">
+              <option *ngFor="let opt of meetingStatusOptions" [value]="opt">{{ opt }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-0">
+          <i class="bi bi-bell text-primary"></i>
+          <span>An automatic alarm notification will trigger <strong>15 minutes</strong> before this meeting begins.</span>
+        </div>
+
+        <!-- Modal Footer Buttons -->
+        <div class="d-flex align-items-center justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button type="button" class="btn btn-outline-secondary px-3" (click)="closeMeetingModal()">Cancel</button>
+          <button type="submit" *ngIf="editingMeetingId ? canEdit() : canAdd()" class="btn btn-primary px-4" style="background-color: #5b5fc7; border-color: #5b5fc7;">
+            {{ editingMeetingId ? 'Update Meeting' : 'Schedule Meeting' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: LOG SALES CALL                                    -->
+<!-- ======================================================== -->
+<div *ngIf="isCallModalOpen" class="modal-backdrop-custom d-flex align-items-center justify-content-center">
+  <div class="modal-dialog-custom card border-0 shadow-lg rounded-3 overflow-hidden animate__animated animate__zoomIn">
+    <!-- Header -->
+    <div class="p-3 d-flex align-items-center justify-content-between text-white" style="background-color: #db2777;">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-telephone-fill fs-5"></i>
+        <h6 class="mb-0 fw-bold">Log Sales Team Call</h6>
+      </div>
+      <button type="button" class="btn-close btn-close-white" (click)="closeCallModal()"></button>
+    </div>
+
+    <!-- Body Form -->
+    <div class="p-3 p-md-4 bg-white" style="max-height: 80vh; overflow-y: auto;">
+      <form (ngSubmit)="saveCall()">
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Date <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" [(ngModel)]="callForm.date" name="callDate" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Time <span class="text-danger">*</span></label>
+            <input type="time" class="form-control" [(ngModel)]="callForm.time" name="callTime" required>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold text-dark small">Client / Vendor Name <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" [(ngModel)]="callForm.clientVendorName" name="clientVendorName" placeholder="e.g. Apex Spinning Mills" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold text-dark small">Call Title / Purpose <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" [(ngModel)]="callForm.title" name="callTitle" placeholder="e.g. Commercial Quote Submission Followup" required>
+        </div>
+
+        <!-- Status: New Lead, Offer-Submission, Queries, Negotiation, Others -->
+        <div class="mb-3">
+          <label class="form-label fw-bold text-dark small">Call Status <span class="text-danger">*</span></label>
+          <select class="form-select" [(ngModel)]="callForm.status" name="callStatus" required>
+            <option *ngFor="let opt of callStatusOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Employee</label>
+            <input type="text" class="form-control" [(ngModel)]="callForm.callerName" name="callerName" placeholder="e.g. Renuka">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Phone Number</label>
+            <input type="text" class="form-control" [(ngModel)]="callForm.phoneNumber" name="phoneNumber" placeholder="e.g. +91 98401 23456">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold text-dark small">Discussion Notes / Description</label>
+          <textarea class="form-control" rows="3" [(ngModel)]="callForm.description" name="callDescription" placeholder="Details of conversation, customer queries, pricing discounts..."></textarea>
+        </div>
+
+        <!-- Footer -->
+        <div class="d-flex align-items-center justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button type="button" class="btn btn-outline-secondary px-3" (click)="closeCallModal()">Cancel</button>
+          <button type="submit" *ngIf="canAdd()" class="btn btn-primary px-4" style="background-color: #db2777; border-color: #db2777;">Save Call Log</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: ADD NEW TASK                                      -->
+<!-- ======================================================== -->
+<div *ngIf="isTaskModalOpen" class="modal-backdrop-custom d-flex align-items-center justify-content-center">
+  <div class="modal-dialog-custom card border-0 shadow-lg rounded-3 overflow-hidden animate__animated animate__zoomIn">
+    <!-- Header -->
+    <div class="p-3 d-flex align-items-center justify-content-between text-white" style="background-color: #0f766e;">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-card-checklist fs-5"></i>
+        <h6 class="mb-0 fw-bold">{{ editingTaskId ? 'Edit Task' : 'Create New Task' }}</h6>
+      </div>
+      <button type="button" class="btn-close btn-close-white" (click)="closeTaskModal()"></button>
+    </div>
+
+    <!-- Body Form -->
+    <div class="p-3 p-md-4 bg-white" style="max-height: 80vh; overflow-y: auto;">
+      <form (ngSubmit)="saveTask()">
+        <div class="mb-3">
+          <label class="form-label fw-bold text-dark small">Task Title <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" [(ngModel)]="taskForm.title" name="taskTitle" placeholder="e.g. Prepare Single Line Diagram (SLD)" required>
+        </div>
+
+        <!-- Assigned From <-> Interchangeable Swap <-> Assigned To (Loaded from Office Employees) -->
+        <div class="row g-2 mb-3 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label fw-bold text-dark small">Assigned From <span class="text-danger">*</span></label>
+            <select class="form-select" [(ngModel)]="taskForm.assignedFrom" name="assignedFrom" required>
+              <option *ngFor="let emp of employeeNamesList" [value]="emp">{{ emp }}</option>
+            </select>
+          </div>
+          <div class="col-md-2 text-center pb-1">
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100" (click)="swapTaskAssignments()" title="Swap Assigned From and Assigned To">
+              <i class="bi bi-arrow-left-right"></i> Swap
+            </button>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label fw-bold text-dark small">Assigned To <span class="text-danger">*</span></label>
+            <select class="form-select" [(ngModel)]="taskForm.assignedTo" name="assignedTo" required>
+              <option *ngFor="let emp of employeeNamesList" [value]="emp">{{ emp }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Priority</label>
+            <select class="form-select" [(ngModel)]="taskForm.priority" name="priority">
+              <option *ngFor="let opt of taskPriorityOptions" [value]="opt">{{ opt }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small">Status</label>
+            <select class="form-select" [(ngModel)]="taskForm.status" name="status">
+              <option *ngFor="let opt of taskStatusOptions" [value]="opt">{{ opt }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold text-dark small">Related Client / Project</label>
+          <input type="text" class="form-control" [(ngModel)]="taskForm.relatedTo" name="relatedTo" placeholder="e.g. Tata Power / Sri Krishna Textiles">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold text-dark small">Task Description</label>
+          <textarea class="form-control" rows="3" [(ngModel)]="taskForm.description" name="taskDescription" placeholder="Specific deliverables, checklist or notes..."></textarea>
+        </div>
+
+        <!-- Footer -->
+        <div class="d-flex align-items-center justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button type="button" class="btn btn-outline-secondary px-3" (click)="closeTaskModal()">Cancel</button>
+          <button type="submit" *ngIf="editingTaskId ? canEdit() : canAdd()" class="btn btn-primary px-4" style="background-color: #0f766e; border-color: #0f766e;">{{ editingTaskId ? 'Update Task' : 'Save Task' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

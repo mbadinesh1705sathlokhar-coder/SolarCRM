@@ -1,0 +1,440 @@
+.contacts-container {
+  background-color: #f8fafc;
+  min-height: calc(100vh - 60px);
+}
+
+.contacts-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background-color: #e0e7ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+}
+
+/* Tab Pills */
+.nav-tabs-wrapper {
+  display: flex;
+  gap: 4px;
+  background-color: #f1f5f9;
+}
+
+.tab-pill-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 18px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.tab-pill-btn:hover {
+  color: #1e293b;
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.tab-pill-btn.active {
+  background-color: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* 15-Minute Alarm Banner */
+.alarm-alert-banner {
+  background: linear-gradient(135deg, #fff1f2 0%, #fee2e2 100%);
+  border-left: 5px solid #ef4444;
+  border-radius: 8px;
+}
+
+.alarm-bell-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  position: relative;
+}
+
+.pulse-ring {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 2px solid #ef4444;
+  border-radius: 50%;
+  animation: pulse-border 1.5s infinite ease-out;
+}
+
+@keyframes pulse-border {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* ========================================================== */
+/* MICROSOFT TEAMS CALENDAR STYLES                            */
+/* ========================================================== */
+.teams-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background-color: #5b5fc7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+}
+
+.teams-header-action-btn {
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #242424;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.teams-header-action-btn:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.teams-grid-card {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.teams-grid-scroll-wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.teams-grid-matrix {
+  min-width: 820px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Grid Header */
+.teams-grid-header-row {
+  display: grid;
+  grid-template-columns: 75px repeat(5, 1fr);
+  border-bottom: 2px solid #e5e7eb;
+  background-color: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 8;
+}
+
+.teams-grid-matrix.full-week .teams-grid-header-row {
+  grid-template-columns: 75px repeat(7, 1fr);
+}
+
+.teams-gutter-header {
+  border-right: 1px solid #edebe9;
+  background-color: #faf9f8;
+  height: 56px;
+}
+
+.teams-day-header-cell {
+  padding: 8px 12px;
+  text-align: left;
+  border-right: 1px solid #edebe9;
+  background-color: #faf9f8;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.teams-day-header-cell:last-child {
+  border-right: none;
+}
+
+.day-number-large {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #242424;
+  line-height: 1.1;
+}
+
+.day-name-small {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #616161;
+}
+
+.today-header-cell {
+  background-color: #f8fafc;
+  border-bottom: 2px solid #5b5fc7;
+}
+
+.today-color {
+  color: #5b5fc7 !important;
+  font-weight: 800;
+}
+
+/* Grid Body */
+.teams-grid-body-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.teams-hour-grid-row {
+  display: grid;
+  grid-template-columns: 75px repeat(5, 1fr);
+  min-height: 68px;
+  border-bottom: 1px solid #f1f1f1;
+}
+
+.teams-grid-matrix.full-week .teams-hour-grid-row {
+  grid-template-columns: 75px repeat(7, 1fr);
+}
+
+.teams-hour-gutter-label {
+  border-right: 1px solid #edebe9;
+  text-align: right;
+  padding: 4px 10px 0 0;
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: #707070;
+  background-color: #ffffff;
+  user-select: none;
+}
+
+.teams-slot-cell {
+  border-right: 1px solid #f1f1f1;
+  padding: 3px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+  background-color: #ffffff;
+  min-height: 68px;
+}
+
+.teams-slot-cell:last-child {
+  border-right: none;
+}
+
+.teams-slot-cell:hover {
+  background-color: #f8fafc;
+}
+
+.today-slot {
+  background-color: #fafcff;
+}
+
+.today-slot:hover {
+  background-color: #f1f5fd;
+}
+
+/* Selected Slot Highlight (Matches User's red box & arrow in screenshot) */
+.teams-slot-cell.slot-selected {
+  outline: 2px solid #5b5fc7 !important;
+  outline-offset: -2px;
+  background-color: rgba(91, 95, 199, 0.08) !important;
+  border-radius: 4px;
+  z-index: 3;
+}
+
+/* Meeting Cards in Grid */
+.teams-meeting-tile {
+  background-color: #e8ebfa;
+  border-left: 4px solid #5b5fc7;
+  border-radius: 4px;
+  padding: 4px 7px;
+  margin-bottom: 3px;
+  font-size: 0.75rem;
+  color: #242424;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.teams-meeting-tile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(91, 95, 199, 0.18);
+}
+
+.tile-client {
+  border-left-color: #2563eb;
+  background-color: #eef4ff;
+}
+
+.tile-site {
+  border-left-color: #d97706;
+  background-color: #fef8ee;
+}
+
+.tile-personal {
+  border-left-color: #5b5fc7;
+  background-color: #eeeffc;
+}
+
+.tile-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.tile-title {
+  font-size: 0.76rem;
+  color: #1e1e1e;
+  max-width: 86%;
+}
+
+.tile-delete-btn {
+  opacity: 0.35;
+  font-size: 0.95rem;
+  border: none;
+  background: transparent;
+  line-height: 1;
+}
+
+.tile-delete-btn:hover {
+  opacity: 1;
+  color: #dc2626 !important;
+}
+
+.tile-meta-row {
+  font-size: 0.7rem;
+  color: #475569;
+  margin-top: 1px;
+}
+
+.tile-time {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.tile-purpose-tag {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 5px;
+  background: rgba(0, 0, 0, 0.06);
+  color: #334155;
+  border-radius: 3px;
+}
+
+.empty-slot-placeholder {
+  height: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.teams-slot-cell:hover .empty-slot-placeholder {
+  opacity: 0.6;
+}
+
+.slot-add-icon {
+  font-size: 1.1rem;
+  color: #94a3b8;
+}
+
+/* Current Time Red Indicator Line */
+.teams-current-time-indicator {
+  position: absolute;
+  left: 75px;
+  right: 0;
+  height: 0px;
+  border-top: 2px dashed #d13438;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.teams-current-time-dot {
+  position: absolute;
+  left: -5px;
+  top: -5.5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #d13438;
+  box-shadow: 0 0 4px rgba(209, 52, 56, 0.6);
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Modals */
+.modal-backdrop-custom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.6);
+  z-index: 1060;
+  padding: 1rem;
+}
+
+.modal-dialog-custom {
+  width: 100%;
+  max-width: 580px;
+  border-radius: 12px;
+}
+
+.purpose-block {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* User-requested compact typography & tighter tables */
+.table th {
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  padding: 8px 10px !important;
+  letter-spacing: 0.02em;
+}
+
+.table td {
+  font-size: 0.81rem !important;
+  padding: 6px 10px !important;
+}
+
+.card.p-3 {
+  padding: 0.75rem 1rem !important;
+}
+
+.stats-card-compact {
+  padding: 8px 12px !important;
+}
+
+.stat-num-compact {
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  line-height: 1.15;
+}
+
+.stat-sub-compact {
+  font-size: 0.7rem !important;
+}

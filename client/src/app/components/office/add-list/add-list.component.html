@@ -1,0 +1,431 @@
+<div class="container-fluid p-3 p-md-4">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage" 
+       class="alert alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg border-0 z-3"
+       [class.alert-success]="toastType === 'success'"
+       [class.alert-danger]="toastType === 'danger'"
+       [class.alert-info]="toastType === 'info'"
+       style="min-width: 320px; z-index: 1099;">
+    <i class="bi me-2" 
+       [class.bi-check-circle-fill]="toastType === 'success'"
+       [class.bi-exclamation-triangle-fill]="toastType === 'danger'"
+       [class.bi-info-circle-fill]="toastType === 'info'"></i>
+    {{ toastMessage }}
+    <button type="button" class="btn-close" (click)="toastMessage = ''"></button>
+  </div>
+
+  <!-- Header with Office Navigation Pill Tabs -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
+    <div class="d-flex align-items-center gap-3">
+      <div class="office-icon-box bg-warning-subtle text-warning-emphasis shadow-sm p-2 rounded-3">
+        <i class="bi bi-card-checklist fs-4"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold mb-0 text-dark tracking-tight">Office Administration</h4>
+      </div>
+    </div>
+
+    <!-- Office Pill Navigation Tabs -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/office/employees" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-person-badge me-1 text-primary"></i> Employees
+      </a>
+      <a routerLink="/office/add-list" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-card-checklist me-1 text-warning"></i> Add List
+      </a>
+    </div>
+
+    <!-- Top Action -->
+    <div>
+      <button class="btn btn-sm btn-primary text-white fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
+              (click)="openAddModal()">
+        <i class="bi bi-plus-lg"></i> Add List
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Summary Stats with Category Filter Pills -->
+  <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <!-- Category Filter Pills -->
+      <div class="d-flex flex-wrap align-items-center gap-1.5">
+        <button type="button" 
+                class="btn btn-sm rounded-pill fw-semibold px-3 py-1"
+                [class.btn-primary]="selectedCategoryFilter === 'All'"
+                [class.btn-light]="selectedCategoryFilter !== 'All'"
+                [class.border]="selectedCategoryFilter !== 'All'"
+                (click)="selectedCategoryFilter = 'All'">
+          All <span class="badge bg-white text-dark rounded-pill ms-1" *ngIf="selectedCategoryFilter === 'All'">{{ lists.length }}</span>
+        </button>
+        <button type="button" 
+                class="btn btn-sm rounded-pill fw-semibold px-3 py-1"
+                [class.btn-primary]="selectedCategoryFilter === 'Activity'"
+                [class.btn-light]="selectedCategoryFilter !== 'Activity'"
+                [class.border]="selectedCategoryFilter !== 'Activity'"
+                (click)="selectedCategoryFilter = 'Activity'">
+          <i class="bi bi-calendar-event me-1 text-info"></i> Activity
+          <span class="badge bg-info-subtle text-info rounded-pill ms-1" *ngIf="categoryFilterCounts['Activity']">{{ categoryFilterCounts['Activity'] }}</span>
+        </button>
+        <button type="button" 
+                class="btn btn-sm rounded-pill fw-semibold px-3 py-1"
+                [class.btn-primary]="selectedCategoryFilter === 'Projects'"
+                [class.btn-light]="selectedCategoryFilter !== 'Projects'"
+                [class.border]="selectedCategoryFilter !== 'Projects'"
+                (click)="selectedCategoryFilter = 'Projects'">
+          <i class="bi bi-briefcase me-1 text-primary"></i> Projects / Sales
+          <span class="badge bg-primary-subtle text-primary rounded-pill ms-1" *ngIf="categoryFilterCounts['Projects']">{{ categoryFilterCounts['Projects'] }}</span>
+        </button>
+        <button type="button" 
+                class="btn btn-sm rounded-pill fw-semibold px-3 py-1"
+                [class.btn-primary]="selectedCategoryFilter === 'Finances'"
+                [class.btn-light]="selectedCategoryFilter !== 'Finances'"
+                [class.border]="selectedCategoryFilter !== 'Finances'"
+                (click)="selectedCategoryFilter = 'Finances'">
+          <i class="bi bi-cash-stack me-1 text-warning"></i> Finances
+          <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill ms-1" *ngIf="categoryFilterCounts['Finances']">{{ categoryFilterCounts['Finances'] }}</span>
+        </button>
+        <button type="button" 
+                class="btn btn-sm rounded-pill fw-semibold px-3 py-1"
+                [class.btn-primary]="selectedCategoryFilter === 'Inventory'"
+                [class.btn-light]="selectedCategoryFilter !== 'Inventory'"
+                [class.border]="selectedCategoryFilter !== 'Inventory'"
+                (click)="selectedCategoryFilter = 'Inventory'">
+          <i class="bi bi-box-seam me-1 text-success"></i> Inventory
+          <span class="badge bg-success-subtle text-success rounded-pill ms-1" *ngIf="categoryFilterCounts['Inventory']">{{ categoryFilterCounts['Inventory'] }}</span>
+        </button>
+        <button type="button" 
+                class="btn btn-sm rounded-pill fw-semibold px-3 py-1"
+                [class.btn-primary]="selectedCategoryFilter === 'Billing'"
+                [class.btn-light]="selectedCategoryFilter !== 'Billing'"
+                [class.border]="selectedCategoryFilter !== 'Billing'"
+                (click)="selectedCategoryFilter = 'Billing'">
+          <i class="bi bi-receipt me-1 text-secondary"></i> Billing
+          <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-1" *ngIf="categoryFilterCounts['Billing']">{{ categoryFilterCounts['Billing'] }}</span>
+        </button>
+        <button type="button" 
+                class="btn btn-sm rounded-pill fw-semibold px-3 py-1"
+                [class.btn-primary]="selectedCategoryFilter === 'Office'"
+                [class.btn-light]="selectedCategoryFilter !== 'Office'"
+                [class.border]="selectedCategoryFilter !== 'Office'"
+                (click)="selectedCategoryFilter = 'Office'">
+          <i class="bi bi-building me-1 text-primary"></i> Office
+          <span class="badge bg-primary-subtle text-primary rounded-pill ms-1" *ngIf="categoryFilterCounts['Office']">{{ categoryFilterCounts['Office'] }}</span>
+        </button>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        <!-- Search -->
+        <div class="input-group input-group-sm" style="min-width: 260px;">
+          <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <input type="text" class="form-control border-start-0 bg-light" placeholder="Search title, column, section..." [(ngModel)]="searchTerm">
+        </div>
+        <div class="badge bg-light text-dark border px-3 py-2 rounded-pill font-mono">
+          <i class="bi bi-tags text-primary me-1"></i><strong>{{ totalItemsCount }}</strong> Configured Options
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Master Lists Table -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 custom-list-table">
+        <thead class="table-light">
+          <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+            <th style="width: 50px;" class="text-center">#</th>
+            <th style="min-width: 200px;">Configuration List Title</th>
+            <th style="min-width: 210px;">Mapped Section & Column</th>
+            <th style="width: 110px;">Category</th>
+            <th style="width: 90px;" class="text-center">Options</th>
+            <th style="min-width: 280px;">Configured Options Preview</th>
+            <th style="width: 140px;" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="7" class="text-center py-5 text-muted">
+              <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+              Loading master configuration lists...
+            </td>
+          </tr>
+          <tr *ngIf="!loading && filteredLists.length === 0">
+            <td colspan="7" class="text-center py-5 text-muted">
+              <i class="bi bi-card-checklist fs-2 d-block mb-2 text-secondary"></i>
+              No configuration lists found matching your search. Click <strong>Add List</strong> to create one.
+            </td>
+          </tr>
+          <tr *ngFor="let l of filteredLists; let i = index">
+            <!-- S.No -->
+            <td class="text-center font-mono text-muted small fw-bold">{{ i + 1 }}</td>
+            <!-- Title (Clickable to edit configuration) -->
+            <td>
+              <div class="fw-bold text-dark d-flex align-items-center gap-1.5 config-title-link cursor-pointer" 
+                   style="font-size: 0.9rem;"
+                   (click)="openEditModal(l)"
+                   title="Click to edit list & configurations">
+                <i class="bi bi-list-check text-primary"></i>
+                <span class="hover-underline">{{ l.title }}</span>
+              </div>
+              <div class="small text-muted font-italic" *ngIf="l.description" style="font-size: 0.72rem;">
+                {{ l.description }}
+              </div>
+            </td>
+            <!-- Mapped Section & Column -->
+            <td>
+              <span class="badge bg-light text-dark border px-2.5 py-1.5 d-inline-flex align-items-center gap-1.5" style="font-size: 0.76rem;">
+                <i class="bi" [ngClass]="getMappedInfo(l).icon" [style.color]="getMappedInfo(l).badgeColor"></i>
+                <span class="text-secondary">{{ getMappedInfo(l).sectionTitle }}</span>
+                <span class="text-muted">›</span>
+                <strong class="text-dark">{{ getMappedInfo(l).columnName }}</strong>
+              </span>
+            </td>
+            <!-- Category -->
+            <td>
+              <span class="badge" [ngClass]="{
+                'bg-info-subtle text-info border border-info-subtle': l.category === 'Projects',
+                'bg-success-subtle text-success border border-success-subtle': l.category === 'Inventory',
+                'bg-warning-subtle text-warning-emphasis border border-warning-subtle': l.category === 'Finances',
+                'bg-primary-subtle text-primary border border-primary-subtle': l.category === 'Billing',
+                'bg-danger-subtle text-danger border border-danger-subtle': l.category === 'Activity',
+                'bg-secondary-subtle text-secondary border': !l.category || l.category === 'General' || l.category === 'Office'
+              }">{{ l.category || 'General' }}</span>
+            </td>
+            <!-- Count -->
+            <td class="text-center font-mono fw-bold text-dark">
+              <span class="badge bg-light text-dark border px-2.5 py-1">
+                {{ l.items?.length || 0 }}
+              </span>
+            </td>
+            <!-- Preview of items -->
+            <td>
+              <div class="d-flex flex-wrap gap-1 align-items-center py-1">
+                <span *ngFor="let it of (l.items || []).slice(0, 8)" 
+                      class="badge bg-light text-dark border px-2 py-0.5" 
+                      style="font-size: 0.74rem; font-weight: 500;">
+                  {{ it }}
+                </span>
+                <span *ngIf="(l.items?.length || 0) > 8" 
+                      class="badge bg-secondary-subtle text-secondary border px-1.5 py-0.5 font-mono" 
+                      style="font-size: 0.72rem;">
+                  +{{ (l.items?.length || 0) - 8 }} more
+                </span>
+              </div>
+            </td>
+            <!-- Actions (Delete only - click title to edit) -->
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-danger border-0 p-1"
+                      (click)="confirmDelete(l)"
+                      title="Delete List">
+                <i class="bi bi-trash3 fs-6"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: ADD / EDIT LIST WITH CASCADING SECTION & COLUMN   -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header bg-primary text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-sliders"></i>
+          {{ isEditMode ? 'Edit Configuration: ' + formTitle : 'Configure Column Options' }}
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeModal()"></button>
+      </div>
+
+      <form (ngSubmit)="saveList()">
+        <div class="modal-body p-4 bg-light" style="max-height: 75vh; overflow-y: auto;">
+          <!-- 1. Cascading Section & Column Selector -->
+          <div class="bg-white p-3 rounded-3 border mb-3 shadow-xs">
+            <h6 class="fw-bold text-dark mb-2 text-uppercase tracking-wider" style="font-size: 0.8rem;">
+              <i class="bi bi-diagram-3 me-1 text-primary"></i>Column Mapping
+            </h6>
+            <div class="row g-3">
+              <!-- Dropdown 1: Section / Side Menu Bar -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  1. Select Section (Side Menu Bar) <span class="text-danger">*</span>
+                </label>
+                <select class="form-select form-select-sm shadow-sm fw-semibold"
+                        [(ngModel)]="selectedSectionId"
+                        (change)="onSectionChange()"
+                        name="selectedSectionId"
+                        required>
+                  <option value="" disabled>-- Select Section from Sidebar --</option>
+                  <optgroup label="CRM: Activity">
+                    <option value="activity-calls">📞 Activity → Calls</option>
+                    <option value="activity-meetings">📅 Activity → Meetings</option>
+                    <option value="activity-tasks">📋 Activity → Tasks</option>
+                    <option value="activity-siteplan">📍 Activity → Site Plan</option>
+                  </optgroup>
+                  <optgroup label="CRM: Sales">
+                    <option value="sales-campaigns">📢 Sales → Campaigns</option>
+                    <option value="sales-leads">👥 Sales → Leads</option>
+                    <option value="sales-oppurtunity">⚡ Sales → Oppurtunities</option>
+                    <option value="sales-awarded">🏢 Sales → Awarded sites (Project Master)</option>
+                  </optgroup>
+                  <optgroup label="CRM: Finances">
+                    <option value="finance-payment">💰 Finances → Client Payment Ledger</option>
+                    <option value="finance-expense">🧾 Finances → Expenses Ledger</option>
+                  </optgroup>
+                  <optgroup label="CRM: Inventory">
+                    <option value="inventory-all">📦 Inventory → Indent / Warehouse / Gate Pass / Cart</option>
+                  </optgroup>
+                  <optgroup label="ACCOUNT: Office">
+                    <option value="office-employees">👤 Office → Employees</option>
+                    <option value="office-vendors">🚚 Office → Vendor List</option>
+                  </optgroup>
+                  <optgroup label="Custom Configuration">
+                    <option value="custom">➕ Custom Column / Standalone List</option>
+                  </optgroup>
+                </select>
+                <small class="text-muted" style="font-size: 0.72rem;">
+                  Maps to the navigation modules on the left sidebar
+                </small>
+              </div>
+
+              <!-- Dropdown 2: Configurable Column Name -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  2. Select Column Name <span class="text-danger">*</span>
+                </label>
+                <select class="form-select form-select-sm shadow-sm fw-semibold"
+                        [(ngModel)]="selectedColumnKey"
+                        (change)="onColumnChange()"
+                        name="selectedColumnKey"
+                        [disabled]="!selectedSectionId || selectedSectionId === 'custom'"
+                        required>
+                  <option value="" disabled>-- Select Column --</option>
+                  <option *ngFor="let col of availableColumns" [value]="col.key">
+                    {{ col.columnName }} ({{ col.listTitle }})
+                  </option>
+                  <option value="__CUSTOM__">+ Define Custom / New Column for this section...</option>
+                </select>
+                <small class="text-muted" style="font-size: 0.72rem;">
+                  Displays configurable dropdown columns for the chosen section
+                </small>
+              </div>
+
+              <!-- Custom Column Input if selected -->
+              <div class="col-md-7" *ngIf="isCustomColumn">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  Custom Column / List Title <span class="text-danger">*</span>
+                </label>
+                <input type="text" class="form-control form-control-sm shadow-sm fw-semibold"
+                       placeholder="e.g. Call Status, Priority, Inspection Result, etc."
+                       [(ngModel)]="formTitle" name="formTitle" required>
+              </div>
+              <div class="col-md-5" *ngIf="isCustomColumn">
+                <label class="form-label small fw-bold text-dark mb-1">Mapped Category</label>
+                <select class="form-select form-select-sm shadow-sm" [(ngModel)]="formCategory" name="formCategory">
+                  <option *ngFor="let cat of categoryOptions" [value]="cat">{{ cat }}</option>
+                </select>
+              </div>
+
+              <!-- Description / Notes -->
+              <div class="col-12">
+                <label class="form-label small fw-bold text-dark mb-1">Notes / Description</label>
+                <input type="text" class="form-control form-control-sm shadow-sm"
+                       placeholder="Where this column configuration is used across the system..."
+                       [(ngModel)]="formDescription" name="formDescription">
+              </div>
+
+              <!-- Notice Banner -->
+              <div class="col-12" *ngIf="configNoticeText">
+                <div class="alert py-2 px-3 small d-flex align-items-center gap-2 mb-0"
+                     [class.alert-success]="configNoticeType === 'existing'"
+                     [class.alert-info]="configNoticeType === 'new'">
+                  <i class="bi" [class.bi-check-circle-fill]="configNoticeType === 'existing'" [class.bi-stars]="configNoticeType === 'new'"></i>
+                  <span>{{ configNoticeText }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Dynamic Descriptions Section (Add / Edit / Delete Options) -->
+          <div class="bg-white p-3 rounded-3 border shadow-xs">
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
+              <div>
+                <h6 class="fw-bold text-dark mb-0 text-uppercase tracking-wider" style="font-size: 0.84rem;">
+                  CONFIGURED OPTIONS / VALUES
+                </h6>
+                <small class="text-muted" style="font-size: 0.74rem;">
+                  Add, edit, or remove the selectable options for this column. Click <strong>+ Add New</strong> to append rows.
+                </small>
+              </div>
+              <!-- Green + Add New Button -->
+              <button type="button" 
+                      class="btn btn-sm btn-outline-success fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1.5 rounded-2"
+                      (click)="addDescriptionRow()">
+                <i class="bi bi-plus-lg"></i> Add New Option
+              </button>
+            </div>
+
+            <!-- Loop table / rows -->
+            <div class="table-responsive">
+              <table class="table table-borderless table-sm align-middle mb-0">
+                <thead>
+                  <tr class="text-muted text-uppercase" style="font-size: 0.72rem; border-bottom: 1px solid #e2e8f0;">
+                    <th style="width: 50px;" class="text-center">#</th>
+                    <th>OPTION VALUE / LABEL <span class="text-danger">*</span></th>
+                    <th style="width: 60px;" class="text-center">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of formRows; let idx = index" class="border-bottom border-light">
+                    <!-- S.No badge -->
+                    <td class="text-center font-mono text-muted small fw-bold">
+                      {{ idx + 1 }}
+                    </td>
+                    <!-- Description Input -->
+                    <td>
+                      <input type="text" 
+                             class="form-control form-control-sm shadow-xs border-light-subtle rounded-2"
+                             placeholder="Enter option value (e.g. New Lead, Offer-Submission, High, etc.)..."
+                             [(ngModel)]="row.value" 
+                             [name]="'rowValue_' + idx" 
+                             required>
+                    </td>
+                    <!-- Delete Button ✕ -->
+                    <td class="text-center">
+                      <button type="button" 
+                              class="btn btn-sm btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center rounded-2"
+                              style="width: 30px; height: 30px; font-size: 0.85rem;"
+                              (click)="removeDescriptionRow(idx)" 
+                              title="Remove option">
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+              <small class="text-muted">Total configured options: <strong class="text-dark">{{ formRows.length }}</strong></small>
+              <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 fw-semibold text-success" (click)="addDescriptionRow()">
+                <i class="bi bi-plus me-1"></i>Add another row
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer bg-white py-2.5 px-4 d-flex justify-content-between">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-primary px-4 fw-semibold shadow-sm">
+            <i class="bi bi-check2-circle me-1"></i>Save Configuration List
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

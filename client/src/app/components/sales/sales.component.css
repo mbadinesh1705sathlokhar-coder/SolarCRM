@@ -1,0 +1,307 @@
+/* Sales Component Styling */
+
+.sales-icon-box {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.text-teal {
+  color: #0f766e !important;
+}
+
+.bg-teal-subtle {
+  background-color: #ccfbf1 !important;
+  color: #0f766e !important;
+}
+
+.metric-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  background-color: #f8fafc;
+}
+
+/* Tabs */
+.custom-nav-tabs {
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.custom-nav-tabs .nav-link {
+  color: #64748b;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
+  background: transparent;
+  border-radius: 0;
+}
+
+.custom-nav-tabs .nav-link:hover {
+  color: #0f766e;
+  border-color: #cbd5e1;
+}
+
+.custom-nav-tabs .nav-link.active {
+  color: #0f766e;
+  border-bottom: 3px solid #0f766e;
+  background-color: transparent;
+}
+
+/* Custom Table */
+.custom-table {
+  font-size: 0.86rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.custom-table thead th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.custom-table tbody td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.custom-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.opportunity-row {
+  background-color: #fffdf5;
+}
+
+.opportunity-row:hover {
+  background-color: #fefce8 !important;
+}
+
+/* Status Badges & Quick Dropdown */
+.status-select {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 1.35rem 0.12rem 0.5rem;
+  height: 24px;
+  line-height: 1.2;
+  border-radius: 12px;
+  cursor: pointer;
+  display: inline-block;
+  width: auto;
+  min-width: 82px;
+  border: 1px solid transparent;
+  background-position: right 0.4rem center;
+  background-size: 9px 7px;
+  transition: all 0.15s ease;
+}
+
+.status-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.88;
+  background-image: none !important;
+  padding-right: 0.5rem !important;
+}
+
+.status-new {
+  background-color: #e0f2fe !important;
+  color: #0369a1 !important;
+  border-color: #bae6fd !important;
+}
+
+.status-oppurtunity {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+  font-weight: 700;
+}
+
+.status-qualify {
+  background-color: #dcfce7 !important;
+  color: #15803d !important;
+  border-color: #bbf7d0 !important;
+}
+
+.status-unqualify {
+  background-color: #f1f5f9 !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+}
+
+.status-dead {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+  border-color: #fecaca !important;
+}
+
+.status-order-won,
+.status-awarded-won {
+  background-color: #dcfce7 !important;
+  color: #15803d !important;
+  border-color: #86efac !important;
+  font-weight: 700 !important;
+}
+
+.status-order-lost {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+  border-color: #fca5a5 !important;
+  font-weight: 700 !important;
+}
+
+.status-negotiation {
+  background-color: #ede9fe !important;
+  color: #6d28d9 !important;
+  border-color: #c4b5fd !important;
+}
+
+.status-visit {
+  background-color: #e0f2fe !important;
+  color: #0369a1 !important;
+  border-color: #7dd3fc !important;
+}
+
+.status-offer {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+.status-postponed {
+  background-color: #f1f5f9 !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Handler Badge */
+.badge-handler {
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  padding: 0.35rem 0.6rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+
+/* Toast */
+.toast-notification {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 1100;
+  min-width: 320px;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Modals */
+.modal.show {
+  background-color: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.modal-header-luxury {
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  color: #ffffff;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-header-luxury .btn-close {
+  filter: brightness(0) invert(1);
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 0.2rem rgba(15, 118, 110, 0.15);
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Top Horizontal Scrollbar Track (Synchronized with table) */
+.top-scrollbar-track {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 12px;
+  background-color: #f1f5f9;
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  border-bottom: 1px solid #e2e8f0;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.top-scrollbar-track::-webkit-scrollbar {
+  height: 10px;
+}
+
+.top-scrollbar-track::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.top-scrollbar-track::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+  border-radius: 5px;
+  border: 2px solid #f1f5f9;
+}
+
+.top-scrollbar-track::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
+
+.top-scrollbar-thumb-shim {
+  height: 1px;
+}
+
+/* Styled Table Responsive Scrollbar */
+.table-responsive {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f8fafc;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+  border-radius: 5px;
+  border: 2px solid #f8fafc;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}

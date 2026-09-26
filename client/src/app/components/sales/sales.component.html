@@ -1,0 +1,1607 @@
+<div class="container-fluid p-4">
+
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage" class="toast-notification alert alert-{{ toastType }} shadow-lg d-flex align-items-center justify-content-between p-3 rounded-3" role="alert">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi" [ngClass]="toastType === 'success' ? 'bi-check-circle-fill text-success' : (toastType === 'danger' ? 'bi-exclamation-triangle-fill text-danger' : 'bi-info-circle-fill text-info')"></i>
+      <span class="fw-semibold">{{ toastMessage }}</span>
+    </div>
+    <button type="button" class="btn-close ms-3 shadow-none" (click)="toastMessage = ''" aria-label="Close"></button>
+  </div>
+
+  <!-- Page Header & Overview Metrics -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-3 border-bottom">
+    <div class="d-flex align-items-center">
+      <h4 class="fw-bold mb-0 text-dark tracking-tight">Sales & Pipeline Management</h4>
+    </div>
+
+    <!-- Sales Navigation Pill Tabs (Matching Contacts & Project Master) -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/sales/campaigns" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-megaphone me-1" style="color: #8b5cf6;"></i> Campaigns
+      </a>
+      <button class="tab-pill-btn" 
+              [class.active]="activeTab === 'leads'" 
+              (click)="setTab('leads')">
+        <i class="bi bi-person-lines-fill me-1" style="color: #0f766e;"></i> Leads
+        <span class="badge rounded-pill ms-1" style="background-color: #ccfbf1; color: #0f766e;">{{ totalLeadsCount }}</span>
+      </button>
+      <button class="tab-pill-btn" 
+              [class.active]="activeTab === 'opportunity'" 
+              (click)="setTab('opportunity')">
+        <i class="bi bi-lightning-charge-fill me-1 text-warning"></i> Oppurtunities
+        <span class="badge rounded-pill ms-1" style="background-color: #fef3c7; color: #b45309;">{{ totalOpportunitiesCount }}</span>
+      </button>
+      <a routerLink="/awarded-sites" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-building-check me-1 text-success"></i> Awarded sites
+      </a>
+      <button *ngIf="canViewSalesDashboard()"
+              class="tab-pill-btn" 
+              [class.active]="activeTab === 'dashboard'" 
+              (click)="setTab('dashboard')">
+        <i class="bi bi-bar-chart-line-fill me-1 text-warning"></i> Sales Dashboard
+      </button>
+    </div>
+
+    <!-- Quick Metric Pills & Action Bar -->
+    <div class="w-100 d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2" *ngIf="activeTab !== 'dashboard'">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="metric-pill bg-white border shadow-xs">
+          <span class="text-muted small">Active:</span>
+          <span class="fw-bold text-dark font-mono ms-1">{{ totalLeadsCount }}</span>
+        </div>
+        <div class="metric-pill bg-warning-subtle border border-warning-subtle shadow-xs">
+          <i class="bi bi-lightning-charge-fill text-warning me-1"></i>
+          <span class="text-warning-emphasis small">Opportunities:</span>
+          <span class="fw-bold text-warning-emphasis font-mono ms-1">{{ totalOpportunitiesCount }}</span>
+        </div>
+        <div class="metric-pill bg-success-subtle border border-success-subtle shadow-xs">
+          <span class="text-success small">Qualified:</span>
+          <span class="fw-bold text-success font-mono ms-1">{{ qualifiedLeadsCount }}</span>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        <button class="btn btn-outline-danger btn-sm fw-semibold shadow-sm d-flex align-items-center gap-1.5 px-3 py-2"
+                (click)="exportSalesPdf()"
+                [title]="activeTab === 'leads' ? 'Download Leads PDF Report' : 'Download Opportunities PDF Report'">
+          <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
+          <span>PDF</span>
+        </button>
+        <button *ngIf="activeTab === 'leads' && canAdd()" class="btn btn-primary btn-sm fw-semibold shadow-sm d-flex align-items-center gap-2 px-3 py-2" style="background-color: #0f766e; border-color: #0f766e;" (click)="openAddModal()">
+          <i class="bi bi-plus-lg"></i>
+          <span>+ Add New Lead</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN TABLE CARD -->
+  <div class="card border-0 shadow-sm rounded-4 bg-white mb-4 overflow-hidden" *ngIf="activeTab !== 'dashboard'">
+
+    <!-- Search & Filter Controls Toolbar -->
+    <div class="p-3 bg-light border-bottom">
+      <div class="row g-2 align-items-center">
+        <!-- Search input -->
+        <div class="col-12 col-md-4">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control bg-white border-start-0 ps-0 shadow-none" placeholder="Search by ID, Name, Contact, Location..." [(ngModel)]="searchTerm">
+            <button *ngIf="searchTerm" class="btn btn-white border border-start-0 text-muted shadow-none" type="button" (click)="searchTerm = ''">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Handler filter (Admin only) -->
+        <div class="col-6 col-md-3" *ngIf="isAdmin()">
+          <div class="d-flex align-items-center gap-2">
+            <label class="small text-muted fw-semibold mb-0 text-nowrap" for="handlerSelect">Handler:</label>
+            <select id="handlerSelect" class="form-select form-select-sm shadow-none bg-white font-medium" [(ngModel)]="selectedHandler">
+              <option value="All">All Handlers</option>
+              <option *ngFor="let h of handlerOptions" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Status filter (Active on Leads tab) -->
+        <div class="col-6 col-md-3" *ngIf="activeTab === 'leads'">
+          <div class="d-flex align-items-center gap-2">
+            <label class="small text-muted fw-semibold mb-0 text-nowrap" for="statusSelect">Status:</label>
+            <select id="statusSelect" class="form-select form-select-sm shadow-none bg-white font-medium" [(ngModel)]="selectedStatus">
+              <option value="All">All Leads</option>
+              <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Status filter (Active on Opportunity tab) -->
+        <div class="col-6 col-md-4" *ngIf="activeTab === 'opportunity'">
+          <div class="d-flex align-items-center gap-2">
+            <label class="small text-muted fw-semibold mb-0 text-nowrap" for="oppStatusSelect">Stage:</label>
+            <select id="oppStatusSelect" class="form-select form-select-sm shadow-none bg-white font-medium" [(ngModel)]="selectedOpportunityStatus">
+              <option value="All">All Stages</option>
+              <option *ngFor="let s of opportunityStatusOptions" [value]="s">{{ s }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Right Quick Info -->
+        <div class="col-12 col-md text-md-end">
+          <span class="small text-muted" *ngIf="activeTab === 'leads'">
+            Showing <strong class="text-dark">{{ leadsList.length }}</strong> Leads
+          </span>
+          <span class="small text-muted" *ngIf="activeTab === 'opportunity'">
+            Showing <strong class="text-dark">{{ opportunitiesList.length }}</strong> Qualified Opportunities
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Horizontal Scrollbar (Synchronized with Table Scroll) -->
+    <div class="top-scrollbar-track" #topScrollWrapper (scroll)="onTopScroll()" [style.display]="tableScrollWidth > tableClientWidth ? 'block' : 'none'">
+      <div class="top-scrollbar-thumb-shim" [style.width.px]="tableScrollWidth"></div>
+    </div>
+
+    <!-- Scrollable Table Container -->
+    <div class="table-responsive" #tableWrapper (scroll)="onTableScroll()">
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 1: LEADS TAB                                                     -->
+      <!-- ===================================================================== -->
+      <table *ngIf="activeTab === 'leads'" class="table table-hover align-middle mb-0 custom-table" #dataTableEl style="min-width: 1550px;">
+        <thead>
+          <tr>
+            <th style="min-width: 50px; width: 50px;" class="text-center">#</th>
+            <th style="min-width: 120px;">Lead_Id</th>
+            <th style="min-width: 120px;">Lead_Date</th>
+            <th style="min-width: 220px;">Lead_Name</th>
+            <th style="min-width: 150px;">Lead_Contact</th>
+            <th style="min-width: 200px;">Lead_Email</th>
+            <th style="min-width: 160px;">Lead_Location</th>
+            <th style="min-width: 150px;" class="text-center">Lead_Status</th>
+            <th style="min-width: 140px;">Lead_Handler</th>
+            <th style="min-width: 250px;">Lead_Remarks</th>
+            <th style="min-width: 130px;" class="text-center">Updates Date</th>
+            <th style="min-width: 100px;" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="12" class="text-center py-5 text-muted">
+              <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+              Loading sales leads from database...
+            </td>
+          </tr>
+
+          <tr *ngIf="!loading && leadsList.length === 0">
+            <td colspan="12" class="text-center py-5 text-muted">
+              <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+              No leads found matching current filter criteria.
+              <div class="mt-2">
+                <button class="btn btn-sm btn-outline-primary" (click)="openAddModal()">
+                  <i class="bi bi-plus-circle me-1"></i> Register 1st Lead
+                </button>
+              </div>
+            </td>
+          </tr>
+
+          <tr *ngFor="let lead of leadsList; let i = index">
+            <td class="text-center text-muted font-mono small">{{ i + 1 }}</td>
+            <td>
+              <span class="badge bg-light text-dark border font-mono fw-bold">{{ lead.leadId }}</span>
+            </td>
+            <td class="font-mono small text-nowrap">{{ formatDate(lead.leadDate) }}</td>
+            <td>
+              <a *ngIf="canEditLead()" href="javascript:void(0)" class="fw-bold text-dark text-decoration-none d-flex align-items-center" (click)="openEditModal(lead)" title="Click to edit lead">
+                <i class="bi bi-person-fill text-teal me-1"></i>{{ lead.leadName }}
+              </a>
+              <span *ngIf="!canEditLead()" class="fw-bold text-dark d-flex align-items-center">
+                <i class="bi bi-person-fill text-teal me-1"></i>{{ lead.leadName }}
+              </span>
+            </td>
+            <td class="font-mono small text-nowrap">
+              <a *ngIf="lead.leadContact" [href]="'tel:' + lead.leadContact" class="text-decoration-none text-dark">
+                <i class="bi bi-telephone text-muted me-1"></i>{{ lead.leadContact }}
+              </a>
+              <span *ngIf="!lead.leadContact" class="text-muted">—</span>
+            </td>
+            <td class="small text-truncate font-mono" style="max-width: 180px;" [title]="lead.leadEmail">
+              <a *ngIf="lead.leadEmail" [href]="'mailto:' + lead.leadEmail" class="text-decoration-none text-primary">
+                {{ lead.leadEmail }}
+              </a>
+              <span *ngIf="!lead.leadEmail" class="text-muted">—</span>
+            </td>
+            <td class="small text-truncate" style="max-width: 150px;" [title]="lead.leadLocation">
+              <i class="bi bi-geo-alt text-muted me-1"></i>{{ lead.leadLocation || '—' }}
+            </td>
+
+            <!-- Lead_Status with quick-advance selector -->
+            <td class="text-center">
+              <select #statusSelect
+                      class="form-select form-select-xs status-select shadow-none font-medium text-center"
+                      [ngModel]="lead.leadStatus"
+                      [disabled]="!canChangeLeadStatus()"
+                      (ngModelChange)="changeStatus(lead, $event, statusSelect)"
+                      [ngClass]="{
+                        'status-new': lead.leadStatus === 'New',
+                        'status-qualify': lead.leadStatus === 'Qualify' || lead.leadStatus === 'Oppurtunity',
+                        'status-unqualify': lead.leadStatus === 'Unqualify' || lead.leadStatus === 'unqualify' || lead.leadStatus === 'dead'
+                      }"
+                      title="Click to advance status. Selecting 'Qualify' moves this record to the Oppurtunity tab!">
+                <option value="New">New</option>
+                <option value="Qualify">Qualify</option>
+                <option value="Unqualify">Unqualify</option>
+              </select>
+            </td>
+
+            <!-- Lead_Handler -->
+            <td>
+              <span class="badge badge-handler">
+                <i class="bi bi-person-check-fill me-1"></i>{{ lead.leadHandler }}
+              </span>
+            </td>
+
+            <!-- Lead_Remarks -->
+            <td class="small text-muted text-truncate" style="max-width: 220px;" [title]="lead.leadRemarks">
+              {{ lead.leadRemarks || '—' }}
+            </td>
+
+            <!-- Updates Date -->
+            <td class="font-mono small text-nowrap text-center">
+              {{ formatDate(lead.updatedAt || lead.leadDate) }}
+            </td>
+
+            <!-- Actions -->
+            <td class="text-center">
+              <div class="btn-group btn-group-sm">
+                <button *ngIf="canDelete()" class="btn btn-outline-danger border-0 p-1" (click)="confirmDelete(lead)" title="Delete Lead">
+                  <i class="bi bi-trash3 fs-6"></i>
+                </button>
+                <span *ngIf="!canDelete()" class="text-muted small">—</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 2: OPPURTUNITY TAB (Leads changed to Oppurtunity)               -->
+      <!-- ===================================================================== -->
+      <table *ngIf="activeTab === 'opportunity'" class="table table-hover align-middle mb-0 custom-table" #dataTableOppEl style="min-width: 1900px;">
+        <thead class="table-warning-subtle text-uppercase text-dark" style="background-color: #fef3c7;">
+          <tr>
+            <th style="min-width: 50px; width: 50px;" class="text-center">#</th>
+            <th style="min-width: 130px;">Oppurtunity_ID</th>
+            <th style="min-width: 120px;">Oppurtunity_Date</th>
+            <th style="min-width: 220px;">Client Name</th>
+            <th style="min-width: 150px;">Oppurtunity_Contact</th>
+            <th style="min-width: 200px;">Oppurtunity_Email</th>
+            <th style="min-width: 160px;">Oppurtunity_Location</th>
+            <th style="min-width: 130px;">Site Type</th>
+            <th style="min-width: 120px;">System Type</th>
+            <th style="min-width: 130px;">Site Category</th>
+            <th style="min-width: 110px;">Sale Type</th>
+            <th style="min-width: 120px;">Client Type</th>
+            <th style="min-width: 200px;" class="text-center">Oppurtunity_status</th>
+            <th style="min-width: 140px;">Oppurtunity_Handler</th>
+            <th style="min-width: 250px;">Oppurtunity_Remarks</th>
+            <th style="min-width: 130px;" class="text-center">Updates Date</th>
+            <th style="min-width: 100px;" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="17" class="text-center py-5 text-muted">
+              <div class="spinner-border spinner-border-sm text-warning me-2" role="status"></div>
+              Loading qualified opportunities...
+            </td>
+          </tr>
+
+          <tr *ngIf="!loading && opportunitiesList.length === 0">
+            <td colspan="17" class="text-center py-5 text-muted">
+              <i class="bi bi-folder2-open fs-1 d-block mb-2 text-secondary"></i>
+              No active opportunities yet.
+              <p class="small text-muted mb-3">To add an opportunity, change a lead's status to <strong>"Qualify"</strong> in the Leads tab or create a new one.</p>
+              <button class="btn btn-sm btn-outline-warning fw-semibold" (click)="setTab('leads')">
+                <i class="bi bi-arrow-left me-1"></i> Go to Leads
+              </button>
+            </td>
+          </tr>
+
+          <tr *ngFor="let opp of opportunitiesList; let i = index" class="opportunity-row">
+            <td class="text-center text-muted font-mono small">{{ i + 1 }}</td>
+            <td>
+              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning font-mono fw-bold">
+                <i class="bi bi-bookmark-fill text-warning me-1"></i>{{ opp.leadId }}
+              </span>
+            </td>
+            <td class="font-mono small text-nowrap">{{ formatDate(opp.leadDate) }}</td>
+            <td>
+              <a *ngIf="canEditOpportunity()" href="javascript:void(0)" class="fw-bold text-dark text-decoration-none" (click)="openEditModal(opp)" title="Click to edit opportunity">
+                {{ opp.leadName }}
+              </a>
+              <span *ngIf="!canEditOpportunity()" class="fw-bold text-dark">
+                {{ opp.leadName }}
+              </span>
+            </td>
+            <td class="font-mono small text-nowrap">
+              <a *ngIf="opp.leadContact" [href]="'tel:' + opp.leadContact" class="text-decoration-none text-dark">
+                <i class="bi bi-telephone text-muted me-1"></i>{{ opp.leadContact }}
+              </a>
+              <span *ngIf="!opp.leadContact" class="text-muted">—</span>
+            </td>
+            <td class="small text-truncate font-mono" style="max-width: 180px;" [title]="opp.leadEmail">
+              <a *ngIf="opp.leadEmail" [href]="'mailto:' + opp.leadEmail" class="text-decoration-none text-primary">
+                {{ opp.leadEmail }}
+              </a>
+              <span *ngIf="!opp.leadEmail" class="text-muted">—</span>
+            </td>
+            <td class="small text-truncate" style="max-width: 150px;" [title]="opp.leadLocation">
+              <i class="bi bi-geo-alt text-muted me-1"></i>{{ opp.leadLocation || '—' }}
+            </td>
+
+            <!-- Site Type -->
+            <td class="small">
+              <span class="badge bg-light text-dark border">{{ opp.siteType || 'Residential' }}</span>
+            </td>
+
+            <!-- System Type -->
+            <td class="small">
+              <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">{{ opp.systemType || 'Ongrid' }}</span>
+            </td>
+
+            <!-- Site Category -->
+            <td class="small">
+              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ opp.siteCategory || 'TATA SPG' }}</span>
+            </td>
+
+            <!-- Sale Type -->
+            <td class="small">
+              <span class="badge bg-secondary-subtle text-secondary border">{{ opp.saleType || 'B2C' }}</span>
+            </td>
+
+            <!-- Client Type -->
+            <td class="small">
+              <span class="badge bg-light text-dark border">{{ opp.clientType || 'Individual' }}</span>
+            </td>
+
+            <!-- Oppurtunity_status -->
+            <td class="text-center" style="min-width: 185px;">
+              <select class="form-select form-select-xs status-select shadow-none font-medium text-center"
+                      [class.status-order-won]="opp.leadStatus === 'Order Won'"
+                      [class.status-awarded-won]="opp.leadStatus === 'Order Won'"
+                      [class.status-order-lost]="opp.leadStatus === 'Order Lost'"
+                      [class.status-negotiation]="opp.leadStatus === 'Negotiation'"
+                      [class.status-visit]="opp.leadStatus === 'Site Visit Planned' || opp.leadStatus === 'Site Visit Completed'"
+                      [class.status-offer]="opp.leadStatus === 'Offer Letter Submitted'"
+                      [class.status-postponed]="opp.leadStatus === 'Order Postponed'"
+                      [class.status-qualify]="opp.leadStatus === 'Qualify' || opp.leadStatus === 'Oppurtunity'"
+                      [ngModel]="opp.leadStatus"
+                      [disabled]="!canChangeOpportunityStatus()"
+                      (ngModelChange)="changeStatus(opp, $event)"
+                      title="Update opportunity pipeline status">
+                <option *ngIf="opp.leadStatus === 'Qualify' || opp.leadStatus === 'Oppurtunity'" [value]="opp.leadStatus">{{ opp.leadStatus }} (Select stage)</option>
+                <option *ngFor="let s of opportunityStatusOptions" [value]="s">{{ s }}</option>
+                <option disabled>──────────</option>
+                <option value="New">↩ Move back to Leads</option>
+                <option value="Unqualify">✕ Move to Unqualified</option>
+              </select>
+            </td>
+
+            <!-- Oppurtunity_Handler -->
+            <td>
+              <span class="badge badge-handler">
+                <i class="bi bi-person-check-fill me-1"></i>{{ opp.leadHandler }}
+              </span>
+            </td>
+
+            <!-- Oppurtunity_Remarks -->
+            <td class="small text-muted text-truncate" style="max-width: 220px;" [title]="opp.leadRemarks">
+              {{ opp.leadRemarks || '—' }}
+            </td>
+
+            <!-- Updates Date -->
+            <td class="font-mono small text-nowrap text-center">
+              {{ formatDate(opp.updatedAt || opp.leadDate) }}
+            </td>
+
+            <!-- Actions -->
+            <td class="text-center">
+              <div class="btn-group btn-group-sm">
+                <button *ngIf="canDelete()" class="btn btn-outline-danger border-0 p-1" (click)="confirmDelete(opp)" title="Delete Opportunity">
+                  <i class="bi bi-trash3 fs-6"></i>
+                </button>
+                <span *ngIf="!canDelete()" class="text-muted small">—</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- WEEKLY SALES DASHBOARD (For Admin)                                   -->
+  <!-- ===================================================================== -->
+  <div *ngIf="activeTab === 'dashboard'" class="mb-4">
+    <!-- Dashboard Top Toolbar -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white p-3 mb-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 fw-bold font-mono">
+              <i class="bi bi-calendar3-range me-1"></i> Weekly Tracker
+            </span>
+            <h5 class="fw-bold mb-0 text-dark">
+              Sales Performance by Week
+            </h5>
+          </div>
+          <small class="text-muted">Executive weekly breakdown: Awarded Sites, Contract Value, Client Collections & PO/WO</small>
+        </div>
+
+        <!-- Week Selector & Actions -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <div class="d-flex align-items-center gap-1.5 bg-light p-1 rounded border">
+            <label class="small text-muted fw-semibold ms-1 mb-0 text-nowrap" for="weekSelect">Select Week:</label>
+            <select id="weekSelect" class="form-select form-select-sm border-0 bg-transparent font-mono fw-bold"
+                    style="min-width: 250px;"
+                    [ngModel]="selectedWeeklyRecord"
+                    (ngModelChange)="selectWeeklyRecord($event)">
+              <option *ngFor="let w of weeklyRecords" [ngValue]="w">
+                {{ w.weekLabel }}
+              </option>
+            </select>
+          </div>
+
+          <button class="btn btn-outline-danger btn-sm px-3 fw-semibold shadow-xs d-flex align-items-center gap-1.5"
+                  (click)="exportWeeklySalesPdf()"
+                  title="Export Weekly Sales Report as PDF">
+            <i class="bi bi-file-earmark-pdf-fill"></i>
+            <span>Export Weekly PDF</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Week 4 KPI Metric Cards -->
+    <div class="row g-3 mb-4" *ngIf="selectedWeeklyRecord">
+      <!-- 1) Total Awarded Sites Card -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-success"
+             (click)="openWeeklyDetailModal(selectedWeeklyRecord, 'awarded')"
+             title="Click to view awarded sites for this week">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Total Awarded Sites
+              </div>
+              <div class="metric-number text-success fw-bold my-1 font-mono">
+                {{ selectedWeeklyRecord.awardedSitesCount }} Sites
+              </div>
+              <div class="small text-muted font-mono" style="font-size: 0.72rem;">
+                Week: {{ selectedWeeklyRecord.weekLabel }}
+              </div>
+            </div>
+            <div class="metric-icon-box bg-success-subtle text-success">
+              <i class="bi bi-building-check fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-success small" style="font-size: 0.74rem;">
+            <span>View Awarded Sites</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2) Awarded Value Card -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-info"
+             style="border-color: #0d9488 !important;"
+             (click)="openWeeklyDetailModal(selectedWeeklyRecord, 'awarded')"
+             title="Click to view site contract value breakdown">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Awarded Value
+              </div>
+              <div class="metric-number fw-bold my-1 font-mono" style="color: #0d9488; font-size: 1.15rem;">
+                ₹ {{ selectedWeeklyRecord.awardedValue | number:'1.2-2' }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.72rem;">
+                Agreement Contract Sum
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #ccfbf1; color: #0d9488;">
+              <i class="bi bi-cash-coin fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #0d9488; font-size: 0.74rem;">
+            <span>Contract Details</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3) Client Payment Received Card -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-primary"
+             (click)="openWeeklyDetailModal(selectedWeeklyRecord, 'payments')"
+             title="Click to view client payments received this week">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Client Payment Received
+              </div>
+              <div class="metric-number text-primary fw-bold my-1 font-mono" style="font-size: 1.15rem;">
+                ₹ {{ selectedWeeklyRecord.clientPaymentReceived | number:'1.2-2' }}
+              </div>
+              <div class="small text-muted" style="font-size: 0.72rem;">
+                {{ selectedWeeklyRecord.paymentsList.length }} Collections Logged
+              </div>
+            </div>
+            <div class="metric-icon-box bg-primary-subtle text-primary">
+              <i class="bi bi-wallet2 fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-primary small" style="font-size: 0.74rem;">
+            <span>View Payment Receipts</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4) No. of PO/WO Card -->
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-warning"
+             (click)="openWeeklyDetailModal(selectedWeeklyRecord, 'powo')"
+             title="Click to view PO/WO vouchers issued this week">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                No. of PO/WO
+              </div>
+              <div class="metric-number text-warning-emphasis fw-bold my-1 font-mono">
+                {{ selectedWeeklyRecord.poWoCount }} PO/WO
+              </div>
+              <div class="small text-muted" style="font-size: 0.72rem;">
+                Procurement & Work Orders
+              </div>
+            </div>
+            <div class="metric-icon-box bg-warning-subtle text-warning-emphasis">
+              <i class="bi bi-file-earmark-text-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-warning-emphasis small" style="font-size: 0.74rem;">
+            <span>View PO/WO Orders</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Complete Week-by-Week Breakdown Table -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+      <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-table text-primary fs-5"></i>
+          <h6 class="fw-bold mb-0 text-dark">Weekly Performance Schedule (Format: dd/mm/yyyy - dd/mm/yyyy)</h6>
+        </div>
+        <div class="input-group input-group-sm" style="max-width: 260px;">
+          <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <input type="text" class="form-control border-start-0 bg-white" placeholder="Search week range..." [(ngModel)]="dashboardSearchTerm">
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 custom-table">
+          <thead class="table-light text-uppercase fs-8 text-secondary border-bottom">
+            <tr>
+              <th style="width: 50px;" class="text-center">#</th>
+              <th style="width: 240px;" class="text-center">Week Range (dd/mm/yyyy - dd/mm/yyyy)</th>
+              <th class="text-center" style="width: 170px;">Total Awarded Sites</th>
+              <th class="text-end" style="width: 200px;">Awarded Value</th>
+              <th class="text-end" style="width: 220px;">Client Payment Received</th>
+              <th class="text-center" style="width: 140px;">No. of PO/WO</th>
+              <th class="text-center" style="width: 120px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="dashboardLoading">
+              <td colspan="7" class="text-center py-5">
+                <div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
+                <span class="text-muted">Aggregating weekly sales performance data...</span>
+              </td>
+            </tr>
+            <tr *ngIf="!dashboardLoading && filteredWeeklyRecords.length === 0">
+              <td colspan="7" class="text-center py-5 text-muted">
+                <i class="bi bi-calendar-x fs-2 d-block mb-2 text-secondary"></i>
+                No weekly records found matching search.
+              </td>
+            </tr>
+            <tr *ngFor="let w of filteredWeeklyRecords; let idx = index"
+                [class.table-active]="selectedWeeklyRecord?.weekLabel === w.weekLabel"
+                class="cursor-pointer"
+                (click)="selectWeeklyRecord(w)">
+              <!-- Index -->
+              <td class="text-center text-muted font-mono small">
+                {{ idx + 1 }}
+              </td>
+
+              <!-- Week Range -->
+              <td class="text-center">
+                <span class="badge font-mono fw-bold px-2.5 py-1.5 fs-7 border"
+                      [ngClass]="w.weekLabel.startsWith('26/09/2026') ? 'bg-primary-subtle text-primary border-primary-subtle' : 'bg-light text-dark border-secondary-subtle'">
+                  <i *ngIf="w.weekLabel.startsWith('26/09/2026')" class="bi bi-clock-history me-1 text-primary"></i>
+                  {{ w.weekLabel }}
+                </span>
+              </td>
+
+              <!-- Total Awarded Sites -->
+              <td class="text-center font-mono fw-bold fs-7">
+                <span *ngIf="w.awardedSitesCount > 0" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                  {{ w.awardedSitesCount }} Sites
+                </span>
+                <span *ngIf="w.awardedSitesCount === 0" class="text-muted small">
+                  0
+                </span>
+              </td>
+
+              <!-- Awarded Value -->
+              <td class="text-end font-mono fw-bold fs-7" [ngClass]="w.awardedValue > 0 ? 'text-teal' : 'text-muted'" style="color: #0d9488;">
+                <span *ngIf="w.awardedValue > 0">₹ {{ w.awardedValue | number:'1.2-2' }}</span>
+                <span *ngIf="w.awardedValue === 0" class="text-muted small">₹ 0.00</span>
+              </td>
+
+              <!-- Client Payment Received -->
+              <td class="text-end font-mono fw-bold fs-7" [ngClass]="w.clientPaymentReceived > 0 ? 'text-primary' : 'text-muted'">
+                <span *ngIf="w.clientPaymentReceived > 0">₹ {{ w.clientPaymentReceived | number:'1.2-2' }}</span>
+                <span *ngIf="w.clientPaymentReceived === 0" class="text-muted small">₹ 0.00</span>
+              </td>
+
+              <!-- No. of PO/WO -->
+              <td class="text-center font-mono fw-bold fs-7">
+                <span *ngIf="w.poWoCount > 0" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                  {{ w.poWoCount }}
+                </span>
+                <span *ngIf="w.poWoCount === 0" class="text-muted small">
+                  0
+                </span>
+              </td>
+
+              <!-- Actions -->
+              <td class="text-center" (click)="$event.stopPropagation()">
+                <button class="btn btn-xs btn-outline-primary px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs"
+                        (click)="openWeeklyDetailModal(w, 'awarded')"
+                        title="View week breakdown drilldown">
+                  <i class="bi bi-eye-fill"></i>
+                  <span>Details</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- WEEKLY DRILLDOWN DETAIL MODAL                                         -->
+  <!-- ===================================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isWeeklyDetailModalOpen && weeklyDetailRecord" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        
+        <!-- Header -->
+        <div class="modal-header bg-dark text-white py-3 px-4">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-calendar3-range fs-4 text-warning"></i>
+            <div>
+              <h5 class="modal-title fw-bold mb-0">Weekly Performance Drilldown</h5>
+              <div class="small text-white-50 font-mono">Week: {{ weeklyDetailRecord.weekLabel }}</div>
+            </div>
+          </div>
+          <button type="button" class="btn-close btn-close-white" (click)="closeWeeklyDetailModal()"></button>
+        </div>
+
+        <!-- Sub-nav tabs in modal -->
+        <div class="modal-body p-0 bg-light">
+          <div class="px-4 pt-3 bg-white border-bottom">
+            <ul class="nav nav-tabs border-0 gap-2">
+              <li class="nav-item">
+                <button class="nav-link fw-semibold px-3 py-2 border-0 rounded-top"
+                        [class.active]="weeklyDetailActiveTab === 'awarded'"
+                        [class.text-success]="weeklyDetailActiveTab === 'awarded'"
+                        (click)="weeklyDetailActiveTab = 'awarded'">
+                  <i class="bi bi-building-check me-1"></i>
+                  Awarded Sites ({{ weeklyDetailRecord.awardedSitesCount }}) &bull; ₹ {{ weeklyDetailRecord.awardedValue | number:'1.0-0' }}
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-semibold px-3 py-2 border-0 rounded-top"
+                        [class.active]="weeklyDetailActiveTab === 'payments'"
+                        [class.text-primary]="weeklyDetailActiveTab === 'payments'"
+                        (click)="weeklyDetailActiveTab = 'payments'">
+                  <i class="bi bi-wallet2 me-1"></i>
+                  Client Payments ({{ weeklyDetailRecord.paymentsList.length }}) &bull; ₹ {{ weeklyDetailRecord.clientPaymentReceived | number:'1.0-0' }}
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-semibold px-3 py-2 border-0 rounded-top"
+                        [class.active]="weeklyDetailActiveTab === 'powo'"
+                        [class.text-warning-emphasis]="weeklyDetailActiveTab === 'powo'"
+                        (click)="weeklyDetailActiveTab = 'powo'">
+                  <i class="bi bi-file-earmark-text me-1"></i>
+                  PO / WO Vouchers ({{ weeklyDetailRecord.poWoCount }})
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <div class="p-4" style="max-height: 480px; overflow-y: auto;">
+            <!-- Tab 1: Awarded Sites -->
+            <div *ngIf="weeklyDetailActiveTab === 'awarded'">
+              <div *ngIf="weeklyDetailRecord.awardedProjectsList.length === 0" class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-2 d-block mb-1 text-secondary"></i>
+                No sites awarded during this week ({{ weeklyDetailRecord.weekLabel }}).
+              </div>
+              <table *ngIf="weeklyDetailRecord.awardedProjectsList.length > 0" class="table table-hover align-middle mb-0 custom-table bg-white rounded border">
+                <thead class="table-light text-uppercase fs-8 text-secondary">
+                  <tr>
+                    <th>Site ID</th>
+                    <th>Client Name</th>
+                    <th>Capacity</th>
+                    <th>Site Type</th>
+                    <th>Awarded Date</th>
+                    <th class="text-end">Site Contract Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let p of weeklyDetailRecord.awardedProjectsList">
+                    <td><span class="badge bg-danger-subtle text-danger font-mono fw-bold">{{ p.siteId }}</span></td>
+                    <td class="fw-bold text-dark">{{ p.clientName }}</td>
+                    <td>{{ p.siteCapacity }} kW</td>
+                    <td>{{ p.siteType }}</td>
+                    <td class="font-mono small">{{ formatDate(p.awardedDate) }}</td>
+                    <td class="text-end font-mono fw-bold text-success">₹ {{ (p.siteValue || 0) | number:'1.2-2' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Tab 2: Client Payments -->
+            <div *ngIf="weeklyDetailActiveTab === 'payments'">
+              <div *ngIf="weeklyDetailRecord.paymentsList.length === 0" class="text-center py-4 text-muted">
+                <i class="bi bi-wallet2 fs-2 d-block mb-1 text-secondary"></i>
+                No client payment transactions logged in this week.
+              </div>
+              <table *ngIf="weeklyDetailRecord.paymentsList.length > 0" class="table table-hover align-middle mb-0 custom-table bg-white rounded border">
+                <thead class="table-light text-uppercase fs-8 text-secondary">
+                  <tr>
+                    <th>Date</th>
+                    <th>Site ID</th>
+                    <th>Client Name</th>
+                    <th>Payment Mode</th>
+                    <th>Reference</th>
+                    <th class="text-end">Amount Received</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let pay of weeklyDetailRecord.paymentsList">
+                    <td class="font-mono small">{{ formatDate(pay.paymentDate) }}</td>
+                    <td><span class="badge bg-light text-dark font-mono border">{{ pay.siteId }}</span></td>
+                    <td class="fw-bold text-dark">{{ pay.clientName }}</td>
+                    <td><span class="badge bg-info-subtle text-info border">{{ pay.paymentMode }}</span></td>
+                    <td class="small text-muted">{{ pay.remarks || pay.referenceNo || '—' }}</td>
+                    <td class="text-end font-mono fw-bold text-primary">₹ {{ (pay.amount || 0) | number:'1.2-2' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Tab 3: PO / WO -->
+            <div *ngIf="weeklyDetailActiveTab === 'powo'">
+              <div *ngIf="weeklyDetailRecord.poWoList.length === 0" class="text-center py-4 text-muted">
+                <i class="bi bi-file-earmark-text fs-2 d-block mb-1 text-secondary"></i>
+                No PO / WO vouchers issued in this week.
+              </div>
+              <table *ngIf="weeklyDetailRecord.poWoList.length > 0" class="table table-hover align-middle mb-0 custom-table bg-white rounded border">
+                <thead class="table-light text-uppercase fs-8 text-secondary">
+                  <tr>
+                    <th>Date</th>
+                    <th>Site ID</th>
+                    <th>Vendor</th>
+                    <th>Payment Through</th>
+                    <th>Purpose</th>
+                    <th>Bill Voucher</th>
+                    <th class="text-end">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let exp of weeklyDetailRecord.poWoList">
+                    <td class="font-mono small">{{ formatDate(exp.expenseDate) }}</td>
+                    <td><span class="badge bg-danger-subtle text-danger font-mono">{{ exp.siteId }}</span></td>
+                    <td class="fw-semibold text-dark">{{ exp.vendorName || '—' }}</td>
+                    <td><span class="badge bg-warning-subtle text-warning-emphasis border">{{ exp.paymentThrough }}</span></td>
+                    <td>{{ exp.purpose }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ exp.billVoucher || '—' }}</span></td>
+                    <td class="text-end font-mono fw-bold text-danger">₹ {{ (exp.amount || 0) | number:'1.2-2' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-white border-top py-2.5 px-4 d-flex justify-content-between align-items-center">
+          <small class="text-muted">
+            <i class="bi bi-shield-check text-success me-1"></i> Data aggregates in real-time across Project Masters, Client Payment Ledgers & Expenses.
+          </small>
+          <button type="button" class="btn btn-secondary btn-sm px-4" (click)="closeWeeklyDetailModal()">Close</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: ADD NEW LEAD                                                   -->
+  <!-- ===================================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isAddModalOpen" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        
+        <!-- Header -->
+        <div class="modal-header modal-header-luxury py-3 px-4 border-0">
+          <div class="d-flex align-items-center gap-3">
+            <div class="client-avatar-box text-warning">
+              <i class="bi bi-person-plus-fill"></i>
+            </div>
+            <div>
+              <h4 class="modal-title fw-bold mb-0 text-white tracking-tight">Add New Sales Lead</h4>
+              <small class="text-white-50">Capture new prospect inquiry, assign handler, and track commercial interest</small>
+            </div>
+          </div>
+          <button type="button" class="modal-close-btn ms-auto" (click)="closeAddModal()" title="Close dialog" aria-label="Close">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+
+        <form (ngSubmit)="saveNewLead()">
+          <div class="modal-body p-4 bg-light">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 border mb-3">
+              <h6 class="fw-bold text-dark mb-3"><i class="bi bi-card-heading text-primary me-2"></i> Lead Identification & Date</h6>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">Lead_Id <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control font-mono fw-bold shadow-none" [(ngModel)]="leadForm.leadId" name="leadId" placeholder="e.g. SLD-101" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">Lead_Date <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control font-mono shadow-none" [(ngModel)]="leadForm.leadDate" name="leadDate" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">{{ activeTab === 'opportunity' ? 'Opportunity Stage' : 'Lead_Status' }}</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.leadStatus" name="leadStatus">
+                    <ng-container *ngIf="activeTab === 'leads'">
+                      <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
+                    </ng-container>
+                    <ng-container *ngIf="activeTab === 'opportunity'">
+                      <option *ngFor="let s of opportunityStatusOptions" [value]="s">{{ s }}</option>
+                    </ng-container>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 border mb-3">
+              <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-badge text-teal me-2"></i> Prospect Information</h6>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Lead_Name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control shadow-none" [(ngModel)]="leadForm.leadName" name="leadName" placeholder="e.g. Sundaram Auto Components / Mr. Rajesh" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Lead_Location</label>
+                  <input type="text" class="form-control shadow-none" [(ngModel)]="leadForm.leadLocation" name="leadLocation" placeholder="e.g. Ambattur, Chennai">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Lead_Contact</label>
+                  <input type="text" class="form-control font-mono shadow-none" [(ngModel)]="leadForm.leadContact" name="leadContact" placeholder="e.g. +91 98401 23456">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Lead_Email</label>
+                  <input type="email" class="form-control font-mono shadow-none" [(ngModel)]="leadForm.leadEmail" name="leadEmail" placeholder="e.g. purchase@company.com">
+                </div>
+              </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 border mb-3">
+              <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear-wide-connected text-success me-2"></i> System & Commercial Configuration</h6>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">Site Type</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.siteType" name="addSiteType">
+                    <option *ngFor="let opt of masterSiteTypes" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">System Type</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.systemType" name="addSystemType">
+                    <option *ngFor="let opt of masterSystemTypes" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">Site Category</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.siteCategory" name="addSiteCategory">
+                    <option *ngFor="let opt of siteCategoryOptions" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Sale Type</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.saleType" name="addSaleType">
+                    <option *ngFor="let opt of saleTypeOptions" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Client Type</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.clientType" name="addClientType">
+                    <option *ngFor="let opt of masterClientTypes" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 border">
+              <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-gear text-warning me-2"></i> Assignment & Remarks</h6>
+              <div class="row g-3">
+                <div class="col-md-5">
+                  <label class="form-label small fw-bold text-secondary">Lead_Handler <span class="text-danger">*</span></label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.leadHandler" name="leadHandler" [disabled]="!isAdmin()" required>
+                    <option *ngFor="let h of handlerOptions" [value]="h">{{ h }}</option>
+                  </select>
+                </div>
+                <div class="col-md-7">
+                  <label class="form-label small fw-bold text-secondary">Lead_Remarks</label>
+                  <input type="text" class="form-control shadow-none" [(ngModel)]="leadForm.leadRemarks" name="leadRemarks" placeholder="e.g. 500 kW Rooftop, requested commercial quote">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer bg-white border-top py-3 px-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-secondary px-4 shadow-none" (click)="closeAddModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary fw-bold px-4 shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
+              <i class="bi bi-check-circle me-1"></i> Save Lead
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: EDIT LEAD / OPPURTUNITY                                       -->
+  <!-- ===================================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isEditModalOpen && leadToEdit" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        
+        <!-- Header -->
+        <div class="modal-header modal-header-luxury py-3 px-4 border-0">
+          <div class="d-flex align-items-center gap-3">
+            <div class="client-avatar-box text-primary">
+              <i class="bi bi-pencil-square"></i>
+            </div>
+            <div>
+              <h4 class="modal-title fw-bold mb-0 text-white tracking-tight">Edit Lead: {{ leadToEdit.leadId }}</h4>
+              <small class="text-white-50">Update stage, contact details, handler assignment, and notes</small>
+            </div>
+          </div>
+          <button type="button" class="modal-close-btn ms-auto" (click)="closeEditModal()" title="Close dialog" aria-label="Close">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+
+        <form (ngSubmit)="saveEditLead()">
+          <div class="modal-body p-4 bg-light">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 border mb-3">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">Lead_Id</label>
+                  <input type="text" class="form-control font-mono fw-bold shadow-none" [(ngModel)]="leadForm.leadId" name="leadId" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">Lead_Date</label>
+                  <input type="date" class="form-control font-mono shadow-none" [(ngModel)]="leadForm.leadDate" name="leadDate" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">{{ activeTab === 'opportunity' || isOpportunityStatus(leadForm.leadStatus) ? 'Opportunity Stage' : 'Lead_Status' }}</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.leadStatus" name="leadStatus">
+                    <ng-container *ngIf="activeTab === 'leads' && !isOpportunityStatus(leadForm.leadStatus)">
+                      <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
+                    </ng-container>
+                    <ng-container *ngIf="activeTab === 'opportunity' || isOpportunityStatus(leadForm.leadStatus)">
+                      <option *ngIf="leadForm.leadStatus === 'Qualify' || leadForm.leadStatus === 'Oppurtunity'" [value]="leadForm.leadStatus">{{ leadForm.leadStatus }} (Select stage)</option>
+                      <option *ngFor="let s of opportunityStatusOptions" [value]="s">{{ s }}</option>
+                      <option disabled>──────────</option>
+                      <option value="New">Move back to Leads (New)</option>
+                      <option value="Unqualify">Move to Unqualified</option>
+                    </ng-container>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 border mb-3">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Lead_Name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control shadow-none fw-semibold" [(ngModel)]="leadForm.leadName" name="leadName" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Lead_Location</label>
+                  <input type="text" class="form-control shadow-none" [(ngModel)]="leadForm.leadLocation" name="leadLocation">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Lead_Contact</label>
+                  <input type="text" class="form-control font-mono shadow-none" [(ngModel)]="leadForm.leadContact" name="leadContact">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Lead_Email</label>
+                  <input type="email" class="form-control font-mono shadow-none" [(ngModel)]="leadForm.leadEmail" name="leadEmail">
+                </div>
+              </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 border mb-3">
+              <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear-wide-connected text-success me-2"></i> System & Commercial Configuration</h6>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">Site Type</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.siteType" name="editSiteType">
+                    <option *ngFor="let opt of masterSiteTypes" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">System Type</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.systemType" name="editSystemType">
+                    <option *ngFor="let opt of masterSystemTypes" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-secondary">Site Category</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.siteCategory" name="editSiteCategory">
+                    <option *ngFor="let opt of siteCategoryOptions" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Sale Type</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.saleType" name="editSaleType">
+                    <option *ngFor="let opt of saleTypeOptions" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold text-secondary">Client Type</label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.clientType" name="editClientType">
+                    <option *ngFor="let opt of masterClientTypes" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 border">
+              <div class="row g-3">
+                <div class="col-md-5">
+                  <label class="form-label small fw-bold text-secondary">Lead_Handler <span class="text-danger">*</span></label>
+                  <select class="form-select shadow-none font-medium" [(ngModel)]="leadForm.leadHandler" name="leadHandler" [disabled]="!isAdmin()" required>
+                    <option *ngFor="let h of handlerOptions" [value]="h">{{ h }}</option>
+                  </select>
+                </div>
+                <div class="col-md-7">
+                  <label class="form-label small fw-bold text-secondary">Lead_Remarks</label>
+                  <input type="text" class="form-control shadow-none" [(ngModel)]="leadForm.leadRemarks" name="leadRemarks">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer bg-white border-top py-3 px-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-secondary px-4 shadow-none" (click)="closeEditModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary fw-bold px-4 shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
+              <i class="bi bi-save me-1"></i> Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: DELETE CONFIRMATION                                            -->
+  <!-- ===================================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteModalOpen && leadToDelete" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        <div class="modal-body p-4 text-center">
+          <div class="text-danger mb-3">
+            <i class="bi bi-trash3 fs-1"></i>
+          </div>
+          <h5 class="fw-bold mb-2">Delete Lead: {{ leadToDelete.leadId }}?</h5>
+          <p class="text-muted small mb-4">
+            Are you sure you want to permanently delete lead record for <strong>{{ leadToDelete.leadName }}</strong>? This action cannot be undone.
+          </p>
+          <div class="d-flex justify-content-center gap-2">
+            <button type="button" class="btn btn-outline-secondary px-4 shadow-none" (click)="closeDeleteModal()">Cancel</button>
+            <button type="button" class="btn btn-danger px-4 shadow-sm" (click)="executeDelete()">
+              <i class="bi bi-trash3 me-1"></i> Confirm Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: QUALIFY LEAD CONFIRMATION (LEADS -> OPPORTUNITY)              -->
+  <!-- ===================================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isQualifyConfirmModalOpen && pendingQualifyLead" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        <div class="modal-header text-white py-3 px-4 border-0" style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-patch-check-fill text-warning fs-4"></i>
+            <h5 class="modal-title fw-bold mb-0">Qualify Lead & Move to Opportunity?</h5>
+          </div>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="cancelQualifyConfirmation()" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="alert alert-info border border-info-subtle bg-info-subtle rounded-3 p-3 mb-3 d-flex align-items-start gap-3">
+            <i class="bi bi-briefcase-fill text-primary fs-2"></i>
+            <div>
+              <div class="fw-bold text-primary mb-1">Qualify Opportunity Lead</div>
+              <div class="small text-dark">
+                Are you sure you want to qualify <strong>{{ pendingQualifyLead.leadId }}: {{ pendingQualifyLead.leadName }}</strong>?
+                This will advance the lead to the <strong>Oppurtunity</strong> pipeline.
+              </div>
+            </div>
+          </div>
+
+          <div class="card border rounded-3 p-3 bg-light mb-3">
+            <div class="row g-2 small">
+              <div class="col-6"><span class="text-muted">Lead ID:</span> <strong class="text-dark d-block font-mono">{{ pendingQualifyLead.leadId }}</strong></div>
+              <div class="col-6"><span class="text-muted">Client Name:</span> <strong class="text-dark d-block">{{ pendingQualifyLead.leadName }}</strong></div>
+              <div class="col-6"><span class="text-muted">Contact:</span> <span class="d-block font-mono">{{ pendingQualifyLead.leadContact || '—' }}</span></div>
+              <div class="col-6"><span class="text-muted">Email:</span> <span class="d-block font-mono text-truncate">{{ pendingQualifyLead.leadEmail || '—' }}</span></div>
+              <div class="col-6"><span class="text-muted">Location:</span> <span class="d-block">{{ pendingQualifyLead.leadLocation || '—' }}</span></div>
+              <div class="col-6"><span class="text-muted">Handler:</span> <span class="d-block">{{ pendingQualifyLead.leadHandler }}</span></div>
+            </div>
+          </div>
+
+          <p class="small text-muted mb-0 text-center fw-semibold">
+            Confirming will update status to 'Qualify' and switch view to Oppurtunity.
+          </p>
+        </div>
+        <div class="modal-footer bg-light border-top py-3 px-4 d-flex justify-content-between">
+          <button type="button" class="btn btn-outline-secondary px-4 shadow-none" (click)="cancelQualifyConfirmation()">
+            <i class="bi bi-x-circle me-1"></i> No, Cancel
+          </button>
+          <button type="button" class="btn btn-success fw-bold px-4 shadow-sm" (click)="confirmQualifyYes()" style="background-color: #0f766e; border-color: #0f766e;">
+            <i class="bi bi-check2-circle me-1"></i> Yes, Move to Opportunity
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: AWARDED WON CONFIRMATION (YES / NO)                          -->
+  <!-- ===================================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isAwardConfirmModalOpen && pendingAwardLead" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        <div class="modal-header text-white py-3 px-4 border-0" style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-trophy-fill text-warning fs-4"></i>
+            <h5 class="modal-title fw-bold mb-0">Move to Awarded Sites?</h5>
+          </div>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="cancelAwardConfirmation()" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="alert alert-success border border-success-subtle bg-success-subtle rounded-3 p-3 mb-3 d-flex align-items-start gap-3">
+            <i class="bi bi-building-check text-success fs-2"></i>
+            <div>
+              <div class="fw-bold text-success mb-1">Opportunity Won!</div>
+              <div class="small text-dark">
+                You marked <strong>{{ pendingAwardLead.leadId }}: {{ pendingAwardLead.leadName }}</strong> as <strong>{{ targetAwardStatus }}</strong>.
+                Do you want to create a new project record in <strong>Awarded Sites</strong> for this client?
+              </div>
+            </div>
+          </div>
+
+          <div class="card border rounded-3 p-3 bg-light mb-3">
+            <div class="row g-2 small">
+              <div class="col-6"><span class="text-muted">Client Name:</span> <strong class="text-dark d-block">{{ pendingAwardLead.leadName }}</strong></div>
+              <div class="col-6"><span class="text-muted">Location:</span> <span class="d-block">{{ pendingAwardLead.leadLocation || '—' }}</span></div>
+              <div class="col-6"><span class="text-muted">Contact No:</span> <span class="d-block font-mono">{{ pendingAwardLead.leadContact || '—' }}</span></div>
+              <div class="col-6"><span class="text-muted">Handler:</span> <span class="d-block">{{ pendingAwardLead.leadHandler }}</span></div>
+            </div>
+          </div>
+
+          <p class="small text-muted mb-0 text-center fw-semibold">
+            If Yes, an Awarded Site form with auto-generated SP ID will open for completion.
+          </p>
+        </div>
+        <div class="modal-footer bg-light border-top py-3 px-4 d-flex justify-content-between">
+          <button type="button" class="btn btn-outline-secondary px-4 shadow-none" (click)="cancelAwardConfirmation()">
+            <i class="bi bi-x-circle me-1"></i> No, Cancel
+          </button>
+          <button type="button" class="btn btn-success fw-bold px-4 shadow-sm" (click)="confirmAwardYes()" style="background-color: #0f766e; border-color: #0f766e;">
+            <i class="bi bi-arrow-right-circle me-1"></i> Yes, Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 2: AWARDED SITE REGISTRATION FORM (AUTO SP ID + PRE-FILLED INFO) -->
+  <!-- ===================================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isCreateProjectModalOpen && pendingAwardLead" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden" style="max-height: 90vh; display: flex; flex-direction: column;">
+        
+        <!-- Header -->
+        <div class="modal-header border-bottom px-4 py-3 modal-header-luxury text-white d-flex justify-content-between align-items-center" style="flex-shrink: 0;">
+          <div class="d-flex align-items-center gap-3">
+            <div class="bg-white bg-opacity-20 p-2 rounded-3 text-white">
+              <i class="bi bi-building-add fs-4"></i>
+            </div>
+            <div>
+              <h5 class="modal-title fw-bold mb-0">Create Awarded Site Record</h5>
+              <small class="text-white-50">Converting Opportunity {{ pendingAwardLead.leadId }} &bull; {{ pendingAwardLead.leadName }} to Awarded Site</small>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-success fw-bold px-3 shadow-sm d-flex align-items-center gap-1"
+                    (click)="submitAwardedSiteProject()"
+                    [disabled]="isSubmittingProject"
+                    style="background-color: #10b981; border-color: #059669;">
+              <span *ngIf="isSubmittingProject" class="spinner-border spinner-border-sm me-1" role="status"></span>
+              <i *ngIf="!isSubmittingProject" class="bi bi-save2-fill"></i>
+              <span>Save Project</span>
+            </button>
+            <button type="button" class="btn-close btn-close-white shadow-none" (click)="cancelCreateAwardedSiteModal()" aria-label="Close"></button>
+          </div>
+        </div>
+
+        <!-- Form Body -->
+        <form (ngSubmit)="submitAwardedSiteProject()" style="display: flex; flex-direction: column; overflow: hidden; height: 100%;">
+          <div class="modal-body p-4 bg-light" style="overflow-y: auto; flex: 1 1 auto; max-height: calc(90vh - 140px);">
+
+            <!-- CARD 1: SITE & CLIENT DETAILS -->
+            <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+              <h6 class="fw-bold text-dark border-bottom pb-2 mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-info-circle text-primary"></i> 1. Site & Client Identification
+              </h6>
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Site ID <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control font-mono fw-bold text-primary shadow-none" [(ngModel)]="awardProjectForm.siteId" name="awardSiteId" placeholder="e.g. SP419" required>
+                  <small class="text-muted" style="font-size: 0.72rem;">Auto-generated next SP ID, fully editable</small>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Awarded Date <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control shadow-none" [(ngModel)]="awardProjectForm.awardedDate" name="awardAwardedDate" required>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold">Client Name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control fw-bold shadow-none" [(ngModel)]="awardProjectForm.clientName" name="awardClientName" placeholder="Client or Company Name" required>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold">Location</label>
+                  <input type="text" class="form-control shadow-none" [(ngModel)]="awardProjectForm.location" name="awardLocation" placeholder="e.g. Chennai">
+                  <small class="text-muted" style="font-size: 0.72rem;">Pre-filled from Opportunity</small>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold">Contact No</label>
+                  <input type="text" class="form-control font-mono shadow-none" [(ngModel)]="awardProjectForm.contactNo" name="awardContactNo" placeholder="+91 ...">
+                  <small class="text-muted" style="font-size: 0.72rem;">Pre-filled from Opportunity</small>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold">Email ID</label>
+                  <input type="email" class="form-control font-mono shadow-none" [(ngModel)]="awardProjectForm.emailId" name="awardEmailId" placeholder="client@example.com">
+                  <small class="text-muted" style="font-size: 0.72rem;">Pre-filled from Opportunity</small>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label small fw-bold">Complete Site Address</label>
+                  <input type="text" class="form-control shadow-none" [(ngModel)]="awardProjectForm.address" name="awardAddress" placeholder="Physical site location and address">
+                </div>
+              </div>
+            </div>
+
+            <!-- CARD 2: TECHNICAL & CLASSIFICATION -->
+            <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+              <h6 class="fw-bold text-dark border-bottom pb-2 mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-gear text-primary"></i> 2. Technical & Configuration Details
+              </h6>
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Site Capacity <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control shadow-none" [(ngModel)]="awardProjectForm.siteCapacity" name="awardSiteCapacity" placeholder="e.g. 5 kW, 10 kW, 100 kW" required>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Site Type</label>
+                  <select class="form-select shadow-none" [(ngModel)]="awardProjectForm.siteType" name="awardSiteType">
+                    <option *ngFor="let opt of masterSiteTypes" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">System Type</label>
+                  <select class="form-select shadow-none" [(ngModel)]="awardProjectForm.systemType" name="awardSystemType">
+                    <option *ngFor="let opt of masterSystemTypes" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Site Category</label>
+                  <select class="form-select shadow-none" [(ngModel)]="awardProjectForm.siteCategory" name="awardSiteCategory">
+                    <option *ngFor="let opt of siteCategoryOptions" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Client Type</label>
+                  <select class="form-select shadow-none" [(ngModel)]="awardProjectForm.clientType" name="awardClientType">
+                    <option *ngFor="let opt of masterClientTypes" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Sale Type</label>
+                  <select class="form-select shadow-none" [(ngModel)]="awardProjectForm.saleType" name="awardSaleType">
+                    <option *ngFor="let opt of saleTypeOptions" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Order By</label>
+                  <select class="form-select shadow-none" [(ngModel)]="awardProjectForm.orderBy" name="awardOrderBy">
+                    <option *ngFor="let opt of orderByOptions" [value]="opt">{{ opt }}</option>
+                  </select>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Lead by (Sales)</label>
+                  <input type="text" class="form-control shadow-none" [(ngModel)]="awardProjectForm.leadBy" name="awardLeadBy" placeholder="e.g. Renuka / Daya">
+                </div>
+              </div>
+            </div>
+
+            <!-- CARD 3: COMMERCIAL & FINANCIAL VALUES -->
+            <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+              <h6 class="fw-bold text-dark border-bottom pb-2 mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-currency-rupee text-success"></i> 3. Commercials & Ledgers
+              </h6>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold">Site Value (₹) <span class="text-danger">*</span></label>
+                  <input type="number" step="0.01" class="form-control font-mono fs-5 shadow-none" [(ngModel)]="awardProjectForm.siteValue" name="awardSiteValue" placeholder="0" required>
+                  <small class="text-muted">Total agreed contract value</small>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-success">Payment Received (₹)</label>
+                  <input type="number" step="0.01" class="form-control font-mono fs-5 text-success shadow-none" [(ngModel)]="awardProjectForm.received" name="awardReceived" placeholder="0">
+                  <small class="text-muted">Advances or milestone payments received</small>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold text-danger">Site Expenses (₹)</label>
+                  <input type="number" step="0.01" class="form-control font-mono fs-5 text-danger shadow-none" [(ngModel)]="awardProjectForm.siteExpenses" name="awardSiteExpenses" placeholder="0">
+                  <small class="text-muted">Initial project expenses incurred</small>
+                </div>
+
+                <div class="col-12 mt-3">
+                  <div class="p-3 bg-light rounded-3 border d-flex justify-content-around align-items-center flex-wrap gap-2 text-center">
+                    <div>
+                      <small class="text-muted d-block fw-semibold">DUE AMOUNT</small>
+                      <span class="fs-5 fw-bold text-danger font-mono">₹ {{ awardFormDue | number:'1.2-2' }}</span>
+                    </div>
+                    <div class="vr d-none d-md-block"></div>
+                    <div>
+                      <small class="text-muted d-block fw-semibold">ESTIMATED MARGIN</small>
+                      <span class="fs-5 fw-bold font-mono" [ngClass]="awardFormMargin >= 0 ? 'text-success' : 'text-danger'">
+                        ₹ {{ awardFormMargin | number:'1.2-2' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CARD 4: INITIAL MILESTONES -->
+            <div class="card border-0 shadow-xs rounded-3 p-3 bg-white">
+              <h6 class="fw-bold text-dark border-bottom pb-2 mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-check2-square text-primary"></i> 4. Project Milestones & Handover (Optional)
+              </h6>
+              <div class="row g-3">
+                <div class="col-6 col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input shadow-none" type="checkbox" id="mMaterial" [(ngModel)]="awardProjectForm.materialsSupply" name="awardMaterialsSupply">
+                    <label class="form-check-label small fw-semibold" for="mMaterial">Materials Supply</label>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input shadow-none" type="checkbox" id="mInstall" [(ngModel)]="awardProjectForm.installation" name="awardInstallation">
+                    <label class="form-check-label small fw-semibold" for="mInstall">Installation</label>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input shadow-none" type="checkbox" id="mEb" [(ngModel)]="awardProjectForm.ebProcess" name="awardEbProcess">
+                    <label class="form-check-label small fw-semibold" for="mEb">EB Process</label>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input shadow-none" type="checkbox" id="mDocs" [(ngModel)]="awardProjectForm.documents" name="awardDocuments">
+                    <label class="form-check-label small fw-semibold" for="mDocs">Documents</label>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input shadow-none" type="checkbox" id="mWarranty" [(ngModel)]="awardProjectForm.warranty" name="awardWarranty">
+                    <label class="form-check-label small fw-semibold" for="mWarranty">Warranty</label>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input shadow-none" type="checkbox" id="mHandover" [(ngModel)]="awardProjectForm.handedOver" name="awardHandedOver">
+                    <label class="form-check-label small fw-semibold" for="mHandover">Handed Over</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Modal Footer (Fixed at bottom) -->
+          <div class="modal-footer bg-white border-top py-3 px-4 d-flex justify-content-between align-items-center" style="flex-shrink: 0;">
+            <button type="button" class="btn btn-outline-secondary px-4 shadow-none" (click)="cancelCreateAwardedSiteModal()">Cancel</button>
+            <button type="submit" class="btn btn-success fw-bold px-4 py-2 shadow-sm d-flex align-items-center gap-2" [disabled]="isSubmittingProject" style="background-color: #0f766e; border-color: #0f766e;">
+              <span *ngIf="isSubmittingProject" class="spinner-border spinner-border-sm me-1" role="status"></span>
+              <i *ngIf="!isSubmittingProject" class="bi bi-save-fill"></i>
+              <span>Save & Push to Awarded Site</span>
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: SITE VISIT PLANNED POPUP FORM                                  -->
+  <!-- ===================================================================== -->
+  <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isSiteVisitModalOpen && pendingSiteVisitLead" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+        <div class="modal-header text-white py-3 px-4 border-0" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-geo-alt-fill text-white fs-4"></i>
+            <div>
+              <h5 class="modal-title fw-bold mb-0">Plan Site Visit</h5>
+              <small class="text-white-50" style="font-size: 0.75rem;">Assign date & engineer to copy details to Site Plan</small>
+            </div>
+          </div>
+          <button type="button" class="btn-close btn-close-white shadow-none" (click)="cancelSiteVisitPlan()" aria-label="Close"></button>
+        </div>
+
+        <form (ngSubmit)="confirmSiteVisitPlan()">
+          <div class="modal-body p-4 bg-white">
+
+            <!-- Opportunity summary card -->
+            <div class="card border rounded-3 p-3 bg-light mb-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                  {{ pendingSiteVisitLead.leadId }}
+                </span>
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                  Status: Site Visit Planned
+                </span>
+              </div>
+              <div class="row g-2 small">
+                <div class="col-12">
+                  <span class="text-muted">Client Name:</span>
+                  <strong class="text-dark d-block fs-6">{{ pendingSiteVisitLead.leadName }}</strong>
+                </div>
+                <div class="col-6">
+                  <span class="text-muted">Location:</span>
+                  <span class="d-block text-dark">{{ pendingSiteVisitLead.leadLocation || '—' }}</span>
+                </div>
+                <div class="col-6">
+                  <span class="text-muted">Contact:</span>
+                  <span class="d-block font-mono text-dark">{{ pendingSiteVisitLead.leadContact || '—' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Date & Time Assigned -->
+            <div class="row g-2 mb-3">
+              <div class="col-7">
+                <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                  Visit Date Assigned <span class="text-danger">*</span>
+                </label>
+                <input type="date"
+                       class="form-control form-control-sm rounded-2 shadow-none"
+                       [(ngModel)]="siteVisitForm.date"
+                       name="visitDate"
+                       required>
+              </div>
+              <div class="col-5">
+                <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                  Visit Time
+                </label>
+                <input type="time"
+                       class="form-control form-control-sm rounded-2 shadow-none"
+                       [(ngModel)]="siteVisitForm.time"
+                       name="visitTime">
+              </div>
+            </div>
+
+            <!-- Engineer Name (fetched from employee section with responsibility = Engineers) -->
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Assigned Engineer <span class="text-danger">*</span>
+              </label>
+              <select class="form-select form-select-sm rounded-2 shadow-none"
+                      [(ngModel)]="siteVisitForm.engineerName"
+                      name="visitEngineer"
+                      required>
+                <option value="">-- Select Engineer --</option>
+                <option *ngFor="let eng of engineersList" [value]="eng">{{ eng }}</option>
+              </select>
+              <small class="text-muted" style="font-size: 0.7rem;">
+                <i class="bi bi-info-circle me-1"></i>Loaded from Employees section (Responsibility: Engineers)
+              </small>
+            </div>
+
+            <!-- Description / Visit Notes -->
+            <div class="mb-2">
+              <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Description / Visit Requirements
+              </label>
+              <textarea class="form-control form-control-sm rounded-2 shadow-none"
+                        rows="3"
+                        [(ngModel)]="siteVisitForm.description"
+                        name="visitDescription"
+                        placeholder="Enter site location details, roof inspection points, customer availability..."></textarea>
+            </div>
+
+          </div>
+
+          <div class="modal-footer bg-light border-top py-3 px-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-secondary px-4 shadow-none" (click)="cancelSiteVisitPlan()">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary fw-semibold px-4 shadow-sm" style="background-color: #0284c7; border-color: #0284c7;">
+              <i class="bi bi-check-circle me-1"></i> Confirm & Copy to Site Plan
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+</div>

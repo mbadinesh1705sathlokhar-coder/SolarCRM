@@ -1,0 +1,17 @@
+<ng-container *ngIf="authService.isLoggedIn(); else unauthLayout">
+  <div class="app-layout">
+    <app-header></app-header>
+    <div class="app-body-container">
+      <app-sidebar></app-sidebar>
+      <main class="main-content">
+        <router-outlet></router-outlet>
+      </main>
+    </div>
+  </div>
+</ng-container>
+
+<ng-template #unauthLayout>
+  <main class="auth-wrapper-main">
+    <router-outlet></router-outlet>
+  </main>
+</ng-template>
