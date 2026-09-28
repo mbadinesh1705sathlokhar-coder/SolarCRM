@@ -69,7 +69,7 @@
             <th style="min-width: 170px;">Role</th>
             <th style="min-width: 125px;">Responsibility</th>
             <th *ngIf="isAdmin()" style="min-width: 130px;">Access</th>
-            <th style="min-width: 150px;">Email</th>
+            <th style="min-width: 150px;">Username</th>
             <th style="min-width: 150px;">Password</th>
             <th style="min-width: 140px;">Phone No</th>
             <th style="min-width: 190px;">Email ID</th>
@@ -348,7 +348,7 @@
                 <div class="p-3 bg-white rounded-3 border shadow-sm">
                   <div class="row g-2">
                     <div class="col-md-6">
-                      <label class="form-label small fw-semibold text-secondary mb-1">Email / Login ID</label>
+                      <label class="form-label small fw-semibold text-secondary mb-1">Username / Login ID</label>
                       <div class="input-group input-group-sm">
                         <span class="input-group-text bg-light text-muted"><i class="bi bi-at"></i></span>
                         <input type="text" class="form-control font-mono" placeholder="e.g. user@sathlokhar.com" [(ngModel)]="employeeForm.username" name="username">

@@ -135,7 +135,7 @@
 /* Grid Header */
 .teams-grid-header-row {
   display: grid;
-  grid-template-columns: 75px repeat(5, 1fr);
+  grid-template-columns: 75px repeat(6, 1fr);
   border-bottom: 2px solid #e5e7eb;
   background-color: #ffffff;
   position: sticky;
@@ -200,7 +200,7 @@
 
 .teams-hour-grid-row {
   display: grid;
-  grid-template-columns: 75px repeat(5, 1fr);
+  grid-template-columns: 75px repeat(6, 1fr);
   min-height: 68px;
   border-bottom: 1px solid #f1f1f1;
 }

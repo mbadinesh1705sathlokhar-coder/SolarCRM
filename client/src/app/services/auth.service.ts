@@ -18,13 +18,14 @@ export class AuthService {
   readonly isLoggedIn = computed(() => !!this.currentUserSignal());
   readonly isAdmin = computed(() => {
     const u = this.currentUserSignal();
-    return u?.role === 'admin' || (u?.username || '').toLowerCase() === 'mbadinesh1705@gmail.com';
+    const user = (u?.username || u?.emailId || '').toLowerCase();
+    return u?.role === 'admin' || user.includes('mbadinesh1705');
   });
   readonly canManageAccess = computed(() => {
     const u = this.currentUserSignal();
     if (!u) return false;
-    return u.role === 'admin' || 
-           (u.username || '').toLowerCase() === 'mbadinesh1705@gmail.com';
+    const user = (u?.username || u?.emailId || '').toLowerCase();
+    return u.role === 'admin' || user.includes('mbadinesh1705');
   });
 
   constructor() {

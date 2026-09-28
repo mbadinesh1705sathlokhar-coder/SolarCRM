@@ -1,0 +1,71 @@
+.ledger-container {
+  font-family: inherit;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+.font-mono {
+  font-family: var(--font-mono, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+}
+
+.fs-7 {
+  font-size: 0.85rem !important;
+}
+
+.fs-8 {
+  font-size: 0.76rem !important;
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.metric-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-tabs-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tab-pill-btn {
+  padding: 6px 14px;
+  border-radius: 50rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  transition: all 0.15s ease-in-out;
+}
+
+.tab-pill-btn:hover {
+  color: #0f172a;
+  background-color: #f1f5f9;
+}
+
+.tab-pill-btn.active {
+  background-color: #ffffff;
+  color: #0284c7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.custom-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  padding: 10px 12px;
+}
+
+.custom-table td {
+  padding: 10px 12px;
+}
+
+.modal-backdrop-custom {
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+}

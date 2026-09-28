@@ -100,7 +100,7 @@ export class HomeComponent implements OnInit {
   breakdownSearchTerm = '';
 
   // --- Activities Allotted Section ---
-  activityActiveTab: 'tasks' | 'meetings' | 'calls' | 'siteplans' = 'tasks';
+  activityActiveTab: 'todos' | 'tasks' | 'meetings' | 'calls' | 'siteplans' = 'todos';
   adminEmployeeFilter = 'all';
 
   // --- To-Do / Task Management State ---
@@ -108,7 +108,7 @@ export class HomeComponent implements OnInit {
   todoFilter: 'all' | 'pending' | 'completed' = 'all';
   isTodoModalOpen = false;
   isEditMode = false;
-  todoForm: Partial<TaskItem> = this.getEmptyTodo();
+  todoForm: Partial<TaskItem> = this.getEmptyTodo(false);
 
   // Toast
   toastMessage = '';
@@ -616,7 +616,7 @@ export class HomeComponent implements OnInit {
   }
 
   // --- To-Do / Task Management ---
-  get filteredTodos(): TaskItem[] {
+  get allFilteredItems(): TaskItem[] {
     let list = this.todos;
     const currentUserName = (this.currentUser?.name || '').trim().toLowerCase();
     const filterUser = this.isAdmin && this.adminEmployeeFilter !== 'all'
@@ -639,9 +639,21 @@ export class HomeComponent implements OnInit {
     return list;
   }
 
-  openAddTodoModal(): void {
+  get filteredTasks(): TaskItem[] {
+    return this.allFilteredItems.filter(t => (t.relatedTo || '').trim().toLowerCase() !== 'to-do' && (t.relatedTo || '').trim().toLowerCase() !== 'to-dos');
+  }
+
+  get filteredTodosList(): TaskItem[] {
+    return this.allFilteredItems.filter(t => (t.relatedTo || '').trim().toLowerCase() === 'to-do' || (t.relatedTo || '').trim().toLowerCase() === 'to-dos');
+  }
+
+  get filteredTodos(): TaskItem[] {
+    return this.allFilteredItems;
+  }
+
+  openAddTodoModal(isTodo: boolean = false): void {
     this.isEditMode = false;
-    this.todoForm = this.getEmptyTodo();
+    this.todoForm = this.getEmptyTodo(isTodo);
     this.isTodoModalOpen = true;
     this.cdr.markForCheck();
   }
@@ -655,13 +667,13 @@ export class HomeComponent implements OnInit {
 
   closeTodoModal(): void {
     this.isTodoModalOpen = false;
-    this.todoForm = this.getEmptyTodo();
+    this.todoForm = this.getEmptyTodo(false);
     this.cdr.markForCheck();
   }
 
   saveTodo(): void {
     if (!this.todoForm.title?.trim()) {
-      this.showToast('Please enter a title for the to-do item.', 'danger');
+      this.showToast('Please enter a title for the item.', 'danger');
       return;
     }
 
@@ -672,21 +684,21 @@ export class HomeComponent implements OnInit {
           if (idx !== -1) {
             this.todos[idx] = updated;
           }
-          this.showToast('To-do item updated successfully!', 'success');
+          this.showToast('Item updated successfully!', 'success');
           this.applyActivitiesFilter();
           this.closeTodoModal();
         },
-        error: () => this.showToast('Failed to update to-do item.', 'danger')
+        error: () => this.showToast('Failed to update item.', 'danger')
       });
     } else {
       this.contactsService.createTask(this.todoForm).subscribe({
         next: (created) => {
           this.todos.unshift(created);
-          this.showToast('New to-do item added!', 'success');
+          this.showToast('New item added!', 'success');
           this.applyActivitiesFilter();
           this.closeTodoModal();
         },
-        error: () => this.showToast('Failed to create to-do item.', 'danger')
+        error: () => this.showToast('Failed to create item.', 'danger')
       });
     }
   }
@@ -731,7 +743,7 @@ export class HomeComponent implements OnInit {
     this.contactsService.deleteTask(id).subscribe({
       next: () => {
         this.todos = this.todos.filter(t => t.id !== id);
-        this.showToast('To-do item removed.', 'info');
+        this.showToast('Item removed.', 'info');
         this.applyActivitiesFilter();
         this.cdr.markForCheck();
       },
@@ -739,7 +751,7 @@ export class HomeComponent implements OnInit {
     });
   }
 
-  getEmptyTodo(): Partial<TaskItem> {
+  getEmptyTodo(isTodo: boolean = false): Partial<TaskItem> {
     const today = new Date().toISOString().substring(0, 10);
     return {
       title: '',
@@ -749,7 +761,8 @@ export class HomeComponent implements OnInit {
       priority: 'Medium',
       status: 'Pending',
       assignedTo: this.currentUser?.name || 'Self',
-      assignedFrom: this.currentUser?.name || 'Self'
+      assignedFrom: this.currentUser?.name || 'Self',
+      relatedTo: isTodo ? 'To-Do' : 'Task'
     };
   }
 

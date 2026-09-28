@@ -1,0 +1,21 @@
+{
+  "name": "solarcrm",
+  "version": "1.0.0",
+  "description": "Full-stack Solar Project Management Application built with **Angular**, **Express.js**, and **MySQL with Sequelize ORM**.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbadinesh1705sathlokhar-coder/SolarCRM.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mbadinesh1705sathlokhar-coder/SolarCRM/issues"
+  },
+  "homepage": "https://github.com/mbadinesh1705sathlokhar-coder/SolarCRM#readme"
+}

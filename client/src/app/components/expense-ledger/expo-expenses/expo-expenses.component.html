@@ -14,16 +14,21 @@
     <button type="button" class="btn-close" (click)="toastMessage = ''" aria-label="Close"></button>
   </div>
 
-  <!-- Top Navigation Bar: Title on Left, Finances Pill Navigation Tabs on Right -->
+  <!-- Top Navigation Bar: Title on Left, Finances Navigation Tabs on Right -->
   <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-    <!-- Page Title -->
+    <!-- Page Title & Navigation Context -->
     <div>
-      <h3 class="fw-bold mb-0 text-dark fs-5 d-flex align-items-center gap-2">
-        <i class="bi bi-calendar-event text-danger"></i>
-        <span>Expo Expenses</span>
-      </h3>
-      <div class="text-muted small" style="font-size: 0.75rem;">
-        Comprehensive tracker for all Exhibition, Event & Campaign Expenses
+      <div class="d-flex align-items-center gap-2">
+        <button *ngIf="viewMode === 'detail'" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1 me-1" (click)="showSummaryView()" title="Back to Summary Sheet">
+          <i class="bi bi-arrow-left me-1"></i> Back to Expos Sheet
+        </button>
+        <h3 class="fw-bold mb-0 text-dark fs-5 d-flex align-items-center gap-2">
+          <i class="bi bi-calendar-event text-danger"></i>
+          <span>{{ viewMode === 'detail' ? (selectedCampaign?.campaignName + ' - Expenses Sheet') : 'Expo Expenses' }}</span>
+        </h3>
+      </div>
+      <div class="text-muted small mt-0.5" style="font-size: 0.75rem;">
+        {{ viewMode === 'detail' ? ('Detailed vouchers & expense transactions for ' + selectedCampaign?.campaignName) : 'Live summary breakdown of all Campaign & Expo Expenses' }}
       </div>
     </div>
 
@@ -33,7 +38,10 @@
         <i class="bi bi-wallet2 me-1 text-success"></i> Client Payment Ledger
       </a>
       <a routerLink="/expense-ledger" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-receipt me-1 text-danger"></i> Expenses Ledger
+        <i class="bi bi-receipt me-1 text-danger"></i> Client Expenses
+      </a>
+      <a routerLink="/warehouse-expenses" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-seam me-1 text-primary"></i> Warehouse Expenses
       </a>
       <a routerLink="/vendor-ledger" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-truck me-1 text-info"></i> Vendor Ledger
@@ -45,7 +53,7 @@
     </div>
   </div>
 
-  <!-- KPI Metric Cards (Compact & Simple) -->
+  <!-- KPI Metric Cards -->
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <!-- Total Incurred Expo Expenses -->
     <div class="border rounded bg-white px-2.5 py-1.5 d-flex align-items-center gap-2 shadow-xs">
@@ -55,23 +63,11 @@
       <div>
         <div class="text-muted fw-semibold text-uppercase" style="font-size: 0.66rem; line-height: 1.1;">Total Expo Expenses</div>
         <div class="fw-bold text-danger font-mono" style="font-size: 0.95rem;">₹ {{ totalExpenseAmount | number:'1.2-2' }}</div>
-        <div class="text-muted" style="font-size: 0.66rem; line-height: 1;">Total Incurred in Expos</div>
+        <div class="text-muted" style="font-size: 0.66rem; line-height: 1;">Total Incurred across Expos</div>
       </div>
     </div>
 
-    <!-- Recorded Records -->
-    <div class="border rounded bg-white px-2.5 py-1.5 d-flex align-items-center gap-2 shadow-xs">
-      <div class="metric-icon-box bg-primary-subtle text-primary">
-        <i class="bi bi-receipt-cutoff fs-6"></i>
-      </div>
-      <div>
-        <div class="text-muted fw-semibold text-uppercase" style="font-size: 0.66rem; line-height: 1.1;">Vouchers Count</div>
-        <div class="fw-bold text-dark font-mono" style="font-size: 0.95rem;">{{ filteredExpenses.length }} Vouchers</div>
-        <div class="text-muted" style="font-size: 0.66rem; line-height: 1;">Logged Transactions</div>
-      </div>
-    </div>
-
-    <!-- Distinct Expos -->
+    <!-- Expos Tracked -->
     <div class="border rounded bg-white px-2.5 py-1.5 d-flex align-items-center gap-2 shadow-xs">
       <div class="metric-icon-box bg-success-subtle text-success">
         <i class="bi bi-megaphone fs-6"></i>
@@ -79,12 +75,24 @@
       <div>
         <div class="text-muted fw-semibold text-uppercase" style="font-size: 0.66rem; line-height: 1.1;">Expos Tracked</div>
         <div class="fw-bold text-success font-mono" style="font-size: 0.95rem;">{{ distinctExpoCount }} Expos</div>
-        <div class="text-muted" style="font-size: 0.66rem; line-height: 1;">Campaigns & Events</div>
+        <div class="text-muted" style="font-size: 0.66rem; line-height: 1;">Linked to Sales Campaigns</div>
+      </div>
+    </div>
+
+    <!-- Active View Context -->
+    <div *ngIf="viewMode === 'detail' && selectedCampaign" class="border rounded bg-white px-2.5 py-1.5 d-flex align-items-center gap-2 shadow-xs">
+      <div class="metric-icon-box bg-primary-subtle text-primary">
+        <i class="bi bi-receipt-cutoff fs-6"></i>
+      </div>
+      <div>
+        <div class="text-muted fw-semibold text-uppercase" style="font-size: 0.66rem; line-height: 1.1;">Selected Expo Total</div>
+        <div class="fw-bold text-primary font-mono" style="font-size: 0.95rem;">₹ {{ selectedCampaignTotal | number:'1.2-2' }}</div>
+        <div class="text-muted" style="font-size: 0.66rem; line-height: 1;">{{ filteredExpenses.length }} Vouchers Logged</div>
       </div>
     </div>
   </div>
 
-  <!-- Filters & Search Toolbar -->
+  <!-- Filters & Toolbar -->
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-body p-3">
       <div class="d-flex flex-wrap flex-md-nowrap align-items-center gap-3">
@@ -94,32 +102,106 @@
             <span class="input-group-text bg-white border-end-0 text-muted">
               <i class="bi bi-search"></i>
             </span>
-            <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by Expo Name, Descriptions, Paid By..." [(ngModel)]="searchQuery" (input)="currentPage = 1">
+            <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by Expo Name, Descriptions..." [(ngModel)]="searchQuery" (input)="currentPage = 1">
           </div>
         </div>
 
-        <!-- Export PDF button & Record counter text -->
+        <!-- Buttons & Actions -->
         <div class="d-flex align-items-center gap-2 ms-auto text-nowrap">
-          <div class="text-muted small text-nowrap d-none d-sm-block me-1">
-            Showing <strong>{{ paginatedExpenses.length }}</strong> of <strong>{{ filteredExpenses.length }}</strong> Records
-          </div>
-
           <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportPdf()" title="Export Expo Expenses Ledger as PDF">
             <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-            <span>Export PDF</span>
-          </button>
-
-          <button *ngIf="canAdd()" class="btn btn-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="openAddModal()" title="Record new Expo Expense">
-            <i class="bi bi-plus-circle-fill"></i>
-            <span>+ Add Expo Expense</span>
+            <span>PDF</span>
           </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Data Table Container: Date, Expo Name, Descriptions, Paid by, Amount -->
-  <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+  <!-- VIEW MODE 1: EXPOS SUMMARY SHEET TABLE (Date, Expo Name, Amount) -->
+  <div *ngIf="viewMode === 'summary'" class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+    <div class="card-header bg-white border-bottom py-3 px-3 d-flex justify-content-between align-items-center">
+      <h6 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+        <i class="bi bi-table text-danger"></i> Expo Expenses Summary Sheet
+      </h6>
+      <span class="badge bg-danger-subtle text-danger fw-semibold fs-7 px-2.5 py-1">Click Expo Name to view detailed sheet</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 custom-table">
+        <thead class="table-light text-uppercase fs-8 text-secondary border-bottom">
+          <tr>
+            <th style="width: 60px;" class="text-center">#</th>
+            <th style="width: 160px;">Date</th>
+            <th style="min-width: 300px;">Expo Name</th>
+            <th class="text-end" style="width: 220px;">Amount</th>
+            <th class="text-center" style="width: 150px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="5" class="text-center py-5">
+              <div class="spinner-border text-danger spinner-border-sm me-2" role="status"></div>
+              <span class="text-muted">Loading expo summary sheet...</span>
+            </td>
+          </tr>
+          <tr *ngIf="!loading && expoSummaryList.length === 0">
+            <td colspan="5" class="text-center py-5 text-muted">
+              <i class="bi bi-calendar-x fs-2 d-block mb-2 text-secondary"></i>
+              No expo campaigns or expenses found matching search query.
+            </td>
+          </tr>
+          <tr *ngFor="let item of expoSummaryList; let i = index" class="cursor-pointer" (click)="selectExpo(item.campaign)">
+            <!-- # -->
+            <td class="text-center text-muted font-mono small">
+              {{ i + 1 }}
+            </td>
+
+            <!-- Date -->
+            <td class="fw-semibold text-dark font-mono small">
+              {{ toDisplayDate(item.date) || '—' }}
+            </td>
+
+            <!-- Expo Name -->
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-bold fs-7 px-2 py-1">
+                  <i class="bi bi-megaphone-fill me-1"></i>{{ item.expoName }}
+                </span>
+                <span *ngIf="item.venue" class="text-muted small">({{ item.venue }})</span>
+              </div>
+            </td>
+
+            <!-- Amount -->
+            <td class="text-end fw-bold text-danger font-mono text-nowrap" style="font-size: 0.85rem;">
+              ₹ {{ item.amount | number:'1.2-2' }}
+            </td>
+
+            <!-- Action -->
+            <td class="text-center" (click)="$event.stopPropagation()">
+              <button class="btn btn-sm btn-outline-danger py-0.5 px-2.5 rounded-pill fw-semibold shadow-xs" style="font-size: 0.78rem;" (click)="selectExpo(item.campaign)">
+                View Sheet
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- VIEW MODE 2: DETAILED EXPO EXPENSES SHEET (For Specific Expo) -->
+  <div *ngIf="viewMode === 'detail'" class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+    <div class="card-header bg-white border-bottom py-3 px-3 d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-danger text-white fs-7 px-2.5 py-1">
+          <i class="bi bi-megaphone-fill me-1"></i>{{ selectedCampaign?.campaignName }}
+        </span>
+        <span class="text-muted small">Detailed Expense Vouchers</span>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" (click)="showSummaryView()">
+        <i class="bi bi-arrow-left me-1"></i> Back to Summary Sheet
+      </button>
+    </div>
+
     <div class="table-responsive">
       <table class="table table-hover align-middle mb-0 custom-table">
         <thead class="table-light text-uppercase fs-8 text-secondary border-bottom">
@@ -137,18 +219,13 @@
           <tr *ngIf="loading">
             <td colspan="7" class="text-center py-5">
               <div class="spinner-border text-danger spinner-border-sm me-2" role="status"></div>
-              <span class="text-muted">Loading expo expenses...</span>
+              <span class="text-muted">Loading vouchers...</span>
             </td>
           </tr>
           <tr *ngIf="!loading && filteredExpenses.length === 0">
             <td colspan="7" class="text-center py-5 text-muted">
               <i class="bi bi-receipt fs-2 d-block mb-2 text-secondary"></i>
-              No expo expenses found matching filters.
-              <div class="mt-2" *ngIf="canAdd()">
-                <button class="btn btn-sm btn-outline-danger" (click)="openAddModal()">
-                  <i class="bi bi-plus-circle me-1"></i> Record 1st Expo Expense
-                </button>
-              </div>
+              No vouchers recorded for this expo yet. Expenses are managed from Sales -> Campaigns.
             </td>
           </tr>
           <tr *ngFor="let e of paginatedExpenses; let i = index">
@@ -165,11 +242,8 @@
             <!-- Expo Name -->
             <td>
               <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-bold fs-7 px-2 py-1">
-                <i class="bi bi-megaphone-fill me-1"></i>{{ e.campaignName || 'General Expo' }}
+                <i class="bi bi-megaphone-fill me-1"></i>{{ e.campaignName || selectedCampaign?.campaignName || 'General Expo' }}
               </span>
-              <div *ngIf="e.venue" class="small text-muted mt-0.5" style="font-size: 0.72rem;">
-                <i class="bi bi-geo-alt me-1"></i>{{ e.venue }}
-              </div>
             </td>
 
             <!-- Descriptions -->
@@ -185,7 +259,7 @@
             </td>
 
             <!-- Amount -->
-            <td class="text-end fw-bold text-danger font-mono fs-7">
+            <td class="text-end fw-bold text-danger font-mono text-nowrap" style="font-size: 0.85rem;">
               ₹ {{ (e.amount || 0) | number:'1.2-2' }}
             </td>
 
@@ -198,7 +272,6 @@
                 <button *ngIf="canDelete()" class="btn btn-outline-danger border-0 btn-sm p-1" (click)="confirmDelete(e)" title="Delete Expo Expense">
                   <i class="bi bi-trash3 fs-6"></i>
                 </button>
-                <span *ngIf="!canEdit() && !canDelete()" class="text-muted small">—</span>
               </div>
             </td>
           </tr>
@@ -223,9 +296,7 @@
     </div>
   </div>
 
-  <!-- ========================================================================= -->
-  <!-- ADD / EDIT EXPO EXPENSE MODAL                                             -->
-  <!-- ========================================================================= -->
+  <!-- ADD / EDIT EXPO EXPENSE MODAL -->
   <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
       <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
@@ -255,7 +326,7 @@
                 </div>
               </div>
 
-              <!-- Expo Name (Select from Campaigns or type custom) -->
+              <!-- Expo Name -->
               <div class="col-12 col-md-6">
                 <label class="form-label small fw-bold text-dark mb-1">
                   Expo / Campaign Name <span class="text-danger">*</span>
@@ -266,7 +337,7 @@
                     <option *ngFor="let camp of campaigns" [ngValue]="camp.id">{{ camp.campaignName }} ({{ camp.venue }})</option>
                   </select>
                 </div>
-                <input *ngIf="!formData.campaignId" type="text" class="form-control form-control-sm mt-1.5" [(ngModel)]="formData.campaignName" name="campaignName" placeholder="Or enter Expo Name (e.g. Chennai Trade Center)" required>
+                <input *ngIf="!formData.campaignId" type="text" class="form-control form-control-sm mt-1.5" [(ngModel)]="formData.campaignName" name="campaignName" placeholder="Or enter Expo Name" required>
               </div>
 
               <!-- Descriptions / Purpose -->
@@ -274,7 +345,7 @@
                 <label class="form-label small fw-bold text-dark mb-1">
                   Descriptions / Purpose <span class="text-danger">*</span>
                 </label>
-                <input type="text" class="form-control form-control-sm" [(ngModel)]="formData.purpose" name="purpose" placeholder="e.g. Stall booking, Banner printing, Tea & snacks, Logistics transport" required>
+                <input type="text" class="form-control form-control-sm" [(ngModel)]="formData.purpose" name="purpose" placeholder="e.g. Stall booking, Banner printing, Tea & snacks" required>
               </div>
 
               <!-- Paid By -->
@@ -334,7 +405,7 @@
           </div>
         </div>
         <div class="modal-footer bg-light py-2 px-3 d-flex justify-content-center gap-2">
-          <button type="button" class="btn btn-outline-secondary btn-sm px-3" (click)="closeDeleteModal()">Cancel</button>
+          <button type="button" class="btn open-btn btn-outline-secondary btn-sm px-3" (click)="closeDeleteModal()">Cancel</button>
           <button type="button" class="btn btn-danger btn-sm px-3 fw-bold" (click)="executeDelete()">Delete</button>
         </div>
       </div>
@@ -342,3 +413,4 @@
   </div>
 
 </div>
+

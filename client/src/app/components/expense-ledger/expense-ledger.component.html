@@ -12,7 +12,7 @@
   <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
     <!-- Page Title -->
     <div>
-      <h3 class="fw-bold mb-0 text-dark fs-5">Expenses Ledger</h3>
+      <h3 class="fw-bold mb-0 text-dark fs-5">Client Expenses</h3>
     </div>
 
     <!-- Finances Pill Navigation Tabs (Right-Aligned) -->
@@ -21,8 +21,11 @@
         <i class="bi bi-wallet2 me-1 text-success"></i> Client Payment Ledger
       </a>
       <a routerLink="/expense-ledger" class="tab-pill-btn text-decoration-none active">
-        <i class="bi bi-receipt me-1 text-danger"></i> Expenses Ledger
+        <i class="bi bi-receipt me-1 text-danger"></i> Client Expenses
         <span class="badge rounded-pill ms-1" style="background-color: #fee2e2; color: #b91c1c;">{{ expenses.length }}</span>
+      </a>
+      <a routerLink="/warehouse-expenses" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-seam me-1 text-primary"></i> Warehouse Expenses
       </a>
       <a routerLink="/vendor-ledger" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-truck me-1 text-info"></i> Vendor Ledger
@@ -40,9 +43,9 @@
         <i class="bi bi-cash-coin fs-6"></i>
       </div>
       <div>
-        <div class="text-muted fw-semibold text-uppercase" style="font-size: 0.66rem; line-height: 1.1;">Total Incurred Expenses</div>
-        <div class="fw-bold text-danger font-mono" style="font-size: 0.95rem;">₹ {{ totalAllExpenses | number:'1.2-2' }}</div>
-        <div class="text-muted" style="font-size: 0.66rem; line-height: 1;">Sites: ₹{{ totalSiteExpenses | number:'1.0-0' }} &bull; Store: ₹{{ totalWarehouseExpenses | number:'1.0-0' }}</div>
+        <div class="text-muted fw-semibold text-uppercase" style="font-size: 0.66rem; line-height: 1.1;">Total Incurred Site Expenses</div>
+        <div class="fw-bold text-danger font-mono" style="font-size: 0.95rem;">₹ {{ totalSiteExpenses | number:'1.2-2' }}</div>
+        <div class="text-muted" style="font-size: 0.66rem; line-height: 1;">Total Client Site Procurements & Expenses</div>
       </div>
     </div>
   </div>
@@ -57,14 +60,14 @@
             <span class="input-group-text bg-white border-end-0 text-muted">
               <i class="bi bi-search"></i>
             </span>
-            <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by Site ID, Client Name, Warehouse, Location, Order By..." [(ngModel)]="searchQuery" (input)="onSearchChange()">
+            <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by Site ID, Client Name, Location, Order By..." [(ngModel)]="searchQuery" (input)="onSearchChange()">
           </div>
         </div>
 
         <!-- Margin Filter -->
         <div style="min-width: 210px;">
           <select class="form-select" [(ngModel)]="marginFilter" (change)="onMarginFilterChange()">
-            <option value="All">All Entities ({{ totalEntitiesCount }})</option>
+            <option value="All">All Clients ({{ totalClientsCount }})</option>
             <option value="HasExpenses">With Recorded Expenses</option>
             <option value="ZeroExpenses">Zero Expenses (₹0)</option>
           </select>
@@ -73,7 +76,7 @@
         <!-- Export PDF button & Record counter text -->
         <div class="d-flex align-items-center gap-3 ms-auto text-nowrap">
           <div class="text-muted small text-nowrap d-none d-sm-block">
-            Showing <strong>{{ paginatedClients.length }}</strong> of <strong>{{ filteredClients.length }}</strong> Entities
+            Showing <strong>{{ paginatedClients.length }}</strong> of <strong>{{ filteredClients.length }}</strong> Clients
           </div>
           <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportAllClientsPdf()" title="Export unique clients expenses ledger as PDF">
             <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
@@ -148,14 +151,14 @@
             <td class="text-secondary small">
               <i class="bi bi-geo-alt me-1 text-muted"></i>{{ c.location || 'Chennai' }}
             </td>
-            <td class="text-end font-mono text-dark fw-semibold">
+            <td class="text-end font-mono text-dark fw-semibold text-nowrap" style="font-size: 0.82rem;">
               <span *ngIf="c.siteId === 'WAREHOUSE'" class="text-muted font-mono small">— (Internal)</span>
               <span *ngIf="c.siteId !== 'WAREHOUSE'">₹ {{ c.siteValue | number:'1.2-2' }}</span>
             </td>
-            <td class="text-end fw-bold text-danger font-mono fs-7">
+            <td class="text-end fw-bold text-danger font-mono text-nowrap" style="font-size: 0.82rem;">
               ₹ {{ c.siteExpenses | number:'1.2-2' }}
             </td>
-            <td class="text-end fw-bold font-mono fs-7" [ngClass]="c.siteId === 'WAREHOUSE' ? 'text-muted' : ((c.margin || 0) >= 0 ? 'text-success' : 'text-danger')">
+            <td class="text-end fw-bold font-mono text-nowrap" style="font-size: 0.82rem;" [ngClass]="c.siteId === 'WAREHOUSE' ? 'text-muted' : ((c.margin || 0) >= 0 ? 'text-success' : 'text-danger')">
               <span *ngIf="c.siteId === 'WAREHOUSE'" class="text-muted font-mono small">—</span>
               <span *ngIf="c.siteId !== 'WAREHOUSE'">₹ {{ c.margin | number:'1.2-2' }}</span>
             </td>

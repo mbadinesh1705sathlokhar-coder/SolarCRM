@@ -354,9 +354,9 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     return this.allEntities.length;
   }
 
-  // Filtered entities (Warehouse + 114 Clients)
+  // Filtered clients (114 Clients, excluding Warehouse entity)
   get filteredClients(): Project[] {
-    let list = this.allEntities;
+    let list = this.customerProjects;
     if (this.searchQuery) {
       const q = this.searchQuery.toLowerCase().trim();
       list = list.filter(p =>

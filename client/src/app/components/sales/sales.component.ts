@@ -12,6 +12,7 @@ import { Project, ClientPayment, SiteExpense } from '../../models/project.model'
 import { SalesLead, LeadStatus, LeadHandler, OPPORTUNITY_STATUS_OPTIONS, OpportunityStatus } from '../../models/sales.model';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 export interface WeeklySalesRecord {
   weekLabel: string; // e.g. "26/09/2026 - 02/10/2026"
@@ -1445,5 +1446,98 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
     doc.save(`Sales_Opportunities_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Sales Opportunities PDF exported successfully!', 'success');
+  }
+
+  onBulkExcelUpload(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!rawRows || rawRows.length === 0) {
+          this.showToast('The uploaded Excel file contains no data rows.', 'danger');
+          return;
+        }
+
+        const today = new Date().toISOString().substring(0, 10);
+
+        const newLeadsBatch = rawRows.map((row, idx) => {
+          const getVal = (keys: string[]) => {
+            for (const k of keys) {
+              const matchedKey = Object.keys(row).find(rk => rk.toLowerCase().trim() === k.toLowerCase().trim());
+              if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null) {
+                return String(row[matchedKey]).trim();
+              }
+            }
+            return '';
+          };
+
+          const clientName = getVal(['client name', 'name', 'client', 'clientName']) || `Lead ${idx + 1}`;
+          const contactNo = getVal(['contact no', 'phone', 'mobile', 'contact', 'contactNo']) || '';
+          const emailId = getVal(['email', 'email id', 'emailId']) || '';
+          const location = getVal(['location', 'city', 'address']) || '';
+          const siteCapacity = getVal(['site capacity', 'capacity', 'kw', 'siteCapacity']) || '';
+          const valueStr = getVal(['value', 'site value', 'contract value', 'amount']);
+          const value = parseFloat(valueStr.replace(/,/g, '')) || 0;
+          const status = getVal(['status', 'lead status', 'stage']) || 'New';
+          const leadHandler = getVal(['assigned to', 'sales coordinator', 'handler', 'lead handler', 'assignedTo']) || 'Renuka Devi';
+          const remarks = getVal(['remarks', 'description', 'notes']) || 'Bulk imported via Excel';
+
+          return {
+            leadName: clientName,
+            leadContact: contactNo,
+            emailId: emailId,
+            leadLocation: location,
+            siteCapacity: siteCapacity,
+            siteValue: value,
+            leadStatus: status,
+            leadHandler: leadHandler,
+            leadRemarks: remarks,
+            leadDate: today,
+            siteType: 'Residential',
+            systemType: 'Ongrid',
+            siteCategory: 'TATA SPG',
+            saleType: 'B2C',
+            clientType: 'Individual'
+          };
+        });
+
+        let completed = 0;
+        newLeadsBatch.forEach(lead => {
+          this.salesService.createLead(lead as any).subscribe({
+            next: () => {
+              completed++;
+              if (completed === newLeadsBatch.length) {
+                this.loadLeads();
+                this.showToast(`Successfully bulk-imported ${completed} sales records from Excel!`, 'success');
+              }
+            },
+            error: () => {
+              completed++;
+              if (completed === newLeadsBatch.length) {
+                this.loadLeads();
+                this.showToast(`Bulk-imported ${completed} records from Excel.`, 'success');
+              }
+            }
+          });
+        });
+
+        input.value = '';
+      } catch (err) {
+        console.error('Excel import error:', err);
+        this.showToast('Failed to parse Excel file. Please ensure it is a valid .xlsx file.', 'danger');
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
   }
 }

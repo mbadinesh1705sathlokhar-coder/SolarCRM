@@ -6,6 +6,7 @@ import { Subscription, forkJoin, of, timer } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ContactsService } from '../../services/contacts.service';
 import { AuthService } from '../../services/auth.service';
+import { PushNotificationService } from '../../services/push-notification.service';
 import { Meeting, MeetingAlarm, CallLog, TaskItem } from '../../models/contacts.model';
 
 export interface NotificationItem {
@@ -36,13 +37,14 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private contactsService = inject(ContactsService);
   authService = inject(AuthService);
+  pushService = inject(PushNotificationService);
   private elementRef = inject(ElementRef);
   private cdr = inject(ChangeDetectorRef);
 
-  activeTopMenu = 'Homepage';
+  activeTopMenu = 'Dashboard';
 
   topMenuItems = [
-    { label: 'Homepage', route: '/home' },
+    { label: 'Dashboard', route: '/home' },
     { label: 'Sales', route: '/sales/leads' },
     { label: 'Finances', route: '/payment-ledger' },
     { label: 'Office', route: '/office/employees' },
@@ -53,7 +55,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   get visibleTopMenuItems() {
     return this.topMenuItems.filter(item => {
-      if (item.label === 'Homepage') return true;
+      if (item.label === 'Dashboard') return true;
       if (item.label === 'Sales') return this.authService.canViewModule('sales');
       if (item.label === 'Finances') return this.authService.canViewModule('finance');
       if (item.label === 'Office') return this.authService.isAdmin();
@@ -288,9 +290,25 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  enablePushNotifications(event?: Event): void {
+    event?.stopPropagation();
+    const user = this.authService.currentUser();
+    const userName = user?.name || 'Staff';
+    this.pushService.requestPermissionAndSubscribe(userName).then(success => {
+      this.cdr.markForCheck();
+    });
+  }
+
+  sendTestPushNotification(event?: Event): void {
+    event?.stopPropagation();
+    const user = this.authService.currentUser();
+    const userName = user?.name || 'Staff';
+    this.pushService.sendTestNotification(userName).subscribe();
+  }
+
   private updateActiveMenu(url: string): void {
     if (url.includes('/home')) {
-      this.activeTopMenu = 'Homepage';
+      this.activeTopMenu = 'Dashboard';
     } else if (url.includes('/sales')) {
       this.activeTopMenu = 'Sales';
     } else if (url.includes('/payment-ledger') || url.includes('/expense-ledger') || url.includes('/vendor-ledger') || url.includes('/finances')) {

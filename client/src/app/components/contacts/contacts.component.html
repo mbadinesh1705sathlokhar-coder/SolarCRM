@@ -835,20 +835,15 @@
           <input type="text" class="form-control" [(ngModel)]="taskForm.title" name="taskTitle" placeholder="e.g. Prepare Single Line Diagram (SLD)" required>
         </div>
 
-        <!-- Assigned From <-> Interchangeable Swap <-> Assigned To (Loaded from Office Employees) -->
-        <div class="row g-2 mb-3 align-items-end">
-          <div class="col-md-5">
+        <!-- Assigned From <-> Assigned To (Loaded from Office Employees) -->
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
             <label class="form-label fw-bold text-dark small">Assigned From <span class="text-danger">*</span></label>
             <select class="form-select" [(ngModel)]="taskForm.assignedFrom" name="assignedFrom" required>
               <option *ngFor="let emp of employeeNamesList" [value]="emp">{{ emp }}</option>
             </select>
           </div>
-          <div class="col-md-2 text-center pb-1">
-            <button type="button" class="btn btn-sm btn-outline-secondary w-100" (click)="swapTaskAssignments()" title="Swap Assigned From and Assigned To">
-              <i class="bi bi-arrow-left-right"></i> Swap
-            </button>
-          </div>
-          <div class="col-md-5">
+          <div class="col-md-6">
             <label class="form-label fw-bold text-dark small">Assigned To <span class="text-danger">*</span></label>
             <select class="form-select" [(ngModel)]="taskForm.assignedTo" name="assignedTo" required>
               <option *ngFor="let emp of employeeNamesList" [value]="emp">{{ emp }}</option>

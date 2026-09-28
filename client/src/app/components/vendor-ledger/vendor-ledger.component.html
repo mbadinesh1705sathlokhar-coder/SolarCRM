@@ -27,7 +27,6 @@
           <span class="badge bg-purple-subtle text-purple border px-2 py-0.5" style="font-size: 0.72rem;">
             <i class="bi bi-wallet2 me-1"></i> Finances
           </span>
-          <span class="text-muted small">• Procurement & Accounts Settlement</span>
         </div>
         <h4 class="fw-bold mb-0 text-dark tracking-tight">Vendor Ledger</h4>
       </div>
@@ -39,7 +38,10 @@
         <i class="bi bi-wallet2 me-1 text-success"></i> Client Payment Ledger
       </a>
       <a routerLink="/expense-ledger" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-receipt me-1 text-danger"></i> Expenses Ledger
+        <i class="bi bi-receipt me-1 text-danger"></i> Client Expenses
+      </a>
+      <a routerLink="/warehouse-expenses" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-seam me-1 text-primary"></i> Warehouse Expenses
       </a>
       <a routerLink="/vendor-ledger" class="tab-pill-btn text-decoration-none active">
         <i class="bi bi-truck me-1 text-info"></i> Vendor Ledger
@@ -94,7 +96,7 @@
           <thead class="table-light">
             <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
               <th style="min-width: 240px;">Vendor Name</th>
-              <th style="width: 150px;">Sales Coordinator</th>
+              <th style="width: 150px;">Vendor Coordinator</th>
               <th style="width: 140px;">Phone No</th>
               <th style="width: 150px;">Location</th>
               <th style="width: 120px;" class="text-center">Credit Days</th>
@@ -229,8 +231,8 @@
               <input type="text" class="form-control form-control-sm shadow-sm" [(ngModel)]="vendorDetailsForm.vendorName" name="vName" required>
             </div>
             <div class="col-md-2">
-              <label class="form-label small fw-bold text-dark mb-1">Sales Coordinator</label>
-              <select class="form-select form-select-sm shadow-sm" [(ngModel)]="vendorDetailsForm.salesCoordinator" name="vCoord">
+              <label class="form-label small fw-bold text-dark mb-1">Vendor Coordinator</label>
+              <select class="form-select form-select-sm shadow-sm" [(ngModel)]="vendorDetailsForm.salesCoordinator" (change)="saveVendorProfileDetails()" name="vCoord">
                 <option *ngFor="let c of salesCoordinatorOptions" [value]="c">{{ c }}</option>
               </select>
             </div>
@@ -790,7 +792,7 @@
                 <input type="text" class="form-control shadow-sm" placeholder="e.g. AIM EVENTS / TATA POWER SOLAR" [(ngModel)]="vendorForm.vendorName" name="vendorName" required>
               </div>
               <div class="col-md-6">
-                <label class="form-label small fw-bold text-dark mb-1">Sales Coordinator</label>
+                <label class="form-label small fw-bold text-dark mb-1">Vendor Coordinator</label>
                 <select class="form-select shadow-sm" [(ngModel)]="vendorForm.salesCoordinator" name="salesCoordinator">
                   <option *ngFor="let c of salesCoordinatorOptions" [value]="c">{{ c }}</option>
                 </select>

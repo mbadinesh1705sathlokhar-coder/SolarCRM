@@ -152,8 +152,53 @@ async function deleteVendor(req, res) {
 // Seed initial employees & vendors if empty
 async function seedOfficeIfEmpty() {
     try {
+        const { Op } = require('sequelize');
+
+        // Seed default Admin accounts
+        const adminAccounts = [
+            {
+                name: 'Dinesh (Admin)',
+                designation: 'System Administrator',
+                emailId: 'mbadinesh1705.sathlokhar@gmail.com',
+                username: 'mbadinesh1705.sathlokhar@gmail.com',
+                password: 'Pass123',
+                role: 'admin',
+                responsibility: 'All',
+                accessPermissions: { canView: true, canAdd: true, canEdit: true, canDelete: true }
+            },
+            {
+                name: 'Dinesh (Admin)',
+                designation: 'System Administrator',
+                emailId: 'mbadinesh1705@gmail.com',
+                username: 'mbadinesh1705@gmail.com',
+                password: 'Pass123',
+                role: 'admin',
+                responsibility: 'All',
+                accessPermissions: { canView: true, canAdd: true, canEdit: true, canDelete: true }
+            }
+        ];
+
+        for (const admin of adminAccounts) {
+            const existing = await Employee.findOne({
+                where: {
+                    [Op.or]: [
+                        { emailId: admin.emailId },
+                        { username: admin.username }
+                    ]
+                }
+            });
+            if (!existing) {
+                await Employee.create(admin);
+                console.log(`Seeded admin employee: ${admin.emailId}`);
+            } else {
+                existing.password = admin.password;
+                existing.role = 'admin';
+                await existing.save();
+            }
+        }
+
         const empCount = await Employee.count();
-        if (empCount === 0) {
+        if (empCount <= 2) {
             console.log('Seeding initial office employees...');
             await Employee.bulkCreate([
                 {
@@ -161,6 +206,8 @@ async function seedOfficeIfEmpty() {
                     designation: 'Senior Sales Coordinator',
                     phoneNo: '+91 98401 55210',
                     emailId: 'renuka@sathlokhar.com',
+                    username: 'renuka@sathlokhar.com',
+                    password: 'Pass123',
                     address: 'Anna Nagar, Chennai, Tamil Nadu',
                     experience: '4.5 Years'
                 },
@@ -169,6 +216,8 @@ async function seedOfficeIfEmpty() {
                     designation: 'Lead Solar Electrical Engineer',
                     phoneNo: '+91 94440 66321',
                     emailId: 'daya@sathlokhar.com',
+                    username: 'daya@sathlokhar.com',
+                    password: 'Pass123',
                     address: 'Gandhipuram, Coimbatore, Tamil Nadu',
                     experience: '6 Years'
                 },
@@ -177,6 +226,8 @@ async function seedOfficeIfEmpty() {
                     designation: 'Technical Sales Executive',
                     phoneNo: '+91 97910 44102',
                     emailId: 'sharath@sathlokhar.com',
+                    username: 'sharath@sathlokhar.com',
+                    password: 'Pass123',
                     address: 'Guindy, Chennai, Tamil Nadu',
                     experience: '3 Years'
                 },
@@ -185,6 +236,8 @@ async function seedOfficeIfEmpty() {
                     designation: 'Field Project Manager',
                     phoneNo: '+91 98841 33201',
                     emailId: 'sathish@sathlokhar.com',
+                    username: 'sathish@sathlokhar.com',
+                    password: 'Pass123',
                     address: 'Thillai Nagar, Trichy, Tamil Nadu',
                     experience: '5 Years'
                 },
@@ -193,11 +246,13 @@ async function seedOfficeIfEmpty() {
                     designation: 'VP - Operations & Projects',
                     phoneNo: '+91 98402 77890',
                     emailId: 'karthikeyan@sathlokhar.com',
+                    username: 'karthikeyan@sathlokhar.com',
+                    password: 'Pass123',
                     address: 'Nungambakkam, Chennai, Tamil Nadu',
                     experience: '12 Years'
                 }
             ]);
-            console.log('Seeded 5 employees.');
+            console.log('Seeded office employees.');
         }
 
         const vendorCount = await OfficeVendor.count();
@@ -245,7 +300,7 @@ async function loginEmployee(req, res) {
         if (!username || !password) {
             return res.status(400).json({ success: false, message: 'Username and password are required.' });
         }
-        const trimmedUser = String(username).trim();
+        const trimmedUser = String(username).trim().toLowerCase();
         const { Op } = require('sequelize');
         const employee = await Employee.findOne({
             where: {

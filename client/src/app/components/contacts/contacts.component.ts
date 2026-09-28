@@ -580,7 +580,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
 
   getWeekDays(): { name: string; dateStr: string; dateNum: string; isToday: boolean; fullDate: Date }[] {
     const monday = this.getMonday(this.currentCalendarDate);
-    const count = this.calendarViewMode === 'workweek' ? 5 : 7;
+    const count = this.calendarViewMode === 'workweek' ? 6 : 7;
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const todayStr = new Date().toISOString().split('T')[0];
     const days = [];

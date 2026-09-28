@@ -1,5 +1,6 @@
 const { Meeting, CallLog, TaskItem } = require('../models/ContactActivity');
 const { SitePlan } = require('../models/SitePlan');
+const { sendNotificationToUser } = require('../services/pushService');
 
 // Seed contacts data if empty (disabled per user requirement - real-world manual entry)
 async function seedContactsIfEmpty() {
@@ -193,6 +194,21 @@ const createTask = async (req, res) => {
             req.body.status = 'Pending';
         }
         const task = await TaskItem.create(req.body);
+
+        // Instant push notification dispatch
+        const isTodo = (task.relatedTo || '').trim().toLowerCase() === 'to-do';
+        const title = isTodo ? `New To-Do: ${task.title}` : `New Task Assigned: ${task.title}`;
+        const fromInfo = task.assignedFrom ? ` from ${task.assignedFrom}` : '';
+        const body = `${task.description ? task.description.substring(0, 80) : 'Action item assigned to you'}${fromInfo}`;
+
+        sendNotificationToUser(task.assignedTo || 'all', {
+            title,
+            body,
+            icon: '/favicon.png',
+            url: isTodo ? '/home' : '/activity/tasks',
+            tag: `task-new-${task.id}`
+        }).catch(err => console.error('Instant push error:', err));
+
         res.status(201).json(task);
     } catch (err) {
         res.status(400).json({ error: 'Failed to create task', details: err.message });

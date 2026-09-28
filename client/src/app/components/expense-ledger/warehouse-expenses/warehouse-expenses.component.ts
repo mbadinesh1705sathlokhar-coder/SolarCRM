@@ -2,27 +2,27 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { CampaignService, Campaign, CampaignExpense } from '../../../services/campaign.service';
+import { ProjectService } from '../../../services/project.service';
+import { SiteExpense } from '../../../models/project.model';
 import { OfficeService } from '../../../services/office.service';
 import { AuthService } from '../../../services/auth.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 @Component({
-  selector: 'app-expo-expenses',
+  selector: 'app-warehouse-expenses',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule],
-  templateUrl: './expo-expenses.component.html',
-  styleUrls: ['./expo-expenses.component.css']
+  templateUrl: './warehouse-expenses.component.html',
+  styleUrls: ['./warehouse-expenses.component.css']
 })
-export class ExpoExpensesComponent implements OnInit {
-  private campaignService = inject(CampaignService);
+export class WarehouseExpensesComponent implements OnInit {
+  private projectService = inject(ProjectService);
   private officeService = inject(OfficeService);
   private authService = inject(AuthService);
   private cdr = inject(ChangeDetectorRef);
 
-  expenses: CampaignExpense[] = [];
-  campaigns: Campaign[] = [];
+  expenses: SiteExpense[] = [];
   loading = false;
   searchQuery = '';
 
@@ -37,23 +37,42 @@ export class ExpoExpensesComponent implements OnInit {
 
   formData = {
     dateInput: '', // dd-mm-yyyy
-    campaignId: null as number | null,
-    campaignName: '',
-    purpose: '',
+    paymentThrough: 'P.O',
+    purpose: 'Consumables',
     paidBy: 'OFFICE',
+    vendor: '',
+    remarks: '',
+    billVoucher: 'Submitted',
+    invoiceNo: '',
     amount: null as number | null
   };
 
-  // View Mode: 'summary' (Overview of Date, Expo Name, Amount) or 'detail' (Specific Expo Expenses Sheet)
-  viewMode: 'summary' | 'detail' = 'summary';
-  selectedCampaign: Campaign | null = null;
+  paymentThroughOptions = ['P.O', 'Petty Cash', 'Accounts', 'W.O', '(Blanks)'];
+  purposeOptions = [
+    'Consumables',
+    'Solar MMS',
+    'Solar Panels',
+    'Solar Inverters',
+    'Solar Cables',
+    'DB Boxes',
+    'Earthing Materials',
+    'Lightning Arrestors',
+    'Material Transport',
+    'Rental Tools',
+    'Tools Asset',
+    'Walkway / Hand Rails',
+    'Cable Tray Materials',
+    'Cables',
+    'Labour/Manpower',
+    'General Stock'
+  ];
 
-  // Paid By options
   paidByOptions: string[] = ['OFFICE'];
+  vendorOptions: string[] = [];
 
   // Delete modal
   isDeleteModalOpen = false;
-  expenseToDelete: CampaignExpense | null = null;
+  expenseToDelete: SiteExpense | null = null;
 
   // Alert toast
   toastMessage = '';
@@ -61,53 +80,36 @@ export class ExpoExpensesComponent implements OnInit {
 
   ngOnInit(): void {
     this.formData.dateInput = this.getTodayDisplayDate();
-    this.loadCampaigns();
     this.loadExpenses();
-    this.loadEmployees();
+    this.loadVendorsFromOffice();
+    this.loadEmployeesFromOffice();
   }
 
   canAdd(): boolean {
-    return this.authService.canAdd('expo-expenses') || this.authService.isAdmin();
+    return this.authService.canAdd('expense-ledger') || this.authService.isAdmin();
   }
 
   canEdit(): boolean {
-    return this.authService.canEdit('expo-expenses') || this.authService.isAdmin();
+    return this.authService.canEdit('expense-ledger') || this.authService.isAdmin();
   }
 
   canDelete(): boolean {
-    return this.authService.canDelete('expo-expenses') || this.authService.isAdmin();
+    return this.authService.canDelete('expense-ledger') || this.authService.isAdmin();
   }
 
-  loadCampaigns(): void {
-    this.campaignService.getCampaigns().subscribe({
+  loadVendorsFromOffice(): void {
+    this.officeService.getVendors().subscribe({
       next: (res) => {
-        if (res.success && res.data) {
-          this.campaigns = res.data;
+        if (res.success && res.data?.length > 0) {
+          const names = res.data.map(v => v.vendorName).filter(Boolean);
+          this.vendorOptions = Array.from(new Set(names));
           this.cdr.markForCheck();
         }
       }
     });
   }
 
-  loadExpenses(): void {
-    this.loading = true;
-    this.campaignService.getAllExpenses().subscribe({
-      next: (res) => {
-        if (res.success && res.data) {
-          this.expenses = res.data;
-        }
-        this.loading = false;
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.error('Error fetching expo expenses:', err);
-        this.loading = false;
-        this.cdr.markForCheck();
-      }
-    });
-  }
-
-  loadEmployees(): void {
+  loadEmployeesFromOffice(): void {
     this.officeService.getEmployees().subscribe({
       next: (res) => {
         if (res.success && res.data?.length > 0) {
@@ -119,67 +121,41 @@ export class ExpoExpensesComponent implements OnInit {
     });
   }
 
-  // --- EXPO SUMMARY LIST (Date, Expo Name, Amount) ---
-  get expoSummaryList(): { campaign: Campaign; id: number; date: string; expoName: string; venue: string; amount: number; voucherCount: number }[] {
-    const q = (this.searchQuery || '').toLowerCase().trim();
-    return this.campaigns.map(c => {
-      const cExpenses = this.expenses.filter(e =>
-        e.campaignId === c.id ||
-        (e.campaignName || '').toLowerCase().trim() === (c.campaignName || '').toLowerCase().trim()
-      );
-      const totalAmount = cExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-      const displayDate = cExpenses.length > 0 && cExpenses[0].expenseDate ? cExpenses[0].expenseDate : (c.campaignDate || '');
-      return {
-        campaign: c,
-        id: c.id || 0,
-        date: displayDate,
-        expoName: c.campaignName,
-        venue: c.venue || '',
-        amount: totalAmount,
-        voucherCount: cExpenses.length
-      };
-    }).filter(item => {
-      if (!q) return true;
-      return (item.expoName || '').toLowerCase().includes(q) || (item.venue || '').toLowerCase().includes(q);
+  loadExpenses(): void {
+    this.loading = true;
+    this.projectService.getExpenses({ siteId: 'WAREHOUSE' }).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.expenses = res.data;
+        }
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        console.error('Error fetching warehouse expenses:', err);
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
     });
   }
 
-  get selectedCampaignTotal(): number {
-    return this.filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  }
-
-  // --- FILTERS & METRICS ---
-  get activeExpenses(): CampaignExpense[] {
-    if (this.selectedCampaign) {
-      return this.expenses.filter(e =>
-        e.campaignId === this.selectedCampaign?.id ||
-        (e.campaignName || '').toLowerCase().trim() === (this.selectedCampaign?.campaignName || '').toLowerCase().trim()
-      );
-    }
-    return this.filteredExpenses;
-  }
-
-  get filteredExpenses(): CampaignExpense[] {
+  get filteredExpenses(): SiteExpense[] {
     let list = this.expenses;
-    if (this.selectedCampaign) {
-      list = list.filter(e =>
-        e.campaignId === this.selectedCampaign?.id ||
-        (e.campaignName || '').toLowerCase().trim() === (this.selectedCampaign?.campaignName || '').toLowerCase().trim()
-      );
-    }
     if (this.searchQuery) {
       const q = this.searchQuery.toLowerCase().trim();
       list = list.filter(e =>
-        (e.campaignName || '').toLowerCase().includes(q) ||
         (e.purpose || '').toLowerCase().includes(q) ||
         (e.paidBy || '').toLowerCase().includes(q) ||
+        (e.vendorName || '').toLowerCase().includes(q) ||
+        (e.remarks || '').toLowerCase().includes(q) ||
+        (e.paymentThrough || '').toLowerCase().includes(q) ||
         (e.expenseDate || '').toLowerCase().includes(q)
       );
     }
     return list;
   }
 
-  get paginatedExpenses(): CampaignExpense[] {
+  get paginatedExpenses(): SiteExpense[] {
     const start = (this.currentPage - 1) * this.pageSize;
     return this.filteredExpenses.slice(start, start + this.pageSize);
   }
@@ -198,49 +174,36 @@ export class ExpoExpensesComponent implements OnInit {
     return this.expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }
 
-  get distinctExpoCount(): number {
-    return this.campaigns.length;
-  }
-
-  selectExpo(campaign: Campaign): void {
-    this.selectedCampaign = campaign;
-    this.viewMode = 'detail';
-    this.currentPage = 1;
-    this.cdr.markForCheck();
-  }
-
-  showSummaryView(): void {
-    this.selectedCampaign = null;
-    this.viewMode = 'summary';
-    this.currentPage = 1;
-    this.cdr.markForCheck();
-  }
-
   // --- MODAL ACTIONS ---
-  openAddModal(presetCampaign?: Campaign): void {
+  openAddModal(): void {
     this.isEditMode = false;
     this.editingId = null;
-    const targetCamp = presetCampaign || this.selectedCampaign || (this.campaigns.length > 0 ? this.campaigns[0] : null);
     this.formData = {
       dateInput: this.getTodayDisplayDate(),
-      campaignId: targetCamp ? (targetCamp.id || null) : null,
-      campaignName: targetCamp ? targetCamp.campaignName : '',
-      purpose: '',
+      paymentThrough: 'P.O',
+      purpose: 'Consumables',
       paidBy: 'OFFICE',
+      vendor: '',
+      remarks: 'Material stock received in Central Warehouse',
+      billVoucher: 'Submitted',
+      invoiceNo: '',
       amount: null
     };
     this.isModalOpen = true;
   }
 
-  openEditModal(e: CampaignExpense): void {
+  openEditModal(e: SiteExpense): void {
     this.isEditMode = true;
     this.editingId = e.id || null;
     this.formData = {
-      dateInput: this.toDisplayDate(e.expenseDate),
-      campaignId: e.campaignId,
-      campaignName: e.campaignName || '',
-      purpose: e.purpose,
+      dateInput: e.formattedDate || this.toDisplayDate(e.expenseDate),
+      paymentThrough: e.paymentThrough || 'P.O',
+      purpose: e.purpose || 'Consumables',
       paidBy: e.paidBy || 'OFFICE',
+      vendor: e.vendorName || '',
+      remarks: e.remarks || '',
+      billVoucher: e.billVoucher || 'Submitted',
+      invoiceNo: e.invoiceNo || '',
       amount: Number(e.amount) || null
     };
     this.isModalOpen = true;
@@ -251,74 +214,58 @@ export class ExpoExpensesComponent implements OnInit {
     this.editingId = null;
   }
 
-  onCampaignSelectChange(campaignIdVal: any): void {
-    const cid = Number(campaignIdVal);
-    const selected = this.campaigns.find(c => c.id === cid);
-    if (selected) {
-      this.formData.campaignName = selected.campaignName;
-    }
-  }
-
   submitExpense(): void {
-    if (!this.formData.purpose.trim()) {
-      this.showToast('Please enter an expense description/purpose', 'danger');
-      return;
-    }
     if (!this.formData.amount || this.formData.amount <= 0) {
-      this.showToast('Please enter a valid expense amount', 'danger');
+      this.showToast('Please enter a valid positive expense amount', 'danger');
       return;
     }
 
     const isoDate = this.toIsoDate(this.formData.dateInput);
+    const mop = this.deriveMoPFromDate(this.formData.dateInput);
+
+    const payload: Partial<SiteExpense> = {
+      siteId: 'WAREHOUSE',
+      clientName: 'Warehouse : Sathlokhar H.O',
+      clientSiteName: 'Warehouse : Sathlokhar H.O',
+      expenseDate: isoDate,
+      mop,
+      amount: Number(this.formData.amount),
+      paymentThrough: this.formData.paymentThrough,
+      purpose: this.formData.purpose,
+      paidBy: this.formData.paidBy,
+      vendorName: this.formData.vendor || '',
+      remarks: this.formData.remarks || '',
+      billVoucher: this.formData.billVoucher || 'Submitted',
+      invoiceNo: this.formData.billVoucher === 'Submitted' ? (this.formData.invoiceNo || '') : ''
+    };
 
     if (this.isEditMode && this.editingId) {
-      const payload: Partial<CampaignExpense> = {
-        campaignId: this.formData.campaignId || undefined,
-        expenseDate: isoDate,
-        amount: Number(this.formData.amount),
-        purpose: this.formData.purpose.trim(),
-        paidBy: this.formData.paidBy
-      };
-
-      this.campaignService.updateCampaignExpense(this.editingId, payload).subscribe({
+      this.projectService.updateExpense(this.editingId, payload).subscribe({
         next: (res) => {
           if (res.success) {
-            this.showToast('Expo expense updated successfully!', 'success');
+            this.showToast('Warehouse expense updated successfully!', 'success');
             this.closeModal();
             this.loadExpenses();
           }
         },
-        error: (err) => {
-          this.showToast('Failed to update expense', 'danger');
-        }
+        error: () => this.showToast('Failed to update expense', 'danger')
       });
     } else {
-      const payload = {
-        campaignId: this.formData.campaignId || undefined,
-        campaignName: this.formData.campaignName.trim(),
-        expenseDate: isoDate,
-        amount: Number(this.formData.amount),
-        purpose: this.formData.purpose.trim(),
-        paidBy: this.formData.paidBy
-      };
-
-      this.campaignService.createExpoExpense(payload).subscribe({
+      this.projectService.createExpense(payload).subscribe({
         next: (res) => {
           if (res.success) {
-            this.showToast('Expo expense recorded successfully!', 'success');
+            this.showToast('Warehouse expense recorded successfully!', 'success');
             this.closeModal();
             this.loadExpenses();
           }
         },
-        error: (err) => {
-          this.showToast('Failed to record expo expense', 'danger');
-        }
+        error: () => this.showToast('Failed to record expense', 'danger')
       });
     }
   }
 
   // --- DELETE MODAL ---
-  confirmDelete(e: CampaignExpense): void {
+  confirmDelete(e: SiteExpense): void {
     this.expenseToDelete = e;
     this.isDeleteModalOpen = true;
   }
@@ -332,49 +279,47 @@ export class ExpoExpensesComponent implements OnInit {
     if (!this.expenseToDelete?.id) return;
     const id = this.expenseToDelete.id;
 
-    this.campaignService.deleteCampaignExpense(id).subscribe({
+    this.projectService.deleteExpense(id).subscribe({
       next: (res) => {
         if (res.success) {
-          this.showToast('Expo expense deleted successfully', 'success');
+          this.showToast('Expense record deleted successfully', 'success');
           this.closeDeleteModal();
           this.loadExpenses();
         }
       },
-      error: () => {
-        this.showToast('Failed to delete expense', 'danger');
-      }
+      error: () => this.showToast('Failed to delete expense', 'danger')
     });
   }
 
   // --- PDF EXPORT ---
   exportPdf(): void {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const primaryColor: [number, number, number] = [15, 23, 42]; // Slate 900
-    const accentColor: [number, number, number] = [185, 28, 28]; // Danger red
+    const primaryColor: [number, number, number] = [15, 23, 42];
+    const accentColor: [number, number, number] = [37, 99, 235]; // Primary blue
 
-    // Header Title
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.setTextColor(...primaryColor);
-    doc.text('SOLAR SATHLOKHAR - EXPO EXPENSES LEDGER', 14, 18);
+    doc.text('SOLAR SATHLOKHAR - WAREHOUSE EXPENSES LEDGER', 14, 18);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Generated on: ${new Date().toLocaleDateString('en-GB')} | Total Incurred: Rs. ${this.totalExpenseAmount.toLocaleString('en-IN')}`, 14, 25);
+    doc.text(`Facility: Sathlokhar H.O Central Store | Total Incurred: Rs. ${this.totalExpenseAmount.toLocaleString('en-IN')}`, 14, 25);
 
     const tableRows = this.filteredExpenses.map((e, index) => [
       index + 1,
       this.toDisplayDate(e.expenseDate),
-      e.campaignName || 'Expo Event',
-      e.purpose || '—',
+      e.purpose || 'Consumables',
+      e.vendorName || '—',
+      e.paymentThrough || 'P.O',
       e.paidBy || 'OFFICE',
       `Rs. ${(Number(e.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     ]);
 
     autoTable(doc, {
       startY: 30,
-      head: [['#', 'Date', 'Expo Name', 'Descriptions', 'Paid By', 'Amount']],
+      head: [['#', 'Date', 'Purpose / Material', 'Vendor', 'Payment', 'Paid By', 'Amount']],
       body: tableRows,
       theme: 'grid',
       headStyles: {
@@ -391,14 +336,15 @@ export class ExpoExpensesComponent implements OnInit {
         0: { cellWidth: 10, halign: 'center' },
         1: { cellWidth: 25, halign: 'center' },
         2: { cellWidth: 45 },
-        3: { cellWidth: 60 },
+        3: { cellWidth: 35 },
         4: { cellWidth: 25 },
-        5: { cellWidth: 25, halign: 'right', fontStyle: 'bold', textColor: [185, 28, 28] }
+        5: { cellWidth: 25 },
+        6: { cellWidth: 25, halign: 'right', fontStyle: 'bold', textColor: [37, 99, 235] }
       },
       margin: { left: 14, right: 14 }
     });
 
-    doc.save(`Expo_Expenses_Ledger_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`Warehouse_Expenses_Ledger_${new Date().toISOString().slice(0, 10)}.pdf`);
     this.showToast('PDF downloaded successfully!', 'info');
   }
 
@@ -439,6 +385,14 @@ export class ExpoExpensesComponent implements OnInit {
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const yyyy = today.getFullYear();
     return `${dd}-${mm}-${yyyy}`;
+  }
+
+  deriveMoPFromDate(dateStr: string): string {
+    const iso = this.toIsoDate(dateStr);
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[d.getMonth()]}-${String(d.getFullYear()).slice(-2)}`;
   }
 
   onDatePickerChange(isoDate: string): void {

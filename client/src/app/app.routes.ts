@@ -11,6 +11,7 @@ import { EmployeesComponent } from './components/office/employees/employees.comp
 import { VendorsComponent } from './components/office/vendors/vendors.component';
 import { VendorLedgerComponent } from './components/vendor-ledger/vendor-ledger.component';
 import { ExpoExpensesComponent } from './components/expense-ledger/expo-expenses/expo-expenses.component';
+import { WarehouseExpensesComponent } from './components/expense-ledger/warehouse-expenses/warehouse-expenses.component';
 import { AddListComponent } from './components/office/add-list/add-list.component';
 import { IndentComponent } from './components/inventory/indent/indent.component';
 import { WarehouseComponent } from './components/inventory/warehouse/warehouse.component';
@@ -44,6 +45,7 @@ export const routes: Routes = [
   { path: 'contacts/:tab', redirectTo: 'activity/meetings', pathMatch: 'full' },
   { path: 'payment-ledger', component: PaymentLedgerComponent, canActivate: [authGuard, moduleGuard('finance')] },
   { path: 'expense-ledger', component: ExpenseLedgerComponent, canActivate: [authGuard, moduleGuard('finance')] },
+  { path: 'warehouse-expenses', component: WarehouseExpensesComponent, canActivate: [authGuard, moduleGuard('finance')] },
   { path: 'vendor-ledger', component: VendorLedgerComponent, canActivate: [authGuard, moduleGuard('finance')] },
   { path: 'expo-expenses', component: ExpoExpensesComponent, canActivate: [authGuard, moduleGuard('finance')] },
   { path: 'sales', component: SalesComponent, canActivate: [authGuard, moduleGuard('sales')] },
