@@ -204,7 +204,8 @@ async function runMigration() {
 
       let siteId = '';
       if (entry.startsWith('Warehouse :')) {
-        siteId = 'WAREHOUSE';
+        // Warehouse is inventory/ledger only, not a client awarded site
+        continue;
       } else {
         const m = entry.match(/^(SP\d+)\s*:/i);
         if (m) {
@@ -269,14 +270,9 @@ async function runMigration() {
     await SiteExpenseLedger.bulkCreate(expenseRecords);
     console.log(`Inserted ${expenseRecords.length} warehouse expenses into SiteExpenseLedger.`);
 
-    // 3. Update WAREHOUSE siteExpenses in ProjectMaster
-    const totalExp = expenseRecords.reduce((sum, e) => sum + e.amount, 0);
-    const whProject = await ProjectMaster.findOne({ where: { siteId: 'WAREHOUSE' } });
-    if (whProject) {
-      whProject.siteExpenses = totalExp;
-      await whProject.save();
-      console.log(`Updated WAREHOUSE project siteExpenses to ₹ ${totalExp}`);
-    }
+    // 3. Ensure WAREHOUSE is removed from ProjectMaster (Awarded Sites is client projects only)
+    await ProjectMaster.destroy({ where: { siteId: 'WAREHOUSE' } });
+    console.log('Ensured WAREHOUSE is excluded from ProjectMaster.');
 
     console.log('Migration completed successfully!');
     process.exit(0);

@@ -260,7 +260,7 @@ export class HomeComponent implements OnInit {
     this.projectService.getProjects().subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          this.allProjects = res.data;
+          this.allProjects = res.data.filter(p => (p.siteId || '').toUpperCase() !== 'WAREHOUSE' && !(p.clientName || '').toLowerCase().includes('warehouse'));
           this.applyTimeframeFilter();
         }
       },

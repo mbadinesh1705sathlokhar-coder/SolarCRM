@@ -36,7 +36,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
   filteredMeetings: Meeting[] = [];
   selectedEngineer: string = 'All';
   selectedPurposeFilter: string = 'All';
-  calendarViewMode: 'workweek' | 'week' | 'list' = 'workweek';
+  calendarViewMode: 'workweek' | 'week' | 'list' = 'week';
   currentCalendarDate: Date = new Date();
   timeSlots: number[] = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
   selectedSlot: { dateStr: string; hour: number } | null = null;
@@ -580,7 +580,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
 
   getWeekDays(): { name: string; dateStr: string; dateNum: string; isToday: boolean; fullDate: Date }[] {
     const monday = this.getMonday(this.currentCalendarDate);
-    const count = this.calendarViewMode === 'workweek' ? 6 : 7;
+    const count = 7; // Always include 7 days: Monday to Sunday
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const todayStr = new Date().toISOString().split('T')[0];
     const days = [];

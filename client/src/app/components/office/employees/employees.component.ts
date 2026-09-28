@@ -9,7 +9,7 @@ import { MasterListService } from '../../../services/master-list.service';
 export interface NavPageDefinition {
   key: string;
   name: string;
-  category: 'sales' | 'finance' | 'activity' | 'inventory';
+  category: 'sales' | 'finance' | 'activity' | 'inventory' | 'office';
   categoryLabel: string;
   icon: string;
   badgeBg: string;
@@ -39,7 +39,11 @@ export const NAV_PAGES_LIST: NavPageDefinition[] = [
   { key: 'indent', name: 'Indent', category: 'inventory', categoryLabel: 'Inventory', icon: 'bi-file-earmark-text', badgeBg: '#f0fdfa', badgeColor: '#0f766e', description: 'Site material indent requisitions by engineers' },
   { key: 'warehouse', name: 'Warehouse', category: 'inventory', categoryLabel: 'Inventory', icon: 'bi-box-seam', badgeBg: '#f0fdfa', badgeColor: '#0f766e', description: 'Warehouse stock balance and materials availability' },
   { key: 'gate-pass', name: 'Gate Pass', category: 'inventory', categoryLabel: 'Inventory', icon: 'bi-pass', badgeBg: '#f0fdfa', badgeColor: '#0f766e', description: 'Material inward and outward dispatch gate passes' },
-  { key: 'cart', name: 'Add to cart', category: 'inventory', categoryLabel: 'Inventory', icon: 'bi-cart3', badgeBg: '#f0fdfa', badgeColor: '#0f766e', description: 'Procurement requisition cart and orders' }
+  { key: 'cart', name: 'Add to cart', category: 'inventory', categoryLabel: 'Inventory', icon: 'bi-cart3', badgeBg: '#f0fdfa', badgeColor: '#0f766e', description: 'Procurement requisition cart and orders' },
+
+  // Office
+  { key: 'office-employees', name: 'Employees', category: 'office', categoryLabel: 'Office', icon: 'bi-person-badge', badgeBg: '#fef3c7', badgeColor: '#92400e', description: 'Employee master, directory and access management' },
+  { key: 'office-add-list', name: 'Add List', category: 'office', categoryLabel: 'Office', icon: 'bi-card-checklist', badgeBg: '#fef3c7', badgeColor: '#92400e', description: 'System dropdown master configuration lists' }
 ];
 
 @Component({
@@ -86,7 +90,7 @@ export class EmployeesComponent implements OnInit, AfterViewInit, OnDestroy {
   // Access Permissions Modal State (Granular Nav Pages)
   isAccessModalOpen = false;
   employeeForAccess: Employee | null = null;
-  activeNavCategory: 'all' | 'sales' | 'finance' | 'activity' | 'inventory' = 'all';
+  activeNavCategory: 'all' | 'sales' | 'finance' | 'activity' | 'inventory' | 'office' = 'all';
   navSearchTerm = '';
   savingAccess = false;
   navPagesList = NAV_PAGES_LIST;
@@ -95,6 +99,7 @@ export class EmployeesComponent implements OnInit, AfterViewInit, OnDestroy {
     finance: { canView: true, canAdd: true, canEdit: true, canDelete: false },
     activity: { canView: true, canAdd: true, canEdit: true, canDelete: false },
     inventory: { canView: true, canAdd: true, canEdit: true, canDelete: false },
+    office: { canView: false, canAdd: false, canEdit: false, canDelete: false },
     navPages: {}
   };
 
@@ -233,15 +238,16 @@ export class EmployeesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   canEdit(emp: Employee): boolean {
-    return this.isAdmin() || this.isSelf(emp);
+    return this.isAdmin() || this.isSelf(emp) || this.authService.canEdit('office-employees') || this.authService.canEdit('office');
   }
 
   canDelete(emp: Employee): boolean {
-    return this.isAdmin();
+    if (this.isSelf(emp)) return false; // Cannot delete self
+    return this.isAdmin() || this.authService.canDelete('office-employees') || this.authService.canDelete('office');
   }
 
   canAdd(): boolean {
-    return this.isAdmin();
+    return this.isAdmin() || this.authService.canAdd('office-employees') || this.authService.canAdd('office');
   }
 
   canManageAccess(): boolean {
@@ -375,7 +381,7 @@ export class EmployeesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  toggleCategoryAll(category: 'sales' | 'finance' | 'activity' | 'inventory' | 'all', enable: boolean): void {
+  toggleCategoryAll(category: 'sales' | 'finance' | 'activity' | 'inventory' | 'office' | 'all', enable: boolean): void {
     if (!this.canManageAccess()) return;
     const pages = category === 'all' 
       ? this.navPagesList 
@@ -431,7 +437,7 @@ export class EmployeesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   syncModuleFromNavPages(): void {
     if (!this.accessForm.navPages) return;
-    const cats: ('sales' | 'finance' | 'activity' | 'inventory')[] = ['sales', 'finance', 'activity', 'inventory'];
+    const cats: ('sales' | 'finance' | 'activity' | 'inventory' | 'office')[] = ['sales', 'finance', 'activity', 'inventory', 'office'];
     cats.forEach(cat => {
       const pagesInCat = this.navPagesList.filter(p => p.category === cat);
       const anyView = pagesInCat.some(p => this.accessForm.navPages![p.key]?.canView !== false);

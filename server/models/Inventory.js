@@ -179,6 +179,12 @@ const GatePass = conDb.define('GatePass', {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'remarks'
+    },
+    totalAmount: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+        field: 'total_amount'
     }
 }, {
     tableName: 'inventory_gate_passes',
@@ -219,6 +225,24 @@ const GatePassItem = conDb.define('GatePassItem', {
         allowNull: false,
         defaultValue: 'Nos',
         field: 'unit'
+    },
+    rate: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+        field: 'rate'
+    },
+    vendorName: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        defaultValue: '',
+        field: 'vendor_name'
+    },
+    amount: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+        field: 'amount'
     }
 }, {
     tableName: 'inventory_gate_pass_items',

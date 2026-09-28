@@ -25,7 +25,10 @@ function formatProject(projectInstance) {
 exports.getAllProjects = async (req, res) => {
     try {
         const { search, siteType, systemType, clientType, orderBy } = req.query;
-        const whereClause = {};
+        const whereClause = {
+            siteId: { [Op.ne]: 'WAREHOUSE' },
+            clientName: { [Op.notLike]: '%Warehouse%' }
+        };
 
         if (search) {
             whereClause[Op.or] = [
@@ -312,7 +315,12 @@ exports.deleteProject = async (req, res) => {
 // Summary metrics (KPIs)
 exports.getSummaryMetrics = async (req, res) => {
     try {
-        const projects = await ProjectMaster.findAll();
+        const projects = await ProjectMaster.findAll({
+            where: {
+                siteId: { [Op.ne]: 'WAREHOUSE' },
+                clientName: { [Op.notLike]: '%Warehouse%' }
+            }
+        });
         const formatted = projects.map(formatProject);
 
         const totalProjects = formatted.length;

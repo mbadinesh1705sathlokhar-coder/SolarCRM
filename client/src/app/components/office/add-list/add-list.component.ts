@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { MasterListService, MasterList } from '../../../services/master-list.service';
+import { AuthService } from '../../../services/auth.service';
 
 export interface FormRow {
   value: string;
@@ -36,6 +37,19 @@ export interface SidebarSectionDef {
 export class AddListComponent implements OnInit {
   private masterListService = inject(MasterListService);
   private cdr = inject(ChangeDetectorRef);
+  public authService = inject(AuthService);
+
+  canAdd(): boolean {
+    return this.authService.isAdmin() || this.authService.canAdd('office-add-list') || this.authService.canAdd('office');
+  }
+
+  canEdit(): boolean {
+    return this.authService.isAdmin() || this.authService.canEdit('office-add-list') || this.authService.canEdit('office');
+  }
+
+  canDelete(): boolean {
+    return this.authService.isAdmin() || this.authService.canDelete('office-add-list') || this.authService.canDelete('office');
+  }
 
   lists: MasterList[] = [];
   loading = false;
@@ -714,6 +728,10 @@ export class AddListComponent implements OnInit {
   }
 
   openAddModal(): void {
+    if (!this.canAdd()) {
+      this.showToast('You do not have permission to add configuration lists.', 'danger');
+      return;
+    }
     this.isEditMode = false;
     this.editingId = null;
     this.selectedSectionId = 'activity-calls'; // Default to Calls as requested by the user
@@ -723,6 +741,10 @@ export class AddListComponent implements OnInit {
   }
 
   openEditModal(list: MasterList): void {
+    if (!this.canEdit()) {
+      this.showToast('You do not have permission to edit configuration lists.', 'danger');
+      return;
+    }
     this.isEditMode = true;
     this.editingId = list.id || null;
     this.formTitle = list.title;
@@ -793,6 +815,11 @@ export class AddListComponent implements OnInit {
       return;
     }
 
+    if (this.isEditMode ? !this.canEdit() : !this.canAdd()) {
+      this.showToast('You do not have permission to perform this action.', 'danger');
+      return;
+    }
+
     const cleanItems = this.formRows
       .map(r => r.value.trim())
       .filter(Boolean);
@@ -842,6 +869,10 @@ export class AddListComponent implements OnInit {
 
   confirmDelete(list: MasterList): void {
     if (!list.id) return;
+    if (!this.canDelete()) {
+      this.showToast('You do not have permission to delete configuration lists.', 'danger');
+      return;
+    }
     if (confirm(`Are you sure you want to delete the configuration list "${list.title}" with all its ${list.items?.length || 0} items?`)) {
       this.masterListService.deleteList(list.id).subscribe({
         next: (res) => {

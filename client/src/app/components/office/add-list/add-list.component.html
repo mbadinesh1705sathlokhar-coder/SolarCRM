@@ -38,6 +38,7 @@
     <!-- Top Action -->
     <div>
       <button class="btn btn-sm btn-primary text-white fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
+              *ngIf="canAdd()"
               (click)="openAddModal()">
         <i class="bi bi-plus-lg"></i> Add List
       </button>
@@ -157,14 +158,20 @@
           <tr *ngFor="let l of filteredLists; let i = index">
             <!-- S.No -->
             <td class="text-center font-mono text-muted small fw-bold">{{ i + 1 }}</td>
-            <!-- Title (Clickable to edit configuration) -->
+            <!-- Title (Clickable to edit configuration if permitted) -->
             <td>
-              <div class="fw-bold text-dark d-flex align-items-center gap-1.5 config-title-link cursor-pointer" 
+              <div *ngIf="canEdit()" class="fw-bold text-dark d-flex align-items-center gap-1.5 config-title-link cursor-pointer" 
                    style="font-size: 0.9rem;"
                    (click)="openEditModal(l)"
                    title="Click to edit list & configurations">
                 <i class="bi bi-list-check text-primary"></i>
                 <span class="hover-underline">{{ l.title }}</span>
+              </div>
+              <div *ngIf="!canEdit()" class="fw-bold text-dark d-flex align-items-center gap-1.5" 
+                   style="font-size: 0.9rem;"
+                   title="View list only">
+                <i class="bi bi-list-check text-secondary"></i>
+                <span>{{ l.title }}</span>
               </div>
               <div class="small text-muted font-italic" *ngIf="l.description" style="font-size: 0.72rem;">
                 {{ l.description }}
@@ -213,11 +220,12 @@
             </td>
             <!-- Actions (Delete only - click title to edit) -->
             <td class="text-center">
-              <button class="btn btn-sm btn-outline-danger border-0 p-1"
+              <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger border-0 p-1"
                       (click)="confirmDelete(l)"
                       title="Delete List">
                 <i class="bi bi-trash3 fs-6"></i>
               </button>
+              <span *ngIf="!canDelete()" class="text-muted small">—</span>
             </td>
           </tr>
         </tbody>
@@ -411,7 +419,7 @@
 
             <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
               <small class="text-muted">Total configured options: <strong class="text-dark">{{ formRows.length }}</strong></small>
-              <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 fw-semibold text-success" (click)="addDescriptionRow()">
+              <button *ngIf="isEditMode ? canEdit() : canAdd()" type="button" class="btn btn-link btn-sm text-decoration-none p-0 fw-semibold text-success" (click)="addDescriptionRow()">
                 <i class="bi bi-plus me-1"></i>Add another row
               </button>
             </div>
@@ -420,8 +428,10 @@
 
         <!-- Modal Footer -->
         <div class="modal-footer bg-white py-2.5 px-4 d-flex justify-content-between">
-          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">Cancel</button>
-          <button type="submit" class="btn btn-sm btn-primary px-4 fw-semibold shadow-sm">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">
+            {{ (isEditMode ? canEdit() : canAdd()) ? 'Cancel' : 'Close' }}
+          </button>
+          <button *ngIf="isEditMode ? canEdit() : canAdd()" type="submit" class="btn btn-sm btn-primary px-4 fw-semibold shadow-sm">
             <i class="bi bi-check2-circle me-1"></i>Save Configuration List
           </button>
         </div>

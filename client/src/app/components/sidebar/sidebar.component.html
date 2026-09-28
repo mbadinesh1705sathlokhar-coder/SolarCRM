@@ -221,8 +221,8 @@
   <div class="sidebar-category">
     <div class="category-header">ACCOUNT</div>
     <ul class="nav-list list-unstyled">
-      <!-- Office Dropdown Group (Under Account, Above Logout - Admin Only) -->
-      <li class="nav-item has-submenu" *ngIf="authService.isAdmin()">
+      <!-- Office Dropdown Group (Under Account, Above Logout) -->
+      <li class="nav-item has-submenu" *ngIf="authService.isAdmin() || authService.canViewModule('office') || authService.canViewAnyNav(['office-employees', 'office-add-list'])">
         <button type="button"
                 class="sidebar-nav-item dropdown-trigger-btn w-100 text-start border-0 bg-transparent"
                 (click)="toggleOffice()"
@@ -236,13 +236,13 @@
 
         <!-- Submenu links: Employees, Add List -->
         <ul class="submenu-list list-unstyled" *ngIf="isOfficeOpen">
-          <li class="submenu-item">
+          <li class="submenu-item" *ngIf="authService.isAdmin() || authService.canViewNav('office-employees')">
             <a routerLink="/office/employees" routerLinkActive="active" class="submenu-link">
               <i class="bi bi-person-badge text-primary"></i>
               <span>Employees</span>
             </a>
           </li>
-          <li class="submenu-item">
+          <li class="submenu-item" *ngIf="authService.isAdmin() || authService.canViewNav('office-add-list')">
             <a routerLink="/office/add-list" routerLinkActive="active" class="submenu-link">
               <i class="bi bi-card-checklist text-warning"></i>
               <span>Add List</span>

@@ -868,16 +868,49 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     };
   }
 
-  formatDate(dateStr?: string): string {
-    if (!dateStr) return '—';
+  formatDate(dateVal?: any): string {
+    if (!dateVal) return '—';
     try {
-      const parts = dateStr.split('-');
-      if (parts.length === 3 && parts[0].length === 4) {
-        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      if (dateVal instanceof Date) {
+        if (isNaN(dateVal.getTime())) return '—';
+        const d = String(dateVal.getDate()).padStart(2, '0');
+        const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+        const y = dateVal.getFullYear();
+        return `${d}-${m}-${y}`;
       }
-      return dateStr;
+
+      const str = String(dateVal).trim();
+      if (!str || str === '-' || str === '—' || str === 'null' || str === 'undefined') return '—';
+
+      const clean = str.split('T')[0].split(' ')[0].trim();
+
+      const ymd = clean.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+      if (ymd) {
+        const y = ymd[1];
+        const m = ymd[2].padStart(2, '0');
+        const d = ymd[3].padStart(2, '0');
+        return `${d}-${m}-${y}`;
+      }
+
+      const dmy = clean.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+      if (dmy) {
+        const d = dmy[1].padStart(2, '0');
+        const m = dmy[2].padStart(2, '0');
+        const y = dmy[3];
+        return `${d}-${m}-${y}`;
+      }
+
+      const parsed = new Date(str);
+      if (!isNaN(parsed.getTime())) {
+        const d = String(parsed.getDate()).padStart(2, '0');
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const y = parsed.getFullYear();
+        return `${d}-${m}-${y}`;
+      }
+
+      return clean || str;
     } catch {
-      return dateStr;
+      return String(dateVal);
     }
   }
 

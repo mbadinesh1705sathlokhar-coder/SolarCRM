@@ -44,10 +44,13 @@ export class ProjectService {
     return this.http.get<{ success: boolean; count: number; data: Project[] }>(this.apiUrl, { params }).pipe(
       tap(res => {
         if (res.success && res.data) {
+          const clientProjects = res.data.filter(p => (p.siteId || '').toUpperCase() !== 'WAREHOUSE' && !(p.clientName || '').toLowerCase().includes('warehouse'));
+          res.data = clientProjects;
+          res.count = clientProjects.length;
           if (!filters?.search && !filters?.siteType && !filters?.systemType && !filters?.clientType && !filters?.orderBy) {
-            this.cachedProjects = [...res.data];
+            this.cachedProjects = [...clientProjects];
           } else if (!this.cachedProjects) {
-            this.cachedProjects = [...res.data];
+            this.cachedProjects = [...clientProjects];
           }
         }
       })

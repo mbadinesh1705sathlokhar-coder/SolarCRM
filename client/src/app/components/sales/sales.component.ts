@@ -62,6 +62,9 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Weekly Sales Dashboard State (for Admin)
   dashboardLoading = false;
+  dashboardFromDate: string = '';
+  dashboardToDate: string = '';
+  dashboardOverallRecord: WeeklySalesRecord | null = null;
   weeklyRecords: WeeklySalesRecord[] = [];
   selectedWeeklyRecord: WeeklySalesRecord | null = null;
   dashboardSearchTerm: string = '';
@@ -243,7 +246,11 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.authService.isAdmin() || this.authService.canViewNav('sales-dashboard');
   }
 
-  // --- WEEKLY SALES TRACKER (For Admin) ---
+  get activeDashboardRecord(): WeeklySalesRecord | null {
+    return this.selectedWeeklyRecord || this.dashboardOverallRecord;
+  }
+
+  // --- SALES PERFORMANCE TRACKER (For Admin / Reports) ---
   loadDashboardWeeklyData(): void {
     this.dashboardLoading = true;
     this.cdr.markForCheck();
@@ -263,12 +270,17 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
                 if (expRes.success && expRes.data) {
                   this.dashboardExpenses = expRes.data;
                 }
-                this.computeWeeklySalesRecords();
                 this.dashboardLoading = false;
+                if (this.dashboardFromDate && this.dashboardToDate) {
+                  this.applyDashboardDateFilter();
+                } else {
+                  this.weeklyRecords = [];
+                  this.selectedWeeklyRecord = null;
+                  this.dashboardOverallRecord = null;
+                }
                 this.cdr.markForCheck();
               },
               error: () => {
-                this.computeWeeklySalesRecords();
                 this.dashboardLoading = false;
                 this.cdr.markForCheck();
               }
@@ -324,55 +336,94 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     return null;
   }
 
-  computeWeeklySalesRecords(): void {
+  onDashboardDateChange(changedField?: 'from' | 'to'): void {
+    if (changedField === 'from' && this.dashboardFromDate && !this.dashboardToDate) {
+      // Default To Date to From Date + 6 days for convenient 1-week schedule
+      const f = new Date(this.dashboardFromDate);
+      if (!isNaN(f.getTime())) {
+        const t = new Date(f);
+        t.setDate(f.getDate() + 6);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        this.dashboardToDate = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+      }
+    }
+    this.applyDashboardDateFilter();
+  }
+
+  clearDashboardDates(): void {
+    this.dashboardFromDate = '';
+    this.dashboardToDate = '';
+    this.weeklyRecords = [];
+    this.selectedWeeklyRecord = null;
+    this.dashboardOverallRecord = null;
+    this.cdr.markForCheck();
+  }
+
+  applyDashboardDateFilter(): void {
+    if (!this.dashboardFromDate || !this.dashboardToDate) {
+      this.weeklyRecords = [];
+      this.selectedWeeklyRecord = null;
+      this.dashboardOverallRecord = null;
+      this.cdr.markForCheck();
+      return;
+    }
+
     const pad = (n: number) => String(n).padStart(2, '0');
-    // Anchor to 26/09/2026 (today) as explicitly specified by user: 26/09/2026 - 02/10/2026
-    const anchor = new Date(2026, 8, 26);
-    anchor.setHours(0, 0, 0, 0);
+    let start = new Date(this.dashboardFromDate);
+    let end = new Date(this.dashboardToDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      this.weeklyRecords = [];
+      this.selectedWeeklyRecord = null;
+      this.dashboardOverallRecord = null;
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (start > end) {
+      const tmp = start;
+      start = end;
+      end = tmp;
+    }
+
+    const rangeStart = new Date(start);
+    rangeStart.setHours(0, 0, 0, 0);
+
+    const rangeEnd = new Date(end);
+    rangeEnd.setHours(23, 59, 59, 999);
+
+    const diffMs = rangeEnd.getTime() - rangeStart.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
     const records: WeeklySalesRecord[] = [];
 
-    // Generate weekly slots: from +1 week future down to -24 weeks past
-    for (let k = 1; k >= -24; k--) {
-      const start = new Date(anchor);
-      start.setDate(anchor.getDate() + (k * 7));
-      start.setHours(0, 0, 0, 0);
-
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-
-      const startLabel = `${pad(start.getDate())}/${pad(start.getMonth() + 1)}/${start.getFullYear()}`;
-      const endLabel = `${pad(end.getDate())}/${pad(end.getMonth() + 1)}/${end.getFullYear()}`;
+    if (diffDays <= 7) {
+      const startLabel = `${pad(rangeStart.getDate())}/${pad(rangeStart.getMonth() + 1)}/${rangeStart.getFullYear()}`;
+      const endLabel = `${pad(rangeEnd.getDate())}/${pad(rangeEnd.getMonth() + 1)}/${rangeEnd.getFullYear()}`;
       const weekLabel = `${startLabel} - ${endLabel}`;
 
-      // 1. Awarded Projects in this week
       const awardedInWeek = this.dashboardProjects.filter(p => {
         const d = this.parseAnyDate(p.awardedDate || p.createdAt);
-        return d && d >= start && d <= end;
+        return d && d >= rangeStart && d <= rangeEnd;
       });
-
       const awardedValue = awardedInWeek.reduce((sum, p) => sum + (Number(p.siteValue) || 0), 0);
 
-      // 2. Client Payments in this week
       const paymentsInWeek = this.dashboardPayments.filter(p => {
         const d = this.parseAnyDate(p.paymentDate || p.createdAt);
-        return d && d >= start && d <= end;
+        return d && d >= rangeStart && d <= rangeEnd;
       });
-
       const clientPaymentReceived = paymentsInWeek.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-      // 3. PO / WO site expenses in this week
       const poWoInWeek = this.dashboardExpenses.filter(e => {
         if (!this.isPoWo(e.paymentThrough)) return false;
         const d = this.parseAnyDate(e.expenseDate || e.createdAt);
-        return d && d >= start && d <= end;
+        return d && d >= rangeStart && d <= rangeEnd;
       });
 
-      records.push({
+      const singleRec: WeeklySalesRecord = {
         weekLabel,
-        startDate: start,
-        endDate: end,
+        startDate: rangeStart,
+        endDate: rangeEnd,
         awardedSitesCount: awardedInWeek.length,
         awardedValue,
         clientPaymentReceived,
@@ -380,14 +431,96 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
         awardedProjectsList: awardedInWeek,
         paymentsList: paymentsInWeek,
         poWoList: poWoInWeek
+      };
+
+      records.push(singleRec);
+      this.dashboardOverallRecord = singleRec;
+      this.selectedWeeklyRecord = singleRec;
+    } else {
+      let currentEnd = new Date(rangeEnd);
+
+      while (currentEnd >= rangeStart) {
+        let currentStart = new Date(currentEnd);
+        currentStart.setDate(currentEnd.getDate() - 6);
+        currentStart.setHours(0, 0, 0, 0);
+        if (currentStart < rangeStart) {
+          currentStart = new Date(rangeStart);
+        }
+
+        const sLabel = `${pad(currentStart.getDate())}/${pad(currentStart.getMonth() + 1)}/${currentStart.getFullYear()}`;
+        const eLabel = `${pad(currentEnd.getDate())}/${pad(currentEnd.getMonth() + 1)}/${currentEnd.getFullYear()}`;
+        const wLabel = `${sLabel} - ${eLabel}`;
+
+        const awardedInWeek = this.dashboardProjects.filter(p => {
+          const d = this.parseAnyDate(p.awardedDate || p.createdAt);
+          return d && d >= currentStart && d <= currentEnd;
+        });
+        const awardedValue = awardedInWeek.reduce((sum, p) => sum + (Number(p.siteValue) || 0), 0);
+
+        const paymentsInWeek = this.dashboardPayments.filter(p => {
+          const d = this.parseAnyDate(p.paymentDate || p.createdAt);
+          return d && d >= currentStart && d <= currentEnd;
+        });
+        const clientPaymentReceived = paymentsInWeek.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+        const poWoInWeek = this.dashboardExpenses.filter(e => {
+          if (!this.isPoWo(e.paymentThrough)) return false;
+          const d = this.parseAnyDate(e.expenseDate || e.createdAt);
+          return d && d >= currentStart && d <= currentEnd;
+        });
+
+        records.push({
+          weekLabel: wLabel,
+          startDate: currentStart,
+          endDate: currentEnd,
+          awardedSitesCount: awardedInWeek.length,
+          awardedValue,
+          clientPaymentReceived,
+          poWoCount: poWoInWeek.length,
+          awardedProjectsList: awardedInWeek,
+          paymentsList: paymentsInWeek,
+          poWoList: poWoInWeek
+        });
+
+        currentEnd = new Date(currentStart);
+        currentEnd.setDate(currentEnd.getDate() - 1);
+        currentEnd.setHours(23, 59, 59, 999);
+      }
+
+      const allAwarded = this.dashboardProjects.filter(p => {
+        const d = this.parseAnyDate(p.awardedDate || p.createdAt);
+        return d && d >= rangeStart && d <= rangeEnd;
       });
+      const allPayments = this.dashboardPayments.filter(p => {
+        const d = this.parseAnyDate(p.paymentDate || p.createdAt);
+        return d && d >= rangeStart && d <= rangeEnd;
+      });
+      const allPoWo = this.dashboardExpenses.filter(e => {
+        if (!this.isPoWo(e.paymentThrough)) return false;
+        const d = this.parseAnyDate(e.expenseDate || e.createdAt);
+        return d && d >= rangeStart && d <= rangeEnd;
+      });
+
+      const sLabel = `${pad(rangeStart.getDate())}/${pad(rangeStart.getMonth() + 1)}/${rangeStart.getFullYear()}`;
+      const eLabel = `${pad(rangeEnd.getDate())}/${pad(rangeEnd.getMonth() + 1)}/${rangeEnd.getFullYear()}`;
+
+      this.dashboardOverallRecord = {
+        weekLabel: `${sLabel} - ${eLabel}`,
+        startDate: rangeStart,
+        endDate: rangeEnd,
+        awardedSitesCount: allAwarded.length,
+        awardedValue: allAwarded.reduce((sum, p) => sum + (Number(p.siteValue) || 0), 0),
+        clientPaymentReceived: allPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+        poWoCount: allPoWo.length,
+        awardedProjectsList: allAwarded,
+        paymentsList: allPayments,
+        poWoList: allPoWo
+      };
+
+      this.selectedWeeklyRecord = records[0] || this.dashboardOverallRecord;
     }
 
     this.weeklyRecords = records;
-
-    // Default select current week (26/09/2026 - 02/10/2026) or first record
-    const currentWeekRec = this.weeklyRecords.find(w => w.weekLabel.startsWith('26/09/2026')) || this.weeklyRecords[1] || this.weeklyRecords[0];
-    this.selectedWeeklyRecord = currentWeekRec || null;
     this.cdr.markForCheck();
   }
 
@@ -397,9 +530,11 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openWeeklyDetailModal(w: WeeklySalesRecord, tab: 'awarded' | 'payments' | 'powo' = 'awarded'): void {
+    this.selectedWeeklyRecord = w;
     this.weeklyDetailRecord = w;
     this.weeklyDetailActiveTab = tab;
     this.isWeeklyDetailModalOpen = true;
+    this.cdr.markForCheck();
   }
 
   closeWeeklyDetailModal(): void {
@@ -414,6 +549,10 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   exportWeeklySalesPdf(): void {
+    if (!this.weeklyRecords || this.weeklyRecords.length === 0) {
+      this.showToast('Please select From and To dates first to generate and export the report.', 'info');
+      return;
+    }
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
@@ -1329,16 +1468,53 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     }, 4500);
   }
 
-  formatDate(dateStr?: string): string {
-    if (!dateStr) return '-';
+  formatDate(dateVal?: any): string {
+    if (!dateVal) return '-';
     try {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      if (dateVal instanceof Date) {
+        if (isNaN(dateVal.getTime())) return '-';
+        const d = String(dateVal.getDate()).padStart(2, '0');
+        const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+        const y = dateVal.getFullYear();
+        return `${d}-${m}-${y}`;
       }
-      return dateStr;
+
+      const str = String(dateVal).trim();
+      if (!str || str === '-' || str === 'null' || str === 'undefined') return '-';
+
+      // Extract date portion before 'T' or time component
+      const clean = str.split('T')[0].split(' ')[0].trim();
+
+      // Case 1: YYYY-MM-DD or YYYY/MM/DD
+      const ymd = clean.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+      if (ymd) {
+        const y = ymd[1];
+        const m = ymd[2].padStart(2, '0');
+        const d = ymd[3].padStart(2, '0');
+        return `${d}-${m}-${y}`;
+      }
+
+      // Case 2: DD-MM-YYYY or DD/MM/YYYY
+      const dmy = clean.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+      if (dmy) {
+        const d = dmy[1].padStart(2, '0');
+        const m = dmy[2].padStart(2, '0');
+        const y = dmy[3];
+        return `${d}-${m}-${y}`;
+      }
+
+      // Fallback: parse via Date object
+      const parsed = new Date(str);
+      if (!isNaN(parsed.getTime())) {
+        const d = String(parsed.getDate()).padStart(2, '0');
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const y = parsed.getFullYear();
+        return `${d}-${m}-${y}`;
+      }
+
+      return clean || str;
     } catch {
-      return dateStr;
+      return String(dateVal);
     }
   }
 

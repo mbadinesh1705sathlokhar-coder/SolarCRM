@@ -77,3 +77,47 @@
 .shadow-xs {
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
+
+/* Searchable Client Dropdown */
+.searchable-client-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  min-width: 290px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 1070;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border-radius: 0.5rem;
+}
+
+.searchable-client-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.82rem;
+  transition: background-color 0.15s ease;
+}
+
+.searchable-client-item:hover,
+.searchable-client-item.active {
+  background-color: #f0fdfa;
+  color: #0f766e;
+}
+
+/* Clickable Unit Pill Button */
+.unit-clickable-btn {
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  background-color: #f8fafc;
+}
+
+.unit-clickable-btn:hover {
+  background-color: #fef9c3 !important;
+  border-color: #facc15 !important;
+  box-shadow: 0 2px 4px rgba(234, 179, 8, 0.2) !important;
+  transform: translateY(-1px);
+}

@@ -102,6 +102,21 @@
 
         <!-- Meeting Visibility Controls -->
         <div class="d-flex flex-wrap align-items-center gap-2">
+          <!-- Calendar Mode Selector (Week with Sunday vs List) -->
+          <div class="btn-group btn-group-sm shadow-xs">
+            <button type="button" class="btn btn-sm" 
+                    [ngClass]="calendarViewMode === 'week' ? 'btn-primary text-white' : 'btn-outline-secondary bg-white'"
+                    (click)="calendarViewMode = 'week'"
+                    title="Week View (Monday to Sunday)">
+              <i class="bi bi-calendar3 me-1"></i> Week (7 Days)
+            </button>
+            <button type="button" class="btn btn-sm" 
+                    [ngClass]="calendarViewMode === 'list' ? 'btn-primary text-white' : 'btn-outline-secondary bg-white'"
+                    (click)="calendarViewMode = 'list'"
+                    title="List View">
+              <i class="bi bi-list-task me-1"></i> List
+            </button>
+          </div>
           <!-- Admin View Toggle: All Meetings vs My Meetings -->
           <div class="d-flex align-items-center gap-2" *ngIf="authService.isAdmin()">
             <span class="small text-muted fw-semibold"><i class="bi bi-eye"></i> View:</span>

@@ -232,11 +232,20 @@ async function createGatePass(req, res) {
             return res.status(400).json({ success: false, message: 'Client name is required.' });
         }
 
-        // Auto-compute descriptions, total quantity, and unit from multiple items if provided
+        // Auto-compute descriptions, total quantity, unit, and totalAmount from multiple items if provided
+        let calculatedTotalAmount = 0;
         if (Array.isArray(items) && items.length > 0) {
             descriptions = items.map(m => m.materialName || 'Material').join(', ');
             quantity = items.reduce((sum, m) => sum + (parseFloat(m.quantity) || 0), 0);
             unit = items.length === 1 ? (items[0].unit || 'Nos') : `${items.length} Items`;
+            calculatedTotalAmount = items.reduce((sum, m) => {
+                const q = parseFloat(m.quantity) || 0;
+                const r = parseFloat(m.rate) || 0;
+                const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                return sum + a;
+            }, 0);
+        } else if (req.body.totalAmount !== undefined) {
+            calculatedTotalAmount = parseFloat(req.body.totalAmount) || 0;
         }
 
         if (!descriptions || !descriptions.trim()) {
@@ -250,17 +259,26 @@ async function createGatePass(req, res) {
             quantity: parseFloat(quantity) || 1,
             clientName: clientName.trim(),
             siteEngineer: siteEngineer || 'Dinesh Kumar',
-            remarks: remarks ? remarks.trim() : ''
+            remarks: remarks ? remarks.trim() : '',
+            totalAmount: calculatedTotalAmount
         });
 
         // Insert nested items if provided
         if (Array.isArray(items) && items.length > 0) {
-            const itemRecords = items.map(m => ({
-                gatePassId: created.id,
-                materialName: m.materialName || 'Material',
-                quantity: parseFloat(m.quantity) || 1,
-                unit: m.unit || 'Nos'
-            }));
+            const itemRecords = items.map(m => {
+                const q = parseFloat(m.quantity) || 0;
+                const r = parseFloat(m.rate) || 0;
+                const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                return {
+                    gatePassId: created.id,
+                    materialName: m.materialName || 'Material',
+                    quantity: q,
+                    unit: m.unit || 'Nos',
+                    rate: r,
+                    vendorName: (m.vendorName || '').trim(),
+                    amount: a
+                };
+            });
             await GatePassItem.bulkCreate(itemRecords);
         }
 
@@ -278,17 +296,24 @@ async function createGatePass(req, res) {
 async function updateGatePass(req, res) {
     try {
         const { id } = req.params;
-        let { gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items } = req.body;
+        let { gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, totalAmount } = req.body;
         const pass = await GatePass.findByPk(id);
         if (!pass) {
             return res.status(404).json({ success: false, message: 'Gate pass not found' });
         }
 
-        // Auto-compute descriptions, total quantity, and unit from multiple items if provided
+        // Auto-compute descriptions, total quantity, unit, and totalAmount from multiple items if provided
+        let calculatedTotalAmount = totalAmount !== undefined ? parseFloat(totalAmount) || 0 : (pass.totalAmount || 0);
         if (Array.isArray(items) && items.length > 0) {
             descriptions = items.map(m => m.materialName || 'Material').join(', ');
             quantity = items.reduce((sum, m) => sum + (parseFloat(m.quantity) || 0), 0);
             unit = items.length === 1 ? (items[0].unit || 'Nos') : `${items.length} Items`;
+            calculatedTotalAmount = items.reduce((sum, m) => {
+                const q = parseFloat(m.quantity) || 0;
+                const r = parseFloat(m.rate) || 0;
+                const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                return sum + a;
+            }, 0);
         }
 
         await pass.update({
@@ -298,19 +323,28 @@ async function updateGatePass(req, res) {
             quantity: quantity !== undefined ? parseFloat(quantity) || pass.quantity : pass.quantity,
             clientName: clientName !== undefined ? clientName.trim() : pass.clientName,
             siteEngineer: siteEngineer !== undefined ? siteEngineer : pass.siteEngineer,
-            remarks: remarks !== undefined ? (remarks ? remarks.trim() : '') : pass.remarks
+            remarks: remarks !== undefined ? (remarks ? remarks.trim() : '') : pass.remarks,
+            totalAmount: calculatedTotalAmount
         });
 
         // Replace nested items if provided
         if (Array.isArray(items)) {
             await GatePassItem.destroy({ where: { gatePassId: id } });
             if (items.length > 0) {
-                const itemRecords = items.map(m => ({
-                    gatePassId: id,
-                    materialName: m.materialName || 'Material',
-                    quantity: parseFloat(m.quantity) || 1,
-                    unit: m.unit || 'Nos'
-                }));
+                const itemRecords = items.map(m => {
+                    const q = parseFloat(m.quantity) || 0;
+                    const r = parseFloat(m.rate) || 0;
+                    const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                    return {
+                        gatePassId: id,
+                        materialName: m.materialName || 'Material',
+                        quantity: q,
+                        unit: m.unit || 'Nos',
+                        rate: r,
+                        vendorName: (m.vendorName || '').trim(),
+                        amount: a
+                    };
+                });
                 await GatePassItem.bulkCreate(itemRecords);
             }
         }

@@ -60,13 +60,95 @@ export class GatePassComponent implements OnInit {
   unitOptions: string[] = ['Nos', 'Meter', 'Set', 'Kg', 'Roll', 'Box', 'Lot'];
   engineers: string[] = ['Soundarajan', 'Sathish', 'V Sharath', 'K Karthikeyen', 'S Karthikeyen', 'Rahul', 'Vairamani'];
   clientOptions: string[] = [];
+  vendorOptions: string[] = [];
+
+  // View Descriptions Modal State (User clicks Unit to view all descriptions)
+  isViewDescriptionsOpen = false;
+  selectedGatePassForView: GatePass | null = null;
+
+  // Searchable Client Dropdown State
+  clientDropdownOpen = false;
+
+  get filteredClientOptions(): string[] {
+    const q = (this.passForm.clientName || '').toLowerCase().trim();
+    if (!q) return this.clientOptions;
+    return this.clientOptions.filter(c => c.toLowerCase().includes(q));
+  }
+
+  openClientDropdown(): void {
+    this.clientDropdownOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeClientDropdown(): void {
+    setTimeout(() => {
+      this.clientDropdownOpen = false;
+      this.cdr.markForCheck();
+    }, 200);
+  }
+
+  toggleClientDropdown(event: MouseEvent): void {
+    event.preventDefault();
+    this.clientDropdownOpen = !this.clientDropdownOpen;
+    this.cdr.markForCheck();
+  }
+
+  selectClient(clientName: string): void {
+    this.passForm.clientName = clientName;
+    this.clientDropdownOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  clearClientSelection(): void {
+    this.passForm.clientName = '';
+    this.clientDropdownOpen = true;
+    this.cdr.markForCheck();
+  }
 
   ngOnInit(): void {
     this.loadGatePasses();
     this.loadWarehouseStockOptions();
     this.loadMasterMaterials();
+    this.loadVendorsFromAddList();
     this.loadEngineersFromOffice();
     this.loadAwardedClients();
+  }
+
+  loadVendorsFromAddList(): void {
+    this.masterListService.getAllLists().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const vList = res.data.find(l => {
+            const t = l.title.toLowerCase().trim();
+            return t === 'vendors' || t === 'vendor name' || t === 'vendor';
+          });
+          if (vList?.items && vList.items.length > 0) {
+            this.vendorOptions = vList.items;
+            this.cdr.markForCheck();
+            return;
+          }
+        }
+        // Fallback to office vendors
+        this.officeService.getVendors().subscribe({
+          next: (vRes) => {
+            if (vRes.success && vRes.data?.length > 0) {
+              this.vendorOptions = vRes.data.map(v => v.vendorName).filter(Boolean);
+              this.cdr.markForCheck();
+            }
+          }
+        });
+      },
+      error: () => {
+        this.officeService.getVendors().subscribe({
+          next: (vRes) => {
+            if (vRes.success && vRes.data?.length > 0) {
+              this.vendorOptions = vRes.data.map(v => v.vendorName).filter(Boolean);
+              this.cdr.markForCheck();
+            }
+          }
+        });
+      }
+    });
   }
 
   loadMasterMaterials(): void {
@@ -174,8 +256,11 @@ export class GatePassComponent implements OnInit {
     this.dispatchMaterials = [
       {
         materialName: this.stockMaterialOptions[0] || 'Cable Tray Materials',
+        unit: 'Nos',
         quantity: 1,
-        unit: 'Nos'
+        rate: 0,
+        vendorName: this.vendorOptions[0] || '',
+        amount: 0
       }
     ];
     this.isModalOpen = true;
@@ -189,19 +274,37 @@ export class GatePassComponent implements OnInit {
     this.isEditMode = true;
     this.passForm = { ...gp };
     if (gp.items && gp.items.length > 0) {
-      this.dispatchMaterials = gp.items.map(m => ({ ...m }));
+      this.dispatchMaterials = gp.items.map(m => {
+        const q = parseFloat(m.quantity as any) || 0;
+        const r = parseFloat(m.rate as any) || 0;
+        const a = m.amount !== undefined && m.amount !== null ? (parseFloat(m.amount as any) || 0) : Math.round(q * r * 100) / 100;
+        return {
+          ...m,
+          unit: m.unit || 'Nos',
+          quantity: q,
+          rate: r,
+          vendorName: m.vendorName || (this.vendorOptions[0] || ''),
+          amount: a
+        };
+      });
     } else if (gp.descriptions) {
       this.dispatchMaterials = [{
         materialName: gp.descriptions,
+        unit: gp.unit || 'Nos',
         quantity: gp.quantity || 1,
-        unit: gp.unit || 'Nos'
+        rate: 0,
+        vendorName: this.vendorOptions[0] || '',
+        amount: 0
       }];
     } else {
       this.dispatchMaterials = [
         {
           materialName: this.stockMaterialOptions[0] || 'Cable Tray Materials',
+          unit: 'Nos',
           quantity: 1,
-          unit: 'Nos'
+          rate: 0,
+          vendorName: this.vendorOptions[0] || '',
+          amount: 0
         }
       ];
     }
@@ -210,20 +313,71 @@ export class GatePassComponent implements OnInit {
 
   closeModal(): void {
     this.isModalOpen = false;
+    this.clientDropdownOpen = false;
     this.passForm = this.getEmptyGatePass();
     this.dispatchMaterials = [];
+  }
+
+  openDescriptionsModal(gp: GatePass): void {
+    this.selectedGatePassForView = gp;
+    this.isViewDescriptionsOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeDescriptionsModal(): void {
+    this.isViewDescriptionsOpen = false;
+    this.selectedGatePassForView = null;
+    this.cdr.markForCheck();
+  }
+
+  editFromViewModal(gp: GatePass): void {
+    this.closeDescriptionsModal();
+    this.openEditModal(gp);
   }
 
   addMaterialRow(): void {
     this.dispatchMaterials.push({
       materialName: this.stockMaterialOptions[0] || 'Cable Tray Materials',
+      unit: 'Nos',
       quantity: 1,
-      unit: 'Nos'
+      rate: 0,
+      vendorName: this.vendorOptions[0] || '',
+      amount: 0
     });
   }
 
   removeMaterialRow(index: number): void {
     this.dispatchMaterials.splice(index, 1);
+  }
+
+  calculateRowAmount(m: GatePassItem): void {
+    const q = parseFloat(m.quantity as any) || 0;
+    const r = parseFloat(m.rate as any) || 0;
+    m.amount = Math.round(q * r * 100) / 100;
+  }
+
+  getTotalAmount(): number {
+    return this.dispatchMaterials.reduce((sum, m) => {
+      const q = parseFloat(m.quantity as any) || 0;
+      const r = parseFloat(m.rate as any) || 0;
+      const a = m.amount !== undefined && m.amount !== null ? (parseFloat(m.amount as any) || 0) : (q * r);
+      return sum + a;
+    }, 0);
+  }
+
+  getGatePassTotal(gp: GatePass): number {
+    if (gp.totalAmount !== undefined && gp.totalAmount !== null && Number(gp.totalAmount) > 0) {
+      return Number(gp.totalAmount);
+    }
+    if (gp.items && gp.items.length > 0) {
+      return gp.items.reduce((sum, it) => {
+        const q = parseFloat(it.quantity as any) || 0;
+        const r = parseFloat(it.rate as any) || 0;
+        const a = it.amount !== undefined && it.amount !== null ? (parseFloat(it.amount as any) || 0) : (q * r);
+        return sum + a;
+      }, 0);
+    }
+    return 0;
   }
 
   saveGatePass(): void {
@@ -243,16 +397,21 @@ export class GatePassComponent implements OnInit {
       return;
     }
 
-    // Auto calculate summary fields
+    // Ensure amount is calculated for all rows
+    validMaterials.forEach(m => this.calculateRowAmount(m));
+
+    // Auto calculate summary fields (Do not sum quantities across different units)
     const descriptions = validMaterials.map(m => `${m.materialName} (${m.quantity} ${m.unit})`).join(', ');
-    const totalQty = validMaterials.reduce((sum, m) => sum + (parseFloat(m.quantity as any) || 0), 0);
+    const quantity = validMaterials.length === 1 ? (parseFloat(validMaterials[0].quantity as any) || 1) : 0;
     const unit = validMaterials.length === 1 ? validMaterials[0].unit : `${validMaterials.length} Items`;
+    const totalAmount = this.getTotalAmount();
 
     const payload: Partial<GatePass> = {
       ...this.passForm,
       descriptions,
-      quantity: totalQty,
+      quantity,
       unit,
+      totalAmount,
       items: validMaterials
     };
 
@@ -370,14 +529,20 @@ export class GatePassComponent implements OnInit {
     doc.text(`Total Passes: ${list.length} | Generated on: ${new Date().toLocaleString()}`, 14, 19);
 
     const headers = [
-      ['S.No', 'Date', 'Client / Destination', 'Site Engineer', 'Dispatched Materials', 'Qty & Unit', 'Remarks']
+      ['S.No', 'Date', 'Client / Destination', 'Site Engineer', 'Dispatched Materials', 'Qty & Unit', 'Total Amount', 'Remarks']
     ];
 
     const body = list.map((gp, idx) => {
       let matDetails = gp.descriptions || '';
       if (gp.items && gp.items.length > 0) {
-        matDetails = gp.items.map(it => `${it.materialName} (${it.quantity} ${it.unit})`).join('\n');
+        matDetails = gp.items.map(it => {
+          let line = `${it.materialName} (${it.quantity} ${it.unit})`;
+          if (it.rate) line += ` @ Rs.${it.rate}`;
+          if (it.vendorName) line += ` [Vendor: ${it.vendorName}]`;
+          return line;
+        }).join('\n');
       }
+      const totalAmt = this.getGatePassTotal(gp);
       return [
         idx + 1,
         this.formatDate(gp.gatePassDate),
@@ -385,6 +550,7 @@ export class GatePassComponent implements OnInit {
         gp.siteEngineer || '',
         matDetails,
         `${gp.quantity || 1} ${gp.unit || 'Nos'}`,
+        totalAmt > 0 ? `Rs. ${totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—',
         gp.remarks || '—'
       ];
     });

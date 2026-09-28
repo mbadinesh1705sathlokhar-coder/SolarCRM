@@ -400,7 +400,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     // 0ms instant display from cache if available
     const cached = this.projectService.getCachedProjects();
     if (cached && cached.length > 0) {
-      this.projects = cached;
+      this.projects = cached.filter(p => (p.siteId || '').toUpperCase() !== 'WAREHOUSE' && !(p.clientName || '').toLowerCase().includes('warehouse'));
       this.initFilterOptions(this.projects);
       this.applyFilters();
       this.loading = false;
@@ -411,7 +411,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
 
     this.projectService.getProjects().subscribe({
       next: (res) => {
-        this.projects = res.data || [];
+        this.projects = (res.data || []).filter(p => (p.siteId || '').toUpperCase() !== 'WAREHOUSE' && !(p.clientName || '').toLowerCase().includes('warehouse'));
         this.initFilterOptions(this.projects);
         this.applyFilters();
         this.loading = false;

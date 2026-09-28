@@ -61,15 +61,15 @@
         </div>
       </div>
       <div class="d-flex align-items-center gap-2 ms-auto">
-        <!-- Admin-Only Bulk Excel Import Button (Icon-only without text) -->
+        <!-- Admin-Only Bulk Excel Import Button -->
         <input type="file" #excelFileInput (change)="onBulkExcelUpload($event)" accept=".xlsx, .xls, .csv" style="display: none;">
-        <button *ngIf="isAdmin()" 
+        <button *ngIf="isAdmin() || canAdd()" 
                 type="button" 
-                class="btn btn-outline-success btn-sm shadow-sm p-2 d-flex align-items-center justify-content-center" 
-                style="height: 34px; width: 34px;"
+                class="btn btn-outline-success btn-sm shadow-xs p-1 d-flex align-items-center justify-content-center excel-btn" 
+                style="height: 34px; width: 34px; border-color: #16a34a; background-color: #ffffff;" 
                 (click)="excelFileInput.click()" 
-                title="Bulk Upload Sales Data (.xlsx)">
-          <i class="bi bi-file-earmark-excel-fill text-success fs-6"></i>
+                title="Bulk Import Sales Data from Excel (.xlsx, .csv)">
+          <img src="excel-icon.png" alt="Import Excel" style="width: 20px; height: 22px; object-fit: contain;">
         </button>
 
         <button class="btn btn-outline-danger btn-sm fw-semibold shadow-sm d-flex align-items-center gap-1.5 px-3 py-2"
@@ -450,23 +450,55 @@
           </div>
         </div>
 
-        <!-- Week Selector & Actions -->
+        <!-- Date Pickers & Actions -->
         <div class="d-flex align-items-center gap-2 flex-wrap">
-          <div class="d-flex align-items-center gap-1.5 bg-light p-1 rounded border">
-            <label class="small text-muted fw-semibold ms-1 mb-0 text-nowrap" for="weekSelect">Select Week:</label>
-            <select id="weekSelect" class="form-select form-select-sm border-0 bg-transparent font-mono fw-bold"
-                    style="min-width: 250px;"
-                    [ngModel]="selectedWeeklyRecord"
-                    (ngModelChange)="selectWeeklyRecord($event)">
-              <option *ngFor="let w of weeklyRecords" [ngValue]="w">
-                {{ w.weekLabel }}
-              </option>
-            </select>
+          <div class="d-flex align-items-center gap-2 bg-light p-1 px-2.5 rounded border">
+            <div class="d-flex align-items-center gap-1.5">
+              <label class="small text-muted fw-bold mb-0 text-nowrap" for="dashboardFrom">From:</label>
+              <input type="date"
+                     id="dashboardFrom"
+                     class="form-control form-control-sm border bg-white font-mono shadow-none"
+                     style="width: 140px; height: 32px; font-size: 0.8rem;"
+                     [(ngModel)]="dashboardFromDate"
+                     (ngModelChange)="onDashboardDateChange('from')">
+            </div>
+
+            <div class="d-flex align-items-center gap-1.5">
+              <label class="small text-muted fw-bold mb-0 text-nowrap" for="dashboardTo">To:</label>
+              <input type="date"
+                     id="dashboardTo"
+                     class="form-control form-control-sm border bg-white font-mono shadow-none"
+                     style="width: 140px; height: 32px; font-size: 0.8rem;"
+                     [(ngModel)]="dashboardToDate"
+                     (ngModelChange)="onDashboardDateChange('to')">
+            </div>
+
+            <!-- Clear button -->
+            <button *ngIf="dashboardFromDate || dashboardToDate"
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center"
+                    style="width: 24px; height: 24px; border-radius: 50%;"
+                    (click)="clearDashboardDates()"
+                    title="Clear date range">
+              <i class="bi bi-x fs-6"></i>
+            </button>
           </div>
 
+          <!-- Import Excel Button -->
+          <input type="file" #excelFileInputReport (change)="onBulkExcelUpload($event)" accept=".xlsx, .xls, .csv" style="display: none;">
+          <button *ngIf="isAdmin() || canAdd()" 
+                  type="button" 
+                  class="btn btn-outline-success btn-sm shadow-xs p-1 d-flex align-items-center justify-content-center excel-btn" 
+                  style="height: 32px; width: 34px; border-color: #16a34a; background-color: #ffffff;" 
+                  (click)="excelFileInputReport.click()" 
+                  title="Bulk Import Sales Leads from Excel (.xlsx, .csv)">
+            <img src="excel-icon.png" alt="Import Excel" style="width: 19px; height: 20px; object-fit: contain;">
+          </button>
+
           <button class="btn btn-outline-danger btn-sm px-3 fw-semibold shadow-xs d-flex align-items-center gap-1.5"
+                  style="height: 32px;"
                   (click)="exportWeeklySalesPdf()"
-                  title="Export Weekly Sales Report as PDF">
+                  title="Export Sales Performance Report as PDF">
             <i class="bi bi-file-earmark-pdf-fill"></i>
             <span>PDF</span>
           </button>
@@ -474,23 +506,24 @@
       </div>
     </div>
 
-    <!-- Active Week 4 KPI Metric Cards -->
-    <div class="row g-3 mb-4" *ngIf="selectedWeeklyRecord">
+    <!-- 4 KPI Metric Cards -->
+    <div class="row g-3 mb-4">
       <!-- 1) Total Awarded Sites Card -->
       <div class="col-12 col-sm-6 col-xl-3">
         <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-success"
-             (click)="openWeeklyDetailModal(selectedWeeklyRecord, 'awarded')"
-             title="Click to view awarded sites for this week">
+             [class.opacity-75]="!activeDashboardRecord"
+             (click)="activeDashboardRecord && openWeeklyDetailModal(activeDashboardRecord, 'awarded')"
+             title="Click to view awarded sites">
           <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
             <div>
               <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
                 Total Awarded Sites
               </div>
               <div class="metric-number text-success fw-bold my-1 font-mono">
-                {{ selectedWeeklyRecord.awardedSitesCount }} Sites
+                {{ activeDashboardRecord ? activeDashboardRecord.awardedSitesCount : 0 }} Sites
               </div>
               <div class="small text-muted font-mono" style="font-size: 0.72rem;">
-                Week: {{ selectedWeeklyRecord.weekLabel }}
+                {{ activeDashboardRecord ? activeDashboardRecord.weekLabel : 'Select date range' }}
               </div>
             </div>
             <div class="metric-icon-box bg-success-subtle text-success">
@@ -498,7 +531,7 @@
             </div>
           </div>
           <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-success small" style="font-size: 0.74rem;">
-            <span>View Awarded Sites</span>
+            <span>{{ activeDashboardRecord ? 'View Awarded Sites' : 'Pick dates above' }}</span>
             <i class="bi bi-arrow-right"></i>
           </div>
         </div>
@@ -508,7 +541,8 @@
       <div class="col-12 col-sm-6 col-xl-3">
         <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-info"
              style="border-color: #0d9488 !important;"
-             (click)="openWeeklyDetailModal(selectedWeeklyRecord, 'awarded')"
+             [class.opacity-75]="!activeDashboardRecord"
+             (click)="activeDashboardRecord && openWeeklyDetailModal(activeDashboardRecord, 'awarded')"
              title="Click to view site contract value breakdown">
           <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
             <div>
@@ -516,7 +550,7 @@
                 Awarded Value
               </div>
               <div class="metric-number fw-bold my-1 font-mono" style="color: #0d9488; font-size: 1.15rem;">
-                ₹ {{ selectedWeeklyRecord.awardedValue | number:'1.2-2' }}
+                ₹ {{ (activeDashboardRecord ? activeDashboardRecord.awardedValue : 0) | number:'1.2-2' }}
               </div>
               <div class="small text-muted" style="font-size: 0.72rem;">
                 Agreement Contract Sum
@@ -527,7 +561,7 @@
             </div>
           </div>
           <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #0d9488; font-size: 0.74rem;">
-            <span>Contract Details</span>
+            <span>{{ activeDashboardRecord ? 'Contract Details' : 'Pick dates above' }}</span>
             <i class="bi bi-arrow-right"></i>
           </div>
         </div>
@@ -536,18 +570,19 @@
       <!-- 3) Client Payment Received Card -->
       <div class="col-12 col-sm-6 col-xl-3">
         <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-primary"
-             (click)="openWeeklyDetailModal(selectedWeeklyRecord, 'payments')"
-             title="Click to view client payments received this week">
+             [class.opacity-75]="!activeDashboardRecord"
+             (click)="activeDashboardRecord && openWeeklyDetailModal(activeDashboardRecord, 'payments')"
+             title="Click to view client payments received">
           <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
             <div>
               <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
                 Client Payment Received
               </div>
               <div class="metric-number text-primary fw-bold my-1 font-mono" style="font-size: 1.15rem;">
-                ₹ {{ selectedWeeklyRecord.clientPaymentReceived | number:'1.2-2' }}
+                ₹ {{ (activeDashboardRecord ? activeDashboardRecord.clientPaymentReceived : 0) | number:'1.2-2' }}
               </div>
               <div class="small text-muted" style="font-size: 0.72rem;">
-                {{ selectedWeeklyRecord.paymentsList.length }} Collections Logged
+                {{ activeDashboardRecord ? (activeDashboardRecord.paymentsList.length + ' Collections Logged') : '0 Collections Logged' }}
               </div>
             </div>
             <div class="metric-icon-box bg-primary-subtle text-primary">
@@ -555,7 +590,7 @@
             </div>
           </div>
           <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-primary small" style="font-size: 0.74rem;">
-            <span>View Payment Receipts</span>
+            <span>{{ activeDashboardRecord ? 'View Payment Receipts' : 'Pick dates above' }}</span>
             <i class="bi bi-arrow-right"></i>
           </div>
         </div>
@@ -564,15 +599,16 @@
       <!-- 4) No. of PO/WO Card -->
       <div class="col-12 col-sm-6 col-xl-3">
         <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-warning"
-             (click)="openWeeklyDetailModal(selectedWeeklyRecord, 'powo')"
-             title="Click to view PO/WO vouchers issued this week">
+             [class.opacity-75]="!activeDashboardRecord"
+             (click)="activeDashboardRecord && openWeeklyDetailModal(activeDashboardRecord, 'powo')"
+             title="Click to view PO/WO vouchers issued">
           <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
             <div>
               <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
                 No. of PO/WO
               </div>
               <div class="metric-number text-warning-emphasis fw-bold my-1 font-mono">
-                {{ selectedWeeklyRecord.poWoCount }} PO/WO
+                {{ activeDashboardRecord ? activeDashboardRecord.poWoCount : 0 }} PO/WO
               </div>
               <div class="small text-muted" style="font-size: 0.72rem;">
                 Procurement & Work Orders
@@ -583,21 +619,21 @@
             </div>
           </div>
           <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between text-warning-emphasis small" style="font-size: 0.74rem;">
-            <span>View PO/WO Orders</span>
+            <span>{{ activeDashboardRecord ? 'View PO/WO Orders' : 'Pick dates above' }}</span>
             <i class="bi bi-arrow-right"></i>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Complete Week-by-Week Breakdown Table -->
+    <!-- Complete Breakdown Table -->
     <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
       <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2">
           <i class="bi bi-table text-primary fs-5"></i>
-          <h6 class="fw-bold mb-0 text-dark">Weekly Performance Schedule (Format: dd/mm/yyyy - dd/mm/yyyy)</h6>
+          <h6 class="fw-bold mb-0 text-dark">Weekly Performance Schedule</h6>
         </div>
-        <div class="input-group input-group-sm" style="max-width: 260px;">
+        <div class="input-group input-group-sm" style="max-width: 260px;" *ngIf="weeklyRecords.length > 0">
           <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
           <input type="text" class="form-control border-start-0 bg-white" placeholder="Search week range..." [(ngModel)]="dashboardSearchTerm">
         </div>
@@ -607,37 +643,49 @@
         <table class="table table-hover align-middle mb-0 custom-table">
           <thead class="table-light text-uppercase fs-8 text-secondary border-bottom">
             <tr>
-              <th style="width: 50px;" class="text-center">#</th>
-              <th style="width: 240px;" class="text-center">Week Range (dd/mm/yyyy - dd/mm/yyyy)</th>
+              <th style="width: 250px;" class="text-center">Week Range</th>
               <th class="text-center" style="width: 170px;">Total Awarded Sites</th>
               <th class="text-end" style="width: 200px;">Awarded Value</th>
               <th class="text-end" style="width: 220px;">Client Payment Received</th>
               <th class="text-center" style="width: 140px;">No. of PO/WO</th>
-              <th class="text-center" style="width: 120px;">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="dashboardLoading">
-              <td colspan="7" class="text-center py-5">
+              <td colspan="5" class="text-center py-5">
                 <div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
-                <span class="text-muted">Aggregating weekly sales performance data...</span>
+                <span class="text-muted">Loading sales performance data...</span>
               </td>
             </tr>
-            <tr *ngIf="!dashboardLoading && filteredWeeklyRecords.length === 0">
-              <td colspan="7" class="text-center py-5 text-muted">
-                <i class="bi bi-calendar-x fs-2 d-block mb-2 text-secondary"></i>
-                No weekly records found matching search.
+            <!-- Empty state when no dates picked -->
+            <tr *ngIf="!dashboardLoading && (!dashboardFromDate || !dashboardToDate)">
+              <td colspan="5" class="text-center py-5">
+                <div class="py-4">
+                  <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle p-3 mb-2 border">
+                    <i class="bi bi-calendar3-range fs-2 text-primary"></i>
+                  </div>
+                  <h6 class="fw-bold text-dark mb-1">No Date Range Selected</h6>
+                  <p class="small text-muted mb-0">Please select <strong>From Date</strong> and <strong>To Date</strong> above to view the performance schedule.</p>
+                </div>
               </td>
             </tr>
-            <tr *ngFor="let w of filteredWeeklyRecords; let idx = index"
+            <!-- Empty state when dates picked but 0 matching records -->
+            <tr *ngIf="!dashboardLoading && dashboardFromDate && dashboardToDate && filteredWeeklyRecords.length === 0">
+              <td colspan="5" class="text-center py-5">
+                <div class="py-4">
+                  <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle p-3 mb-2 border">
+                    <i class="bi bi-calendar-x fs-2 text-secondary"></i>
+                  </div>
+                  <h6 class="fw-bold text-dark mb-1">No Records Found</h6>
+                  <p class="small text-muted mb-0">No performance records found for the selected date range.</p>
+                </div>
+              </td>
+            </tr>
+            <tr *ngFor="let w of filteredWeeklyRecords"
                 [class.table-active]="selectedWeeklyRecord?.weekLabel === w.weekLabel"
                 class="cursor-pointer"
-                (click)="selectWeeklyRecord(w)">
-              <!-- Index -->
-              <td class="text-center text-muted font-mono small">
-                {{ idx + 1 }}
-              </td>
-
+                (click)="openWeeklyDetailModal(w, 'awarded')"
+                title="Click week row to view detailed breakdown">
               <!-- Week Range -->
               <td class="text-center">
                 <span class="badge font-mono fw-bold px-2.5 py-1.5 fs-7 border"
@@ -677,16 +725,6 @@
                 <span *ngIf="w.poWoCount === 0" class="text-muted small">
                   0
                 </span>
-              </td>
-
-              <!-- Actions -->
-              <td class="text-center" (click)="$event.stopPropagation()">
-                <button class="btn btn-xs btn-outline-primary px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs"
-                        (click)="openWeeklyDetailModal(w, 'awarded')"
-                        title="View week breakdown drilldown">
-                  <i class="bi bi-eye-fill"></i>
-                  <span>Details</span>
-                </button>
               </td>
             </tr>
           </tbody>
@@ -1281,7 +1319,9 @@
               <i *ngIf="!isSubmittingProject" class="bi bi-save2-fill"></i>
               <span>Save Project</span>
             </button>
-            <button type="button" class="btn-close btn-close-white shadow-none" (click)="cancelCreateAwardedSiteModal()" aria-label="Close"></button>
+            <button type="button" class="modal-close-btn ms-auto" (click)="cancelCreateAwardedSiteModal()" title="Close dialog" aria-label="Close">
+              <i class="bi bi-x-lg"></i>
+            </button>
           </div>
         </div>
 

@@ -67,8 +67,11 @@ export interface GatePassItem {
   id?: number;
   gatePassId?: number;
   materialName: string;
-  quantity: number;
   unit: string;
+  quantity: number;
+  rate?: number;
+  vendorName?: string;
+  amount?: number;
 }
 
 export interface GatePass {
@@ -80,6 +83,7 @@ export interface GatePass {
   clientName: string;
   siteEngineer: string;
   remarks?: string;
+  totalAmount?: number;
   items?: GatePassItem[];
   createdAt?: string;
   updatedAt?: string;

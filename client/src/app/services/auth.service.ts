@@ -62,7 +62,7 @@ export class AuthService {
     }
 
     // 2. Map nav page to parent module
-    const moduleMap: { [k: string]: 'sales' | 'finance' | 'activity' | 'inventory' } = {
+    const moduleMap: { [k: string]: 'sales' | 'finance' | 'activity' | 'inventory' | 'office' } = {
       'campaigns': 'sales',
       'leads': 'sales',
       'oppurtunities': 'sales',
@@ -79,7 +79,11 @@ export class AuthService {
       'indent': 'inventory',
       'warehouse': 'inventory',
       'gate-pass': 'inventory',
-      'cart': 'inventory'
+      'cart': 'inventory',
+      'office-employees': 'office',
+      'office-add-list': 'office',
+      'employees': 'office',
+      'add-list': 'office'
     };
 
     const mod = moduleMap[pageKey];
@@ -96,9 +100,19 @@ export class AuthService {
 
   canViewModule(module: 'sales' | 'finance' | 'activity' | 'inventory' | 'office'): boolean {
     if (this.isAdmin()) return true;
-    if (module === 'office') return false; // Office is strictly Admin only
     const user = this.currentUser();
     if (!user) return false;
+
+    // Office module: check explicit office permissions or granular navPages
+    if (module === 'office') {
+      const perms = user.accessPermissions;
+      if (!perms) return false;
+      if (perms.office && perms.office.canView !== false) return true;
+      if (perms.navPages) {
+        return this.canViewNav('office-employees') || this.canViewNav('office-add-list');
+      }
+      return false;
+    }
     
     // Engineers can always view inventory (indents, warehouse available stock, etc.)
     const resp = (user.responsibility || '').toLowerCase();
@@ -120,7 +134,8 @@ export class AuthService {
         sales: ['campaigns', 'leads', 'oppurtunities', 'awarded-sites', 'sales-dashboard'],
         finance: ['payment-ledger', 'expense-ledger', 'vendor-ledger', 'expo-expenses'],
         activity: ['meetings', 'calls', 'tasks', 'site-plan'],
-        inventory: ['indent', 'warehouse', 'gate-pass', 'cart']
+        inventory: ['indent', 'warehouse', 'gate-pass', 'cart'],
+        office: ['office-employees', 'office-add-list']
       };
       const pages = moduleNavMap[module];
       if (pages && pages.length > 0) {

@@ -18,6 +18,7 @@ export interface EmployeeAccessPermissions {
   finance?: ModuleAccess;
   activity?: ModuleAccess;
   inventory?: ModuleAccess;
+  office?: ModuleAccess;
   navPages?: { [pageKey: string]: ModuleAccess };
 }
 

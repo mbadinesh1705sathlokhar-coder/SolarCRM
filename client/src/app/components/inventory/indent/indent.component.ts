@@ -60,6 +60,45 @@ export class IndentComponent implements OnInit {
   unitOptions: string[] = ['Nos', 'Meter', 'Set', 'Kg', 'Roll', 'Box'];
   materialStatuses: string[] = ['Ready to issue', 'Requested Vendor', 'Pending'];
 
+  // Searchable Client Dropdown State
+  clientDropdownOpen = false;
+
+  get filteredClientOptions(): string[] {
+    const q = (this.indentForm.clientName || '').toLowerCase().trim();
+    if (!q) return this.clientOptions;
+    return this.clientOptions.filter(c => c.toLowerCase().includes(q));
+  }
+
+  openClientDropdown(): void {
+    this.clientDropdownOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeClientDropdown(): void {
+    setTimeout(() => {
+      this.clientDropdownOpen = false;
+      this.cdr.markForCheck();
+    }, 200);
+  }
+
+  toggleClientDropdown(event: MouseEvent): void {
+    event.preventDefault();
+    this.clientDropdownOpen = !this.clientDropdownOpen;
+    this.cdr.markForCheck();
+  }
+
+  selectClient(clientName: string): void {
+    this.indentForm.clientName = clientName;
+    this.clientDropdownOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  clearClientSelection(): void {
+    this.indentForm.clientName = '';
+    this.clientDropdownOpen = true;
+    this.cdr.markForCheck();
+  }
+
   ngOnInit(): void {
     this.loadIndents();
     this.loadWarehouseStockOptions();
@@ -204,6 +243,7 @@ export class IndentComponent implements OnInit {
 
   closeModal(): void {
     this.isModalOpen = false;
+    this.clientDropdownOpen = false;
     this.indentForm = this.getEmptyIndent();
     this.requestedMaterials = [];
   }

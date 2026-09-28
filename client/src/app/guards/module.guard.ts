@@ -12,7 +12,9 @@ export const moduleGuard = (module: 'sales' | 'finance' | 'activity' | 'inventor
     }
 
     if (module === 'office') {
-      if (authService.isAdmin()) return true;
+      if (authService.isAdmin() || authService.canViewModule('office') || authService.canViewAnyNav(['office-employees', 'office-add-list'])) {
+        return true;
+      }
       return router.createUrlTree(['/home']);
     }
 
