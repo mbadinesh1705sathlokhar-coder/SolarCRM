@@ -2,7 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { InventoryService, WarehouseMaterial, INVENTORY_MATERIALS } from '../../../services/inventory.service';
+import { InventoryService, WarehouseMaterial, INVENTORY_MATERIALS, computeStockStatus, getStockThresholdDescription } from '../../../services/inventory.service';
 import { MasterListService } from '../../../services/master-list.service';
 import { AuthService } from '../../../services/auth.service';
 import jsPDF from 'jspdf';
@@ -50,7 +50,24 @@ export class WarehouseComponent implements OnInit {
 
   materialOptions: string[] = [...INVENTORY_MATERIALS];
   unitOptions: string[] = ['Nos', 'Meter', 'Set', 'Kg', 'Roll', 'Box', 'Litre'];
-  statusOptions: string[] = ['In Stock', 'Low Stock', 'Out of Stock'];
+
+  // Real-time computed status getter for the active modal form
+  get currentComputedStatus(): 'In Stock' | 'Low Stock' | 'Out of Stock' {
+    return computeStockStatus(
+      this.materialForm.materialName,
+      this.materialForm.unit,
+      this.materialForm.inStock
+    );
+  }
+
+  // Helper method accessible from template
+  computeStockStatus(name?: string, unit?: string, inStock?: number | string | null): 'In Stock' | 'Low Stock' | 'Out of Stock' {
+    return computeStockStatus(name, unit, inStock);
+  }
+
+  getStatusRuleDescription(name?: string, unit?: string): string {
+    return getStockThresholdDescription(name, unit);
+  }
 
   ngOnInit(): void {
     this.loadMaterials();
@@ -73,7 +90,10 @@ export class WarehouseComponent implements OnInit {
     this.inventoryService.getWarehouseMaterials().subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          this.materials = res.data;
+          this.materials = res.data.map(m => ({
+            ...m,
+            status: computeStockStatus(m.materialName, m.unit, m.inStock)
+          }));
         }
         this.loading = false;
         this.cdr.markForCheck();
@@ -133,19 +153,26 @@ export class WarehouseComponent implements OnInit {
       return;
     }
 
-    // Auto-compute status if needed
+    // Auto-compute status strictly based on specification
     const stock = parseFloat(this.materialForm.inStock as any) || 0;
-    if (!this.materialForm.status) {
-      this.materialForm.status = stock > 5 ? 'In Stock' : (stock > 0 ? 'Low Stock' : 'Out of Stock');
-    }
+    this.materialForm.inStock = stock;
+    this.materialForm.status = computeStockStatus(
+      this.materialForm.materialName,
+      this.materialForm.unit,
+      stock
+    );
 
     if (this.isEditMode && this.materialForm.id) {
       this.inventoryService.updateWarehouseMaterial(this.materialForm.id, this.materialForm).subscribe({
         next: (res) => {
           if (res.success) {
             const idx = this.materials.findIndex(m => m.id === this.materialForm.id);
+            const savedItem = {
+              ...res.data,
+              status: computeStockStatus(res.data.materialName, res.data.unit, res.data.inStock)
+            };
             if (idx !== -1) {
-              this.materials[idx] = res.data;
+              this.materials[idx] = savedItem;
             }
             this.showToast('Warehouse material updated!', 'success');
             this.closeModal();
@@ -158,7 +185,11 @@ export class WarehouseComponent implements OnInit {
       this.inventoryService.createWarehouseMaterial(this.materialForm).subscribe({
         next: (res) => {
           if (res.success) {
-            this.materials.unshift(res.data);
+            const newItem = {
+              ...res.data,
+              status: computeStockStatus(res.data.materialName, res.data.unit, res.data.inStock)
+            };
+            this.materials.unshift(newItem);
             this.showToast('Material added to warehouse!', 'success');
             this.closeModal();
           }
@@ -250,7 +281,7 @@ export class WarehouseComponent implements OnInit {
       m.description || '—',
       m.unit || 'Nos',
       Number(m.inStock || 0).toLocaleString('en-IN'),
-      m.status || 'In Stock'
+      this.computeStockStatus(m.materialName, m.unit, m.inStock)
     ]);
 
     autoTable(doc, {

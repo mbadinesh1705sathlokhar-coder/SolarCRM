@@ -49,7 +49,7 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   loading = false;
   searchQuery = '';
   dueFilter: 'All' | 'HasDue' | 'Paid' = 'All';
-  siteIdSortDirection: 'asc' | 'desc' | 'none' = 'none';
+  siteIdSortDirection: 'asc' | 'desc' | 'none' = 'desc';
 
   // Pagination for Client List (max 115 clients, 0 duplicates)
   currentPage = 1;
@@ -260,13 +260,7 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   toggleSiteIdSort(): void {
-    if (this.siteIdSortDirection === 'none') {
-      this.siteIdSortDirection = 'asc';
-    } else if (this.siteIdSortDirection === 'asc') {
-      this.siteIdSortDirection = 'desc';
-    } else {
-      this.siteIdSortDirection = 'asc';
-    }
+    this.siteIdSortDirection = this.siteIdSortDirection === 'desc' ? 'asc' : 'desc';
     this.currentPage = 1;
     this.updateTableWidth();
     this.cdr.markForCheck();

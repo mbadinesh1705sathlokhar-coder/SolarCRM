@@ -143,12 +143,78 @@ async function deleteIndent(req, res) {
 // ==========================================
 // 2. WAREHOUSE MATERIALS CONTROLLER
 // ==========================================
+// Helper: Auto-compute Warehouse Stock Status based on material thresholds
+function computeWarehouseStockStatus(materialName, unit, inStock) {
+    const stock = typeof inStock === 'number' ? inStock : (parseFloat(inStock) || 0);
+    if (stock <= 0) {
+        return 'Out of Stock';
+    }
+
+    const name = (materialName || '').toLowerCase().trim();
+    const u = (unit || '').toLowerCase().trim();
+
+    // 1. Cables: if unit is meter or name has cable and unit is meter: <= 100 is Low Stock
+    if (u.includes('meter') || u.includes('mtr') || u === 'm') {
+        return stock <= 100 ? 'Low Stock' : 'In Stock';
+    }
+    if (name.includes('cable')) {
+        if (u.includes('meter') || u.includes('mtr') || u === 'm' || !u) {
+            return stock <= 100 ? 'Low Stock' : 'In Stock';
+        }
+        return stock <= 5 ? 'Low Stock' : 'In Stock';
+    }
+
+    // 2. Lighting Arrestor: below 3 (< 3) is Low Stock
+    if (name.includes('arrestor') || name.includes('arrester')) {
+        return stock < 3 ? 'Low Stock' : 'In Stock';
+    }
+
+    // 3. Inverter: less than 2 (< 2) is Low Stock
+    if (name.includes('inverter')) {
+        return stock < 2 ? 'Low Stock' : 'In Stock';
+    }
+
+    // 4. Chamber: 6 or less (<= 6) is Low Stock
+    if (name.includes('chamber')) {
+        return stock <= 6 ? 'Low Stock' : 'In Stock';
+    }
+
+    // 5. DB Boxes set: less than 2 (< 2) is Low Stock
+    if (
+        name.includes('db box') ||
+        name.includes('db boxes') ||
+        name.includes('acdb') ||
+        name.includes('dcdb') ||
+        name.includes('distribution box')
+    ) {
+        return stock < 2 ? 'Low Stock' : 'In Stock';
+    }
+
+    // 6. Lugs: 10 or less (<= 10) is Low Stock
+    if (name.includes('lug')) {
+        return stock <= 10 ? 'Low Stock' : 'In Stock';
+    }
+
+    // 7. Default for other materials: 5 or less is Low Stock
+    return stock <= 5 ? 'Low Stock' : 'In Stock';
+}
+
 async function getAllWarehouseMaterials(req, res) {
     try {
         const items = await WarehouseMaterial.findAll({
             order: [['materialName', 'ASC']]
         });
-        res.json({ success: true, data: items });
+        // Ensure status reflects live automated threshold calculation
+        const mapped = items.map(item => {
+            const computed = computeWarehouseStockStatus(item.materialName, item.unit, item.inStock);
+            if (item.status !== computed) {
+                item.status = computed;
+                // Asynchronously sync DB if status differed
+                item.update({ status: computed }).catch(() => {});
+            }
+            return item;
+        });
+        res.json({ success: true, data: mapped });
     } catch (err) {
         console.error('Error fetching warehouse materials:', err);
         res.status(500).json({ success: false, message: 'Failed to fetch warehouse materials' });
@@ -157,17 +223,20 @@ async function getAllWarehouseMaterials(req, res) {
 
 async function createWarehouseMaterial(req, res) {
     try {
-        const { materialName, description, unit, inStock, status } = req.body;
+        const { materialName, description, unit, inStock } = req.body;
         if (!materialName || !materialName.trim()) {
             return res.status(400).json({ success: false, message: 'Material name is required.' });
         }
+
+        const stockNum = parseFloat(inStock) || 0;
+        const autoStatus = computeWarehouseStockStatus(materialName, unit, stockNum);
 
         const created = await WarehouseMaterial.create({
             materialName: materialName.trim(),
             description: description ? description.trim() : '',
             unit: unit || 'Nos',
-            inStock: parseFloat(inStock) || 0,
-            status: status || (parseFloat(inStock) > 0 ? 'In Stock' : 'Out of Stock')
+            inStock: stockNum,
+            status: autoStatus
         });
 
         res.status(201).json({ success: true, data: created });
@@ -185,7 +254,16 @@ async function updateWarehouseMaterial(req, res) {
             return res.status(404).json({ success: false, message: 'Material not found' });
         }
 
-        await item.update(req.body);
+        const name = req.body.materialName !== undefined ? req.body.materialName : item.materialName;
+        const unit = req.body.unit !== undefined ? req.body.unit : item.unit;
+        const inStock = req.body.inStock !== undefined ? parseFloat(req.body.inStock) || 0 : item.inStock;
+        const autoStatus = computeWarehouseStockStatus(name, unit, inStock);
+
+        await item.update({
+            ...req.body,
+            inStock,
+            status: autoStatus
+        });
         res.json({ success: true, data: item });
     } catch (err) {
         console.error('Error updating warehouse material:', err);

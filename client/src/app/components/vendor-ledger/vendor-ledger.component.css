@@ -1,4 +1,9 @@
 /* Vendor Ledger Styles */
+.ledger-container {
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
 .vendor-row {
   cursor: pointer;
   transition: background-color 0.15s ease;

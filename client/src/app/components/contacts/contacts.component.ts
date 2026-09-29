@@ -11,6 +11,13 @@ import { Subscription, interval, filter } from 'rxjs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+function formatLocalDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 @Component({
   selector: 'app-contacts',
   standalone: true,
@@ -67,7 +74,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
     title: '',
     clientName: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    date: formatLocalDate(new Date()),
     time: '10:00',
     engineer: 'Karthik Raja',
     coordinator: 'Renuka',
@@ -103,7 +110,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
     callerName: string;
     phoneNumber: string;
   } = {
-    date: new Date().toISOString().split('T')[0],
+    date: formatLocalDate(new Date()),
     time: '10:00',
     title: '',
     clientVendorName: '',
@@ -135,7 +142,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
     title: '',
     assignedFrom: 'Dinesh Kumar',
     assignedTo: 'Renuka',
-    dueDate: new Date().toISOString().split('T')[0],
+    dueDate: formatLocalDate(new Date()),
     priority: 'Medium',
     status: 'Pending',
     description: '',
@@ -394,7 +401,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
       title: '',
       clientName: '',
       description: '',
-      date: new Date().toISOString().split('T')[0],
+      date: formatLocalDate(new Date()),
       time: '10:00',
       engineer: firstEngineer,
       coordinator: currentUserName,
@@ -493,7 +500,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
   // 15-Minute Alarm Checker
   checkMeetingAlarms(): void {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = formatLocalDate(now);
     const newAlarms: { meeting: Meeting; minutesLeft: number }[] = [];
 
     for (const m of this.meetings) {
@@ -527,10 +534,14 @@ export class ContactsComponent implements OnInit, OnDestroy {
   dismissAlarm(meetingId?: number): void {
     if (meetingId) {
       this.dismissedAlarmIds.add(meetingId);
+      this.contactsService.dismissAlarm(meetingId);
       this.activeAlarms = this.activeAlarms.filter(a => a.meeting.id !== meetingId);
     } else {
       this.activeAlarms.forEach(a => {
-        if (a.meeting.id) this.dismissedAlarmIds.add(a.meeting.id);
+        if (a.meeting.id) {
+          this.dismissedAlarmIds.add(a.meeting.id);
+          this.contactsService.dismissAlarm(a.meeting.id);
+        }
       });
       this.activeAlarms = [];
     }
@@ -582,13 +593,13 @@ export class ContactsComponent implements OnInit, OnDestroy {
     const monday = this.getMonday(this.currentCalendarDate);
     const count = 7; // Always include 7 days: Monday to Sunday
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
     const days = [];
 
     for (let i = 0; i < count; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(d);
       const dateNum = d.getDate() < 10 ? `0${d.getDate()}` : `${d.getDate()}`;
       days.push({
         name: dayNames[i],
@@ -617,6 +628,22 @@ export class ContactsComponent implements OnInit, OnDestroy {
     });
   }
 
+  getTileSubtitle(m: Meeting): string {
+    if (m.purpose === 'All') {
+      return (m.description && m.description.trim() !== m.title?.trim()) ? m.description : 'All Staff';
+    }
+    if (m.purpose === 'Client') {
+      if (m.clientName && m.title && m.clientName.trim().toLowerCase() !== m.title.trim().toLowerCase()) {
+        return m.clientName;
+      }
+      return m.description || 'Client Meeting';
+    }
+    if (m.purpose === 'Site Visit' || m.purpose === 'Site Plan') {
+      return m.engineer ? `Site: ${m.engineer}` : (m.clientName || 'Site Plan');
+    }
+    return m.description || 'Internal';
+  }
+
   onSlotClick(dateStr: string, hour: number): void {
     this.selectedSlot = { dateStr, hour };
     const formattedHour = (hour < 10 ? '0' : '') + hour + ':00';
@@ -637,7 +664,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
 
   isCurrentTimeVisible(): boolean {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = formatLocalDate(now);
     const days = this.getWeekDays();
     const hasToday = days.some(d => d.dateStr === todayStr);
     const hour = now.getHours();
@@ -698,7 +725,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
     const newMeeting: Partial<Meeting> = {
       title: this.meetNowTitle,
       purpose: 'Personal',
-      date: now.toISOString().split('T')[0],
+      date: formatLocalDate(now),
       time: now.toTimeString().substring(0, 5),
       location: 'Microsoft Teams Instant Call',
       status: 'Scheduled',
@@ -740,7 +767,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
       return;
     }
     this.callForm = {
-      date: new Date().toISOString().split('T')[0],
+      date: formatLocalDate(new Date()),
       time: new Date().toTimeString().substring(0, 5),
       title: '',
       clientVendorName: '',
@@ -875,7 +902,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
       title: '',
       assignedFrom: names[0] || 'Dinesh Kumar',
       assignedTo: names[1] || 'Renuka',
-      dueDate: new Date().toISOString().split('T')[0],
+      dueDate: formatLocalDate(new Date()),
       priority: 'Medium',
       status: 'Pending',
       description: '',
@@ -896,7 +923,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
       title: task.title,
       assignedFrom: fromVal,
       assignedTo: task.assignedTo || 'Renuka',
-      dueDate: task.dueDate ? task.dueDate.substring(0, 10) : new Date().toISOString().split('T')[0],
+      dueDate: task.dueDate ? task.dueDate.substring(0, 10) : formatLocalDate(new Date()),
       priority: task.priority,
       status: task.status,
       description: task.description || '',

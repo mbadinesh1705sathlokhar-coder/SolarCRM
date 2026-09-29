@@ -9,7 +9,8 @@ const SitePlan = conDb.define('SitePlan', {
     engineerName: { type: DataTypes.STRING(100), allowNull: true, field: 'engineer_name' },
     description: { type: DataTypes.TEXT, allowNull: true, field: 'description' },
     assignedBy: { type: DataTypes.STRING(100), allowNull: true, field: 'assigned_by' },
-    opportunityId: { type: DataTypes.INTEGER, allowNull: true, field: 'opportunity_id' }
+    opportunityId: { type: DataTypes.INTEGER, allowNull: true, field: 'opportunity_id' },
+    status: { type: DataTypes.STRING(50), allowNull: true, defaultValue: 'Scheduled', field: 'status' }
 }, {
     tableName: 'site_plans',
     timestamps: true,

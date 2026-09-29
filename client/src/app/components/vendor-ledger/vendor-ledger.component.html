@@ -1,4 +1,4 @@
-<div class="container-fluid p-3 p-md-4">
+<div class="ledger-container p-3">
   <!-- Toast Notification -->
   <div *ngIf="toastMessage" 
        class="alert alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg border-0 z-3"
@@ -17,22 +17,22 @@
   <!-- ======================================================== -->
   <!-- 1. TOP HEADER SECTION                                     -->
   <!-- ======================================================== -->
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
-    <div class="d-flex align-items-center gap-3">
-      <div class="icon-box bg-info-subtle text-info shadow-sm p-2 rounded-3">
-        <i class="bi bi-truck fs-4"></i>
-      </div>
-      <div>
-        <div class="d-flex align-items-center gap-2 mb-0.5">
-          <span class="badge bg-purple-subtle text-purple border px-2 py-0.5" style="font-size: 0.72rem;">
-            <i class="bi bi-wallet2 me-1"></i> Finances
-          </span>
-        </div>
-        <h4 class="fw-bold mb-0 text-dark tracking-tight">Vendor Ledger</h4>
-      </div>
+  <!-- Top Navigation Bar: Title on Left, Finances Pill Navigation Tabs on Right -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-2">
+    <!-- Page Title / Breadcrumb -->
+    <div class="d-flex align-items-center gap-2">
+      <button *ngIf="selectedVendor" 
+              class="btn btn-outline-secondary btn-sm px-2.5 py-1 rounded-pill shadow-xs d-flex align-items-center gap-1"
+              style="font-size: 0.78rem;"
+              (click)="backToVendorList()">
+        <i class="bi bi-arrow-left"></i> Back to Vendors
+      </button>
+      <h3 class="fw-bold mb-0 text-dark fs-5">
+        {{ selectedVendor ? selectedVendor.vendorName : 'Vendor Ledger' }}
+      </h3>
     </div>
 
-    <!-- Finances Pill Navigation Tabs -->
+    <!-- Finances Pill Navigation Tabs (Right-Aligned) -->
     <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
       <a routerLink="/payment-ledger" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-wallet2 me-1 text-success"></i> Client Payment Ledger
@@ -50,22 +50,6 @@
       <a routerLink="/expo-expenses" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-calendar-event me-1 text-danger"></i> Expo Expenses
       </a>
-    </div>
-
-    <!-- Right Header Actions / Breadcrumbs -->
-    <div class="d-flex align-items-center gap-2">
-      <button *ngIf="selectedVendor" 
-              class="btn btn-outline-secondary btn-sm px-3 shadow-sm d-flex align-items-center gap-1.5"
-              (click)="backToVendorList()">
-        <i class="bi bi-arrow-left"></i> Back to All Vendors
-      </button>
-
-      <button *ngIf="!selectedVendor && authService.isAdmin()" 
-              class="btn btn-primary btn-sm px-3 shadow-sm d-flex align-items-center gap-1.5"
-              style="background-color: #0f766e; border-color: #0f766e;"
-              (click)="openAddVendorModal()">
-        <i class="bi bi-plus-lg"></i> + Add New Vendor
-      </button>
     </div>
   </div>
 
@@ -85,6 +69,12 @@
         </div>
         <div class="d-flex align-items-center gap-3">
           <span class="small text-muted">Total Vendors: <strong class="text-dark">{{ filteredVendors.length }}</strong></span>
+          <button *ngIf="!selectedVendor && authService.isAdmin()" 
+                  class="btn btn-primary btn-sm px-3 shadow-xs d-flex align-items-center gap-1.5"
+                  style="background-color: #0f766e; border-color: #0f766e;"
+                  (click)="openAddVendorModal()">
+            <i class="bi bi-plus-lg"></i> + Add New Vendor
+          </button>
         </div>
       </div>
     </div>

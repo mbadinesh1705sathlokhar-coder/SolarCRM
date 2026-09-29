@@ -1179,9 +1179,9 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get awardFormMargin(): number {
-    const val = parseFloat(this.awardProjectForm.siteValue as any) || 0;
+    const recv = parseFloat(this.awardProjectForm.received as any) || 0;
     const exp = parseFloat(this.awardProjectForm.siteExpenses as any) || 0;
-    return val - exp;
+    return recv - exp;
   }
 
   loadMasterListOptions(): void {

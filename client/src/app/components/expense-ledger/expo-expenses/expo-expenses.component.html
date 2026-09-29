@@ -14,22 +14,16 @@
     <button type="button" class="btn-close" (click)="toastMessage = ''" aria-label="Close"></button>
   </div>
 
-  <!-- Top Navigation Bar: Title on Left, Finances Navigation Tabs on Right -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <!-- Top Navigation Bar: Title on Left, Finances Pill Navigation Tabs on Right -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-2">
     <!-- Page Title & Navigation Context -->
-    <div>
-      <div class="d-flex align-items-center gap-2">
-        <button *ngIf="viewMode === 'detail'" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1 me-1" (click)="showSummaryView()" title="Back to Summary Sheet">
-          <i class="bi bi-arrow-left me-1"></i> Back to Expos Sheet
-        </button>
-        <h3 class="fw-bold mb-0 text-dark fs-5 d-flex align-items-center gap-2">
-          <i class="bi bi-calendar-event text-danger"></i>
-          <span>{{ viewMode === 'detail' ? (selectedCampaign?.campaignName + ' - Expenses Sheet') : 'Expo Expenses' }}</span>
-        </h3>
-      </div>
-      <div class="text-muted small mt-0.5" style="font-size: 0.75rem;">
-        {{ viewMode === 'detail' ? ('Detailed vouchers & expense transactions for ' + selectedCampaign?.campaignName) : 'Live summary breakdown of all Campaign & Expo Expenses' }}
-      </div>
+    <div class="d-flex align-items-center gap-2">
+      <button *ngIf="viewMode === 'detail'" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1 me-1 shadow-xs" (click)="showSummaryView()" title="Back to Summary Sheet" style="font-size: 0.78rem;">
+        <i class="bi bi-arrow-left me-1"></i> Back to Expos
+      </button>
+      <h3 class="fw-bold mb-0 text-dark fs-5">
+        {{ viewMode === 'detail' ? (selectedCampaign?.campaignName + ' - Expenses Sheet') : 'Expo Expenses' }}
+      </h3>
     </div>
 
     <!-- Finances Pill Navigation Tabs (Right-Aligned) -->

@@ -119,8 +119,8 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   clientTypeSearch = '';
   clientTypeFilterOpen = false;
 
-  // Site ID Sort State: 'none' | 'asc' (small to big) | 'desc' (big to small)
-  siteIdSortDirection: 'asc' | 'desc' | 'none' = 'none';
+  // Site ID Sort State: 'desc' (big to small - default) | 'asc' (small to big)
+  siteIdSortDirection: 'asc' | 'desc' | 'none' = 'desc';
 
   // Order By
   orderByOptions: FilterOption[] = [
@@ -724,18 +724,12 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   }
 
   toggleSiteIdSort(): void {
-    if (this.siteIdSortDirection === 'none') {
-      this.siteIdSortDirection = 'asc';
-    } else if (this.siteIdSortDirection === 'asc') {
-      this.siteIdSortDirection = 'desc';
-    } else {
-      this.siteIdSortDirection = 'asc';
-    }
+    this.siteIdSortDirection = this.siteIdSortDirection === 'desc' ? 'asc' : 'desc';
     this.currentPage = 1;
     this.applyFilters();
   }
 
-  setSiteIdSort(dir: 'asc' | 'desc' | 'none'): void {
+  setSiteIdSort(dir: 'asc' | 'desc'): void {
     this.siteIdSortDirection = dir;
     this.currentPage = 1;
     this.applyFilters();
@@ -743,7 +737,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
 
   resetAllFilters(): void {
     this.searchTerm = '';
-    this.siteIdSortDirection = 'none';
+    this.siteIdSortDirection = 'desc';
     this.siteTypeOptions.forEach(o => o.selected = true);
     this.systemTypeOptions.forEach(o => o.selected = true);
     this.siteCategoryOptions.forEach(o => o.selected = true);
@@ -755,7 +749,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
 
   get hasActiveFilters(): boolean {
     return !!this.searchTerm.trim() ||
-      this.siteIdSortDirection !== 'none' ||
+      this.siteIdSortDirection !== 'desc' ||
       !this.isAllSelected(this.siteTypeOptions) ||
       !this.isAllSelected(this.systemTypeOptions) ||
       !this.isAllSelected(this.siteCategoryOptions) ||
@@ -931,7 +925,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     const recv = parseFloat(p.received as any) || 0;
     const exp = parseFloat(p.siteExpenses as any) || 0;
     p.due = siteVal - recv;
-    p.margin = siteVal - exp;
+    p.margin = recv - exp;
     p.marginPercentage = siteVal > 0 ? parseFloat(((p.margin / siteVal) * 100).toFixed(2)) : 0;
   }
 
@@ -1004,9 +998,9 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   }
 
   get formMargin(): number {
-    const val = parseFloat(this.projectForm.siteValue as any) || 0;
+    const recv = parseFloat(this.projectForm.received as any) || 0;
     const exp = parseFloat(this.projectForm.siteExpenses as any) || 0;
-    return val - exp;
+    return recv - exp;
   }
 
   get formReceivedPct(): number {
@@ -1032,9 +1026,9 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
 
   get formMarginPct(): number {
     const val = parseFloat(this.projectForm.siteValue as any) || 0;
-    const margin = Math.max(0, this.formMargin);
+    const margin = this.formMargin;
     if (val <= 0) return 0;
-    return Math.min(100, parseFloat(((margin / val) * 100).toFixed(1)));
+    return parseFloat(((margin / val) * 100).toFixed(1));
   }
 
   get formNetCashflow(): number {
@@ -1198,7 +1192,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     const headers = [
       'Awarded Date', 'Site ID', 'Client Name', 'Location', 'Contact No', 'Email ID', 'Address',
       'Site Capacity', 'Site Value', 'Site Type', 'System Type', 'Site Category', 'Client Type',
-      'Sale Type', 'Order By', 'Received', 'Due', 'Site Expenses', 'Margin',
+      'Sale Type', 'Order By', 'Received', 'Due', 'Site Expenses', 'Margin %',
       'Materials Supply', 'Installation', 'EB Process', 'Documents', 'Warranty', 'Handed Over',
       'Work in Process %', 'Completed %'
     ];
@@ -1222,7 +1216,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       p.received || 0,
       p.due || 0,
       p.siteExpenses || 0,
-      p.margin || 0,
+      `"${p.marginPercentage || 0}%"`,
       p.materialsSupply ? 'Yes' : 'No',
       p.installation ? 'Yes' : 'No',
       p.ebProcess ? 'Yes' : 'No',
@@ -1261,7 +1255,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     doc.text(`Generated on: ${new Date().toLocaleString()} | Filtered Count: ${this.filteredProjects.length} Projects | Portfolio Value: ₹${(this.metrics?.totalSiteValue || 0).toLocaleString('en-IN')}`, 14, 19);
 
     const headers = [
-      ['Site ID', 'Client Name', 'Location', 'Cap', 'Site Value (₹)', 'Received (₹)', 'Due (₹)', 'Expenses (₹)', 'Margin (₹)', 'WIP', 'Done']
+      ['Site ID', 'Client Name', 'Location', 'Cap', 'Site Value (₹)', 'Received (₹)', 'Due (₹)', 'Expenses (₹)', 'Margin %', 'WIP', 'Done']
     ];
 
     const body = this.filteredProjects.map(p => [
@@ -1273,7 +1267,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       p.received ? Number(p.received).toLocaleString('en-IN') : '0',
       p.due ? Number(p.due).toLocaleString('en-IN') : '0',
       p.siteExpenses ? Number(p.siteExpenses).toLocaleString('en-IN') : '0',
-      p.margin ? Number(p.margin).toLocaleString('en-IN') : '0',
+      `${p.marginPercentage || 0}%`,
       `${p.workInProgressPercentage}%`,
       `${p.completedPercentage}%`
     ]);

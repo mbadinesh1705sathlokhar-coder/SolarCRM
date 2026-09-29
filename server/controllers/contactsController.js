@@ -31,7 +31,7 @@ const getMeetings = async (req, res) => {
             time: sp.time || '10:00',
             coordinator: sp.assignedBy || 'Admin',
             location: 'On-site Inspection',
-            status: 'Scheduled',
+            status: sp.status || 'Scheduled',
             isSitePlan: true,
             createdAt: sp.createdAt,
             updatedAt: sp.updatedAt
@@ -68,11 +68,12 @@ const updateMeeting = async (req, res) => {
             const plan = await SitePlan.findByPk(spId);
             if (!plan) return res.status(404).json({ error: 'Site Plan record not found' });
             await plan.update({
-                date: req.body.date,
-                time: req.body.time || '10:00',
-                engineerName: req.body.engineer,
-                description: req.body.description,
-                clientName: req.body.clientName
+                date: req.body.date !== undefined ? req.body.date : plan.date,
+                time: req.body.time !== undefined ? req.body.time : plan.time,
+                engineerName: req.body.engineer !== undefined ? req.body.engineer : plan.engineerName,
+                description: req.body.description !== undefined ? req.body.description : plan.description,
+                clientName: req.body.clientName !== undefined ? req.body.clientName : plan.clientName,
+                status: req.body.status !== undefined ? req.body.status : (plan.status || 'Scheduled')
             });
             return res.status(200).json({
                 id: numId,
@@ -86,7 +87,7 @@ const updateMeeting = async (req, res) => {
                 time: plan.time || '10:00',
                 coordinator: plan.assignedBy || 'Admin',
                 location: 'On-site Inspection',
-                status: 'Scheduled',
+                status: plan.status || req.body.status || 'Scheduled',
                 isSitePlan: true
             });
         }

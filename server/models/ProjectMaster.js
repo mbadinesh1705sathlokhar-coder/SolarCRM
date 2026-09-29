@@ -155,7 +155,7 @@ function computeMetrics(project) {
     const exp = parseFloat(project.siteExpenses) || 0;
 
     const due = siteVal - recv;
-    const margin = siteVal - exp;
+    const margin = recv - exp;
     const marginPercentage = siteVal > 0 ? parseFloat(((margin / siteVal) * 100).toFixed(2)) : 0;
 
     // Checkbox milestones (6 items)

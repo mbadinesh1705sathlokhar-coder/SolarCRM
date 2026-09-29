@@ -62,10 +62,26 @@ exports.getAllProjects = async (req, res) => {
 
         const projects = await ProjectMaster.findAll({
             where: whereClause,
-            order: [['orderIndex', 'ASC'], ['id', 'ASC']]
+            order: [['id', 'DESC']]
         });
 
         const formatted = projects.map(formatProject);
+
+        // Sort projects by Site ID descending (numerical large to small: SP419 > SP298 > SP295 > SP242...)
+        formatted.sort((a, b) => {
+            const idA = a.siteId || '';
+            const idB = b.siteId || '';
+            const matchA = idA.match(/\d+/);
+            const matchB = idB.match(/\d+/);
+            const numA = matchA ? parseInt(matchA[0], 10) : NaN;
+            const numB = matchB ? parseInt(matchB[0], 10) : NaN;
+
+            if (!isNaN(numA) && !isNaN(numB)) {
+                if (numA !== numB) return numB - numA;
+            }
+            return idB.localeCompare(idA, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
         return res.status(200).json({
             success: true,
             count: formatted.length,

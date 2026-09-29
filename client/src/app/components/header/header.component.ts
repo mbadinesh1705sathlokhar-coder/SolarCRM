@@ -69,6 +69,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   // Notifications State
   notifications: NotificationItem[] = [];
   dismissedNotificationIds = new Set<string>();
+  private readonly NOTIF_STORAGE_KEY = 'sathlokhar_dismissed_notifications';
   activeTabFilter: 'all' | 'task' | 'call' | 'meeting' = 'all';
 
   isNotificationOpen = false;
@@ -78,8 +79,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private routerSub?: Subscription;
 
   activeAlarms: MeetingAlarm[] = [];
+  pendingCompletions: { [id: string]: { secondsLeft: number; timerId: any } } = {};
 
   ngOnInit(): void {
+    this.loadDismissedNotifications();
     this.updateActiveMenu(this.router.url);
     this.routerSub = this.router.events.subscribe(evt => {
       if (evt instanceof NavigationEnd) {
@@ -93,9 +96,44 @@ export class HeaderComponent implements OnInit, OnDestroy {
     });
   }
 
+  private loadDismissedNotifications(): void {
+    try {
+      const saved = localStorage.getItem(this.NOTIF_STORAGE_KEY);
+      if (saved) {
+        const arr = JSON.parse(saved);
+        if (Array.isArray(arr)) {
+          this.dismissedNotificationIds = new Set(arr);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load dismissed notifications from localStorage', e);
+    }
+  }
+
+  private saveDismissedNotifications(): void {
+    try {
+      const arr = Array.from(this.dismissedNotificationIds);
+      const trimmed = arr.length > 1000 ? arr.slice(arr.length - 1000) : arr;
+      localStorage.setItem(this.NOTIF_STORAGE_KEY, JSON.stringify(trimmed));
+    } catch (e) {
+      console.error('Failed to save dismissed notifications to localStorage', e);
+    }
+  }
+
+  restoreDismissed(event?: Event): void {
+    event?.stopPropagation();
+    this.dismissedNotificationIds.clear();
+    try {
+      localStorage.removeItem(this.NOTIF_STORAGE_KEY);
+    } catch (e) {}
+    this.cdr.markForCheck();
+  }
+
   ngOnDestroy(): void {
     this.refreshSub?.unsubscribe();
     this.routerSub?.unsubscribe();
+    Object.values(this.pendingCompletions).forEach(p => clearInterval(p.timerId));
+    this.pendingCompletions = {};
   }
 
   loadAllNotifications(): void {
@@ -142,6 +180,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
       // 2. Process Tasks
       // "what are the meeting/task are there for her that should be tracked"
       for (const task of tasks) {
+        if (task.status === 'Completed') continue;
+
         const assignedTo = (task.assignedTo || '').trim();
         const assignedFrom = (task.assignedFrom || '').trim();
         const toLower = assignedTo.toLowerCase();
@@ -273,19 +313,100 @@ export class HeaderComponent implements OnInit, OnDestroy {
     }
   }
 
+  startCompletionCountdown(item: NotificationItem, event: Event): void {
+    event.stopPropagation();
+    if (this.pendingCompletions[item.id]) return;
+
+    this.pendingCompletions[item.id] = {
+      secondsLeft: 10,
+      timerId: setInterval(() => {
+        const pending = this.pendingCompletions[item.id];
+        if (!pending) return;
+        pending.secondsLeft -= 1;
+        if (pending.secondsLeft <= 0) {
+          this.commitCompletion(item);
+        }
+        this.cdr.markForCheck();
+      }, 1000)
+    };
+    this.cdr.markForCheck();
+  }
+
+  cancelCompletionCountdown(item: NotificationItem, event?: Event): void {
+    event?.stopPropagation();
+    if (this.pendingCompletions[item.id]) {
+      clearInterval(this.pendingCompletions[item.id].timerId);
+      delete this.pendingCompletions[item.id];
+      this.cdr.markForCheck();
+    }
+  }
+
+  forceCompleteNow(item: NotificationItem, event?: Event): void {
+    event?.stopPropagation();
+    this.commitCompletion(item);
+  }
+
+  private commitCompletion(item: NotificationItem): void {
+    if (this.pendingCompletions[item.id]) {
+      clearInterval(this.pendingCompletions[item.id].timerId);
+      delete this.pendingCompletions[item.id];
+    }
+
+    item.statusBadge = 'Completed';
+    item.statusClass = 'bg-success-subtle text-success';
+
+    const finalize = () => {
+      this.dismissedNotificationIds.add(item.id);
+      this.saveDismissedNotifications();
+      if (item.category === 'meeting' && item.targetId) {
+        this.contactsService.dismissAlarm(item.targetId);
+      }
+      this.loadAllNotifications();
+    };
+
+    if (item.category === 'task' && item.targetId) {
+      this.contactsService.updateTask(item.targetId, { status: 'Completed' }).subscribe({
+        next: () => setTimeout(finalize, 800),
+        error: () => setTimeout(finalize, 800)
+      });
+    } else if (item.category === 'meeting' && item.targetId) {
+      this.contactsService.updateMeeting(item.targetId, { status: 'Completed' }).subscribe({
+        next: () => setTimeout(finalize, 800),
+        error: () => setTimeout(finalize, 800)
+      });
+    } else {
+      setTimeout(finalize, 800);
+    }
+
+    this.cdr.markForCheck();
+  }
+
   dismissNotification(id: string, event: Event): void {
     event.stopPropagation();
+    if (this.pendingCompletions[id]) {
+      clearInterval(this.pendingCompletions[id].timerId);
+      delete this.pendingCompletions[id];
+    }
     this.dismissedNotificationIds.add(id);
+    this.saveDismissedNotifications();
+
     if (id.startsWith('alarm-')) {
       const meetingId = Number(id.replace('alarm-', ''));
       if (!isNaN(meetingId)) this.contactsService.dismissAlarm(meetingId);
+    } else if (id.startsWith('meeting-')) {
+      const meetingId = Number(id.replace('meeting-', ''));
+      if (!isNaN(meetingId)) this.contactsService.dismissAlarm(meetingId);
     }
+
     this.cdr.markForCheck();
   }
 
   dismissAll(event?: Event): void {
     event?.stopPropagation();
+    Object.values(this.pendingCompletions).forEach(p => clearInterval(p.timerId));
+    this.pendingCompletions = {};
     this.notifications.forEach(n => this.dismissedNotificationIds.add(n.id));
+    this.saveDismissedNotifications();
     this.contactsService.dismissAll();
     this.cdr.markForCheck();
   }
@@ -311,7 +432,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.activeTopMenu = 'Dashboard';
     } else if (url.includes('/sales')) {
       this.activeTopMenu = 'Sales';
-    } else if (url.includes('/payment-ledger') || url.includes('/expense-ledger') || url.includes('/vendor-ledger') || url.includes('/finances')) {
+    } else if (url.includes('/payment-ledger') || url.includes('/expense-ledger') || url.includes('/warehouse-expenses') || url.includes('/vendor-ledger') || url.includes('/expo-expenses') || url.includes('/finances')) {
       this.activeTopMenu = 'Finances';
     } else if (url.includes('/office')) {
       this.activeTopMenu = 'Office';

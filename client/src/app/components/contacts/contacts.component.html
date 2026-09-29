@@ -196,28 +196,29 @@
                      class="teams-meeting-tile"
                      [class.tile-client]="m.purpose === 'Client'"
                      [class.tile-site]="m.purpose === 'Site Visit' || m.purpose === 'Site Plan'"
-                     [class.tile-personal]="m.purpose === 'Personal' || m.purpose === 'All'"
+                     [class.tile-personal]="m.purpose === 'Personal'"
+                     [class.tile-all]="m.purpose === 'All'"
                      (click)="openEditMeetingModal(m); $event.stopPropagation()"
-                     title="Click to edit: {{ m.title || m.clientName }}">
+                     [title]="(m.title || m.clientName) + ' (' + m.time + ')'">
                   
                   <div class="tile-top-row">
-                    <span class="tile-title text-truncate fw-bold">{{ m.title || m.clientName }}</span>
+                    <span class="tile-title fw-bold" [title]="m.title || m.clientName">{{ m.title || m.clientName }}</span>
                     <button *ngIf="canDelete()" class="btn btn-xs tile-delete-btn text-danger p-0" (click)="deleteMeeting(m, $event)" title="Delete">
                       <i class="bi bi-x"></i>
                     </button>
                   </div>
 
-                  <div class="tile-meta-row text-truncate">
-                    <i class="bi bi-microsoft-teams me-1" style="color: #5b5fc7;"></i>
-                    <span *ngIf="m.purpose === 'Client'">{{ m.clientName || 'Client Meeting' }}</span>
-                    <span *ngIf="m.purpose === 'Site Visit' || m.purpose === 'Site Plan'">Site: {{ m.engineer || m.clientName }}</span>
-                    <span *ngIf="m.purpose === 'All'">All Employees: {{ m.title || 'General Meeting' }}</span>
-                    <span *ngIf="m.purpose === 'Personal'">Internal / Personal</span>
+                  <div class="tile-meta-row text-truncate" *ngIf="getTileSubtitle(m)">
+                    <i class="bi bi-microsoft-teams me-1" style="color: #5b5fc7; font-size: 0.65rem;"></i>
+                    <span>{{ getTileSubtitle(m) }}</span>
                   </div>
 
-                  <div class="tile-bottom-row d-flex align-items-center justify-content-between mt-1">
+                  <div class="tile-bottom-row">
                     <span class="tile-time"><i class="bi bi-clock me-1"></i>{{ m.time }}</span>
-                    <span class="badge tile-purpose-tag" [class.bg-info-subtle]="m.purpose === 'Site Plan'" [class.text-info-emphasis]="m.purpose === 'Site Plan'">{{ m.purpose }}</span>
+                    <span class="badge tile-purpose-tag" 
+                          [class.bg-info-subtle]="m.purpose === 'Site Plan'" 
+                          [class.text-info-emphasis]="m.purpose === 'Site Plan'"
+                          [class.tag-purpose-all]="m.purpose === 'All'">{{ m.purpose }}</span>
                   </div>
                 </div>
 
@@ -263,8 +264,7 @@
                       [class.text-primary]="m.purpose === 'Client'"
                       [class.bg-info-subtle]="m.purpose === 'Site Plan' || m.purpose === 'Site Visit'"
                       [class.text-info-emphasis]="m.purpose === 'Site Plan' || m.purpose === 'Site Visit'"
-                      [class.bg-purple-subtle]="m.purpose === 'All'"
-                      [class.text-purple]="m.purpose === 'All'"
+                      [class.badge-purpose-all]="m.purpose === 'All'"
                       [class.bg-secondary-subtle]="m.purpose === 'Personal'"
                       [class.text-secondary]="m.purpose === 'Personal'">
                   {{ m.purpose }}
@@ -682,7 +682,7 @@
         </div>
 
         <!-- Conditional Fields Based on Purpose: ALL (ALL EMPLOYEES) -->
-        <div *ngIf="meetingForm.purpose === 'All'" class="purpose-block p-3 rounded-2 mb-3 bg-light border-start border-3 border-purple" style="border-left-color: #8b5cf6 !important;">
+        <div *ngIf="meetingForm.purpose === 'All'" class="purpose-block p-3 rounded-2 mb-3 bg-light border-start border-3" style="border-left-color: #ff6347 !important;">
           <div class="mb-3">
             <label class="form-label fw-bold text-dark small">Meeting Title / Topic <span class="text-danger">*</span></label>
             <input type="text" class="form-control" [(ngModel)]="meetingForm.title" name="allTitle" placeholder="e.g. Monthly All-Hands / Safety Briefing" required>

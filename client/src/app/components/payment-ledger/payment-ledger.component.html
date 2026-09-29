@@ -9,9 +9,9 @@
   </div>
 
   <!-- Top Navigation Bar: Title on Left, Finances Pill Navigation Tabs on Right -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-2">
     <!-- Page Title -->
-    <div>
+    <div class="d-flex align-items-center gap-2">
       <h3 class="fw-bold mb-0 text-dark fs-5">Client Payment Ledger</h3>
     </div>
 
@@ -107,10 +107,10 @@
       <table class="table table-hover align-middle mb-0 custom-table" #dataTableEl>
         <thead class="table-light text-uppercase fs-8 text-secondary">
           <tr>
-            <th class="cursor-pointer user-select-none text-nowrap" (click)="toggleSiteIdSort()" title="Click to sort Site ID: Small to Big / Big to Small" style="min-width: 120px; cursor: pointer;">
+            <th class="cursor-pointer user-select-none text-nowrap" (click)="toggleSiteIdSort()" title="Click to sort Site ID: Big to Small / Small to Big" style="min-width: 120px; cursor: pointer;">
               <div class="d-inline-flex align-items-center gap-1.5">
                 <span>Site ID</span>
-                <i class="bi fs-7" [ngClass]="siteIdSortDirection === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : (siteIdSortDirection === 'desc' ? 'bi-sort-numeric-down-alt text-primary fw-bold' : 'bi-arrow-down-up text-muted opacity-50')"></i>
+                <i class="bi fs-7" [ngClass]="siteIdSortDirection === 'desc' ? 'bi-sort-numeric-down-alt text-primary fw-bold' : 'bi-sort-numeric-down text-primary fw-bold'"></i>
               </div>
             </th>
             <th style="min-width: 240px;">Client Name</th>

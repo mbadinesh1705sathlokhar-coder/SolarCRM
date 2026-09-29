@@ -3,6 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, of, BehaviorSubject, Subscription, timer, tap } from 'rxjs';
 import { Meeting, CallLog, TaskItem, MeetingAlarm } from '../models/contacts.model';
 
+function formatLocalDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -14,11 +21,35 @@ export class ContactsService {
   activeAlarms$ = new BehaviorSubject<MeetingAlarm[]>([]);
   targetMeetingId$ = new BehaviorSubject<number | null>(null);
   dismissedAlarmIds = new Set<number>();
+  private readonly ALARM_STORAGE_KEY = 'sathlokhar_dismissed_alarms';
   private alarmSub?: Subscription;
 
   constructor() {
     this.clearLegacyDemoCache();
+    this.loadDismissedAlarms();
     this.initAlarmChecker();
+  }
+
+  private loadDismissedAlarms(): void {
+    try {
+      const saved = localStorage.getItem(this.ALARM_STORAGE_KEY);
+      if (saved) {
+        const arr = JSON.parse(saved);
+        if (Array.isArray(arr)) {
+          this.dismissedAlarmIds = new Set(arr);
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  private saveDismissedAlarms(): void {
+    try {
+      localStorage.setItem(this.ALARM_STORAGE_KEY, JSON.stringify(Array.from(this.dismissedAlarmIds)));
+    } catch (e) {
+      // Ignore
+    }
   }
 
   private clearLegacyDemoCache(): void {
@@ -80,12 +111,14 @@ export class ContactsService {
   dismissAlarm(meetingId?: number): void {
     if (meetingId) {
       this.dismissedAlarmIds.add(meetingId);
+      this.saveDismissedAlarms();
       const current = this.activeAlarms$.value.filter(a => a.meeting.id !== meetingId);
       this.activeAlarms$.next(current);
     } else {
       this.activeAlarms$.value.forEach(a => {
         if (a.meeting.id) this.dismissedAlarmIds.add(a.meeting.id);
       });
+      this.saveDismissedAlarms();
       this.activeAlarms$.next([]);
     }
   }
@@ -143,7 +176,7 @@ export class ContactsService {
           title: meeting.title,
           clientName: meeting.clientName,
           description: meeting.description,
-          date: meeting.date || new Date().toISOString().split('T')[0],
+          date: meeting.date || formatLocalDate(new Date()),
           time: meeting.time || '10:00',
           engineer: meeting.engineer,
           coordinator: meeting.coordinator || 'Renuka',
@@ -204,7 +237,7 @@ export class ContactsService {
       catchError(err => {
         const newCall: CallLog = {
           id: Date.now(),
-          date: call.date || new Date().toISOString().split('T')[0],
+          date: call.date || formatLocalDate(new Date()),
           time: call.time || '10:00',
           title: call.title || 'Client Discussion',
           clientVendorName: call.clientVendorName || 'Client',
@@ -252,7 +285,7 @@ export class ContactsService {
           title: task.title || 'New Task',
           assignedFrom: task.assignedFrom || 'Admin',
           assignedTo: task.assignedTo || 'Unassigned',
-          dueDate: task.dueDate || new Date().toISOString().split('T')[0],
+          dueDate: task.dueDate || formatLocalDate(new Date()),
           priority: task.priority || 'Medium',
           status: task.status || 'Pending',
           description: task.description || '',

@@ -117,7 +117,10 @@
               <span class="badge bg-light text-dark border">{{ m.unit }}</span>
             </td>
             <!-- In-Stock -->
-            <td class="text-end font-mono fw-bold fs-7" [class.text-danger]="m.inStock <= 0" [class.text-low-stock]="m.inStock > 0 && m.inStock <= 5" [class.text-success]="m.inStock > 5">
+            <td class="text-end font-mono fw-bold fs-7" 
+                [class.text-danger]="m.status === 'Out of Stock'" 
+                [class.text-low-stock]="m.status === 'Low Stock'" 
+                [class.text-success]="m.status === 'In Stock'">
               {{ m.inStock | number:'1.0-2' }}
             </td>
             <!-- Status -->
@@ -128,6 +131,10 @@
                       'stock-low-stock': m.status === 'Low Stock',
                       'stock-out-of-stock': m.status === 'Out of Stock'
                     }">
+                <i class="bi me-1"
+                   [class.bi-check-circle-fill]="m.status === 'In Stock'"
+                   [class.bi-exclamation-triangle-fill]="m.status === 'Low Stock'"
+                   [class.bi-x-circle-fill]="m.status === 'Out of Stock'"></i>
                 {{ m.status }}
               </span>
             </td>
@@ -185,11 +192,36 @@
               <label class="form-label small fw-bold text-dark mb-1">In-Stock Quantity <span class="text-danger">*</span></label>
               <input type="number" step="any" min="0" class="form-control font-mono shadow-sm" placeholder="e.g. 25" [(ngModel)]="materialForm.inStock" name="inStock" required>
             </div>
+            <!-- Automated Stock Status (Read-Only live indicator) -->
             <div class="col-12">
-              <label class="form-label small fw-bold text-dark mb-1">Status</label>
-              <select class="form-select shadow-sm" [(ngModel)]="materialForm.status" name="status">
-                <option *ngFor="let st of statusOptions" [value]="st">{{ st }}</option>
-              </select>
+              <label class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                <span>Stock Status</span>
+                <span class="badge bg-secondary-subtle text-secondary border fw-normal py-1 px-2" style="font-size: 0.72rem;">
+                  <i class="bi bi-shield-check text-success me-1"></i>Automated
+                </span>
+              </label>
+              <div class="p-2.5 px-3 rounded-3 border bg-white d-flex align-items-center justify-content-between shadow-sm">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="stock-badge"
+                        [ngClass]="{
+                          'stock-in-stock': currentComputedStatus === 'In Stock',
+                          'stock-low-stock': currentComputedStatus === 'Low Stock',
+                          'stock-out-of-stock': currentComputedStatus === 'Out of Stock'
+                        }">
+                    <i class="bi me-1"
+                       [class.bi-check-circle-fill]="currentComputedStatus === 'In Stock'"
+                       [class.bi-exclamation-triangle-fill]="currentComputedStatus === 'Low Stock'"
+                       [class.bi-x-circle-fill]="currentComputedStatus === 'Out of Stock'"></i>
+                    {{ currentComputedStatus }}
+                  </span>
+                  <span class="small text-muted" style="font-size: 0.78rem;">
+                    {{ getStatusRuleDescription(materialForm.materialName, materialForm.unit) }}
+                  </span>
+                </div>
+                <span class="text-muted small fst-italic" style="font-size: 0.73rem;">
+                  Auto-calculated
+                </span>
+              </div>
             </div>
           </div>
         </div>

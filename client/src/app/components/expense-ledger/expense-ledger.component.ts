@@ -38,7 +38,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   loading = false;
   searchQuery = '';
   marginFilter: 'All' | 'HasExpenses' | 'ZeroExpenses' = 'All';
-  siteIdSortDirection: 'asc' | 'desc' | 'none' = 'none';
+  siteIdSortDirection: 'asc' | 'desc' | 'none' = 'desc';
 
   // Pagination for Client List (114 clients + 1 central warehouse)
   currentPage = 1;
@@ -400,13 +400,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   toggleSiteIdSort(): void {
-    if (this.siteIdSortDirection === 'none') {
-      this.siteIdSortDirection = 'asc';
-    } else if (this.siteIdSortDirection === 'asc') {
-      this.siteIdSortDirection = 'desc';
-    } else {
-      this.siteIdSortDirection = 'asc';
-    }
+    this.siteIdSortDirection = this.siteIdSortDirection === 'desc' ? 'asc' : 'desc';
     this.currentPage = 1;
     this.updateTableWidth();
     this.cdr.markForCheck();
@@ -590,7 +584,8 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
               this.warehouseEntity.siteExpenses = res.totalAmount;
             } else {
               const siteVal = Number(this.selectedProjectRef.siteValue) || 0;
-              this.selectedProjectRef.margin = Math.max(0, siteVal - res.totalAmount);
+              const recv = Number(this.selectedProjectRef.received) || 0;
+              this.selectedProjectRef.margin = recv - res.totalAmount;
               this.selectedProjectRef.marginPercentage = siteVal > 0 ? parseFloat(((this.selectedProjectRef.margin / siteVal) * 100).toFixed(2)) : 0;
             }
           }
@@ -722,8 +717,8 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   get clientCurrentMargin(): number {
-    const siteVal = Number(this.selectedProjectRef?.siteValue) || 0;
-    return siteVal - this.clientTotalExpenses;
+    const recv = Number(this.selectedProjectRef?.received) || 0;
+    return recv - this.clientTotalExpenses;
   }
 
   get clientCurrentMarginPercentage(): number {
@@ -743,8 +738,8 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   get liveNewMargin(): number {
-    const siteVal = Number(this.selectedProjectRef?.siteValue) || 0;
-    return siteVal - this.liveNewExpenses;
+    const recv = Number(this.selectedProjectRef?.received) || 0;
+    return recv - this.liveNewExpenses;
   }
 
   get liveNewMarginPct(): number {
