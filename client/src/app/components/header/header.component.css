@@ -480,3 +480,8 @@
     display: none;
   }
 }
+
+.notification-item-card .badge {
+  color: #0f172a;
+}
+

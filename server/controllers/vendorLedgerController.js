@@ -2,13 +2,25 @@ const { OfficeVendor } = require('../models/OfficeVendor');
 const { VendorPoWo } = require('../models/VendorPoWo');
 const { VendorPayment } = require('../models/VendorPayment');
 const { SiteExpenseLedger } = require('../models/SiteExpenseLedger');
+const { VendorMaterialRate } = require('../models/VendorMaterialRate');
 const { Op } = require('sequelize');
 
 // --- GET ALL VENDORS (with PO/WO & Payment summary counts) ---
 async function getAllVendors(req, res) {
     try {
         const vendors = await OfficeVendor.findAll({ order: [['vendorName', 'ASC']] });
-        res.json({ success: true, data: vendors });
+        const data = vendors.map(v => {
+            const json = v.toJSON();
+            if (json.materialRates && typeof json.materialRates === 'string') {
+                try {
+                    json.materialRates = JSON.parse(json.materialRates);
+                } catch (e) {
+                    // keep as is
+                }
+            }
+            return json;
+        });
+        res.json({ success: true, data });
     } catch (err) {
         console.error('Error fetching vendors:', err);
         res.status(500).json({ success: false, message: 'Failed to fetch vendors' });
@@ -83,10 +95,33 @@ async function getVendorWithLedger(req, res) {
         const totalDr = payments.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
         const dueToPay = Math.max(0, totalCr - totalDr);
 
+        // Parse materialRates and load vendor_material_rates
+        let ratesMap = {};
+        if (vendor.materialRates) {
+            try {
+                ratesMap = typeof vendor.materialRates === 'string' ? JSON.parse(vendor.materialRates) : vendor.materialRates;
+            } catch (e) {
+                ratesMap = {};
+            }
+        }
+        try {
+            const dbRates = await VendorMaterialRate.findAll({ where: { vendorId: id } });
+            for (const r of dbRates) {
+                if (ratesMap[r.materialName] === undefined) {
+                    ratesMap[r.materialName] = r.rate;
+                }
+            }
+        } catch (dbErr) {
+            console.warn('Error fetching VendorMaterialRate:', dbErr.message);
+        }
+
+        const vendorData = vendor.toJSON();
+        vendorData.materialRates = ratesMap;
+
         res.json({
             success: true,
             data: {
-                vendor,
+                vendor: vendorData,
                 poWos: combinedPoWos,
                 payments,
                 syncedExpenses,
@@ -104,10 +139,16 @@ async function getVendorWithLedger(req, res) {
 // --- CREATE VENDOR ---
 async function createVendor(req, res) {
     try {
-        const { vendorName, salesCoordinator, phoneNo, location, materialsSpec, creditDays, description } = req.body;
+        const { vendorName, salesCoordinator, phoneNo, location, materialsSpec, creditDays, description, materialRates } = req.body;
         if (!vendorName?.trim()) {
             return res.status(400).json({ success: false, message: 'Vendor Name is required.' });
         }
+
+        let ratesJson = null;
+        if (materialRates) {
+            ratesJson = typeof materialRates === 'object' ? JSON.stringify(materialRates) : String(materialRates);
+        }
+
         const created = await OfficeVendor.create({
             vendorName: vendorName.trim(),
             salesCoordinator: salesCoordinator || 'Renuka',
@@ -115,9 +156,25 @@ async function createVendor(req, res) {
             location: location || '',
             materialsSpec: Array.isArray(materialsSpec) ? materialsSpec.join(', ') : (materialsSpec || ''),
             creditDays: creditDays || '30 Days',
-            description: description || ''
+            description: description || '',
+            materialRates: ratesJson
         });
-        res.status(201).json({ success: true, data: created });
+
+        // Insert into vendor_material_rates table
+        if (materialRates && typeof materialRates === 'object') {
+            const rateEntries = Object.entries(materialRates).map(([materialName, rate]) => ({
+                vendorId: created.id,
+                materialName: materialName.trim(),
+                rate: parseFloat(rate) || 0.0
+            })).filter(r => r.materialName);
+            if (rateEntries.length > 0) {
+                await VendorMaterialRate.bulkCreate(rateEntries);
+            }
+        }
+
+        const createdData = created.toJSON();
+        createdData.materialRates = materialRates || {};
+        res.status(201).json({ success: true, data: createdData });
     } catch (err) {
         console.error('Error creating vendor:', err);
         res.status(500).json({ success: false, message: 'Failed to create vendor' });
@@ -136,7 +193,25 @@ async function updateVendor(req, res) {
         if (Array.isArray(payload.materialsSpec)) {
             payload.materialsSpec = payload.materialsSpec.join(', ');
         }
+        if (payload.materialRates !== undefined) {
+            if (payload.materialRates && typeof payload.materialRates === 'object') {
+                payload.materialRates = JSON.stringify(payload.materialRates);
+            }
+        }
         await vendor.update(payload);
+
+        // Update vendor_material_rates table (rate as DOUBLE)
+        if (req.body.materialRates && typeof req.body.materialRates === 'object') {
+            await VendorMaterialRate.destroy({ where: { vendorId: id } });
+            const rateEntries = Object.entries(req.body.materialRates).map(([materialName, rate]) => ({
+                vendorId: id,
+                materialName: materialName.trim(),
+                rate: parseFloat(rate) || 0.0
+            })).filter(r => r.materialName);
+            if (rateEntries.length > 0) {
+                await VendorMaterialRate.bulkCreate(rateEntries);
+            }
+        }
 
         // Also update vendorName in PO/WO and Payments if changed
         if (payload.vendorName && payload.vendorName !== vendor.vendorName) {
@@ -144,7 +219,18 @@ async function updateVendor(req, res) {
             await VendorPayment.update({ vendorName: payload.vendorName }, { where: { vendorId: id } });
         }
 
-        res.json({ success: true, data: vendor });
+        const vendorData = vendor.toJSON();
+        if (typeof vendorData.materialRates === 'string') {
+            try {
+                vendorData.materialRates = JSON.parse(vendorData.materialRates);
+            } catch (e) {
+                // leave as is
+            }
+        } else if (!vendorData.materialRates && req.body.materialRates) {
+            vendorData.materialRates = req.body.materialRates;
+        }
+
+        res.json({ success: true, data: vendorData });
     } catch (err) {
         console.error('Error updating vendor:', err);
         res.status(500).json({ success: false, message: 'Failed to update vendor' });

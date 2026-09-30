@@ -222,9 +222,15 @@
             </div>
             <div class="col-md-2">
               <label class="form-label small fw-bold text-dark mb-1">Vendor Coordinator</label>
-              <select class="form-select form-select-sm shadow-sm" [(ngModel)]="vendorDetailsForm.salesCoordinator" (change)="saveVendorProfileDetails()" name="vCoord">
+              <input type="text" 
+                     class="form-control form-control-sm shadow-sm" 
+                     list="profileCoordinatorList" 
+                     [(ngModel)]="vendorDetailsForm.salesCoordinator" 
+                     name="vCoord" 
+                     placeholder="e.g. Renuka">
+              <datalist id="profileCoordinatorList">
                 <option *ngFor="let c of salesCoordinatorOptions" [value]="c">{{ c }}</option>
-              </select>
+              </datalist>
             </div>
             <div class="col-md-2">
               <label class="form-label small fw-bold text-dark mb-1">Phone No.</label>
@@ -271,6 +277,61 @@
                       </label>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Material Rates Table (Dynamically displayed for ticked materials) -->
+            <div class="col-12 mt-3" *ngIf="getSelectedMaterialsList().length > 0">
+              <div class="card border rounded-3 overflow-hidden shadow-sm">
+                <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 fw-bold" style="font-size: 0.72rem;">
+                      <i class="bi bi-tag-fill me-1"></i>Materials & Rates
+                    </span>
+                    <span class="fw-bold text-dark small">Material Rates per Piece (Double Precision)</span>
+                  </div>
+                  <span class="badge bg-light text-muted border font-mono" style="font-size: 0.72rem;">
+                    {{ getSelectedMaterialsList().length }} Materials Ticked
+                  </span>
+                </div>
+
+                <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                  <table class="table table-hover table-sm align-middle mb-0 compact-table">
+                    <thead class="table-light sticky-top">
+                      <tr class="text-uppercase text-muted" style="font-size: 0.72rem;">
+                        <th style="min-width: 250px;">Materials</th>
+                        <th style="width: 220px;" class="text-end">Rate (₹ / piece)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let mat of getSelectedMaterialsList()">
+                        <td class="fw-semibold text-dark small">
+                          <i class="bi bi-box-seam me-2 text-primary opacity-75"></i>
+                          {{ mat }}
+                        </td>
+                        <td class="text-end">
+                          <div class="input-group input-group-sm ms-auto" style="max-width: 190px;">
+                            <span class="input-group-text bg-light text-muted border-end-0 font-mono py-0.5 px-2" style="font-size: 0.78rem;">₹</span>
+                            <input type="number" 
+                                   class="form-control form-control-sm text-end font-mono fw-bold" 
+                                   step="0.01" 
+                                   min="0"
+                                   placeholder="0.00" 
+                                   [(ngModel)]="vendorDetailsForm.materialRates[mat]" 
+                                   [name]="'rate_' + mat"
+                                   title="Enter rate per piece for {{ mat }}">
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="card-footer bg-light py-1.5 px-3">
+                  <small class="text-muted" style="font-size: 0.72rem;">
+                    <i class="bi bi-info-circle me-1 text-primary"></i>
+                    Enter the amount rate per piece manually. Stored as double data type (₹).
+                  </small>
                 </div>
               </div>
             </div>
@@ -523,17 +584,18 @@
         <!-- ============================================== -->
         <div class="col-lg-6">
           <div class="card border-0 shadow-sm rounded-3 bg-white h-100 overflow-hidden border-top border-4 border-success">
-            <div class="card-header bg-white py-3 px-3 border-bottom d-flex justify-content-between align-items-center">
-              <div>
+            <div class="card-header bg-white py-2.5 px-3 border-bottom d-flex justify-content-between align-items-center gap-2">
+              <div class="me-2">
                 <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 fw-bold" style="font-size: 0.72rem;">
                   DEBIT (DR)
                 </span>
                 <h6 class="fw-bold mb-0 text-dark mt-1">Payments Made</h6>
                 <small class="text-muted" style="font-size: 0.72rem;">Direct payments settled to {{ selectedVendor.vendorName }}</small>
               </div>
-              <button class="btn btn-sm btn-success fw-bold px-3 shadow-sm d-flex align-items-center gap-1"
+              <button class="btn btn-sm btn-success fw-semibold px-2.5 py-1 shadow-sm text-nowrap d-inline-flex align-items-center gap-1 flex-shrink-0"
+                      style="font-size: 0.76rem; border-radius: 6px;"
                       (click)="openRecordPaymentModal()">
-                <i class="bi bi-plus-lg"></i> Record Payment
+                <i class="bi bi-plus-lg" style="font-size: 0.72rem;"></i> Record Payment
               </button>
             </div>
 
@@ -783,9 +845,10 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label small fw-bold text-dark mb-1">Vendor Coordinator</label>
-                <select class="form-select shadow-sm" [(ngModel)]="vendorForm.salesCoordinator" name="salesCoordinator">
+                <input type="text" class="form-control shadow-sm" list="modalCoordinatorList" [(ngModel)]="vendorForm.salesCoordinator" name="salesCoordinator" placeholder="Enter or select coordinator">
+                <datalist id="modalCoordinatorList">
                   <option *ngFor="let c of salesCoordinatorOptions" [value]="c">{{ c }}</option>
-                </select>
+                </datalist>
               </div>
               <div class="col-md-6">
                 <label class="form-label small fw-bold text-dark mb-1">Phone No</label>
@@ -814,6 +877,42 @@
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <!-- Modal Material Rates Table (If materials selected) -->
+              <div class="col-12" *ngIf="getModalSelectedMaterialsList().length > 0">
+                <label class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                  <span><i class="bi bi-tag-fill me-1 text-primary"></i> Material Rates (Double Data Type)</span>
+                  <span class="badge bg-light text-muted border font-mono">{{ getModalSelectedMaterialsList().length }} selected</span>
+                </label>
+                <div class="table-responsive border rounded-3 bg-white" style="max-height: 150px; overflow-y: auto;">
+                  <table class="table table-sm table-hover align-middle mb-0 compact-table">
+                    <thead class="table-light sticky-top">
+                      <tr class="text-uppercase text-muted" style="font-size: 0.7rem;">
+                        <th>Materials</th>
+                        <th style="width: 170px;" class="text-end">Rate (₹ / piece)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let m of getModalSelectedMaterialsList()">
+                        <td class="small fw-semibold text-dark">{{ m }}</td>
+                        <td class="text-end">
+                          <div class="input-group input-group-sm ms-auto" style="max-width: 150px;">
+                            <span class="input-group-text bg-light text-muted border-end-0 py-0.5 px-2" style="font-size: 0.75rem;">₹</span>
+                            <input type="number" 
+                                   class="form-control form-control-sm text-end font-mono" 
+                                   step="0.01" 
+                                   min="0"
+                                   placeholder="0.00" 
+                                   [(ngModel)]="vendorModalMaterialRates[m]" 
+                                   [name]="'modal_rate_' + m"
+                                   title="Enter rate per piece for {{ m }}">
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 

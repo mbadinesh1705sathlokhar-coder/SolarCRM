@@ -131,22 +131,26 @@ export class SitePlanComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
-  formatTime(timeStr?: string): string {
+  formatTime12Hour(timeStr?: string): string {
     if (!timeStr) return '';
-    try {
-      const parts = timeStr.trim().split(':');
-      if (parts.length >= 2) {
-        let h = parseInt(parts[0], 10);
-        const m = parts[1].substring(0, 2);
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        h = h % 12;
-        if (h === 0) h = 12;
-        return `${h}:${m} ${ampm}`;
-      }
-      return timeStr;
-    } catch {
+    if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
       return timeStr;
     }
+    const parts = timeStr.trim().split(':');
+    if (parts.length >= 2) {
+      let hours = parseInt(parts[0], 10);
+      const minutes = parts[1].substring(0, 2);
+      if (isNaN(hours)) return timeStr;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      const hoursStr = hours < 10 ? '0' + hours : '' + hours;
+      return `${hoursStr}:${minutes} ${ampm}`;
+    }
+    return timeStr;
+  }
+
+  formatTime(timeStr?: string): string {
+    return this.formatTime12Hour(timeStr);
   }
 
   closeEditModal(): void {

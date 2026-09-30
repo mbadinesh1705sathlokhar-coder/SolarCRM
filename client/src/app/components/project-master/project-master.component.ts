@@ -35,15 +35,15 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   isAwardedSitesView = false;
 
   canAdd(): boolean {
-    return this.authService.canAdd('sales');
+    return this.authService.canAdd('awarded-sites') || this.authService.canAdd('sales');
   }
 
   canEdit(): boolean {
-    return this.authService.canEdit('sales');
+    return this.authService.canEdit('awarded-sites') || this.authService.canEdit('sales');
   }
 
   canDelete(): boolean {
-    return this.authService.canDelete('sales');
+    return this.authService.canDelete('awarded-sites') || this.authService.canDelete('sales');
   }
 
   projects: Project[] = [];

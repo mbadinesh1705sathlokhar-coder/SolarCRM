@@ -351,32 +351,44 @@ export class WarehouseExpensesComponent implements OnInit {
   // --- DATE HELPERS ---
   toDisplayDate(isoStr: string | undefined): string {
     if (!isoStr) return '';
-    const trimmed = String(isoStr).trim();
-    if (trimmed.includes('-')) {
-      const parts = trimmed.split('-');
+    const cleanStr = String(isoStr).trim().substring(0, 10).replace(/[/.]/g, '-');
+    if (cleanStr.includes('-')) {
+      const parts = cleanStr.split('-');
       if (parts.length === 3 && parts[0].length === 4) {
         const yyyy = parts[0];
         const mm = parts[1].padStart(2, '0');
         const dd = parts[2].padStart(2, '0');
         return `${dd}-${mm}-${yyyy}`;
       }
+      if (parts.length === 3 && parts[2].length === 4) {
+        const dd = parts[0].padStart(2, '0');
+        const mm = parts[1].padStart(2, '0');
+        const yyyy = parts[2];
+        return `${dd}-${mm}-${yyyy}`;
+      }
     }
-    return trimmed;
+    return String(isoStr).trim();
   }
 
   toIsoDate(inputStr: string | undefined): string {
     if (!inputStr) return new Date().toISOString().slice(0, 10);
-    const trimmed = String(inputStr).trim();
-    if (trimmed.includes('-')) {
-      const parts = trimmed.split('-');
+    const cleanStr = String(inputStr).trim().substring(0, 10).replace(/[/.]/g, '-');
+    if (cleanStr.includes('-')) {
+      const parts = cleanStr.split('-');
       if (parts.length === 3 && parts[2].length === 4) {
         const dd = parts[0].padStart(2, '0');
         const mm = parts[1].padStart(2, '0');
         const yyyy = parts[2];
         return `${yyyy}-${mm}-${dd}`;
       }
+      if (parts.length === 3 && parts[0].length === 4) {
+        const yyyy = parts[0];
+        const mm = parts[1].padStart(2, '0');
+        const dd = parts[2].padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
     }
-    return trimmed;
+    return cleanStr;
   }
 
   getTodayDisplayDate(): string {
@@ -398,18 +410,27 @@ export class WarehouseExpensesComponent implements OnInit {
   onDatePickerChange(isoDate: string): void {
     if (isoDate) {
       this.formData.dateInput = this.toDisplayDate(isoDate);
+      this.cdr.markForCheck();
+      this.cdr.detectChanges();
     }
   }
 
   openDatePicker(picker: HTMLInputElement): void {
+    if (!picker) return;
     try {
       if (typeof picker.showPicker === 'function') {
         picker.showPicker();
       } else {
+        picker.focus();
         picker.click();
       }
     } catch {
-      picker.click();
+      try {
+        picker.focus();
+        picker.click();
+      } catch (err) {
+        console.error('Failed to open date picker:', err);
+      }
     }
   }
 

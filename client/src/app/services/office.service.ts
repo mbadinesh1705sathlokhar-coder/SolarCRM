@@ -48,6 +48,8 @@ export interface OfficeVendor {
   location: string;
   materialsSpec: string;
   creditDays: string;
+  description?: string;
+  materialRates?: { [material: string]: number } | string;
   createdAt?: string;
   updatedAt?: string;
 }

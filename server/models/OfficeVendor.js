@@ -41,6 +41,11 @@ const OfficeVendor = conDb.define('OfficeVendor', {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'description'
+    },
+    materialRates: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'material_rates'
     }
 }, {
     tableName: 'office_vendors',

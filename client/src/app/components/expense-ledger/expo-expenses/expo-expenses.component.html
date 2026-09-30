@@ -311,12 +311,20 @@
                 <label class="form-label small fw-bold text-dark mb-1">
                   Date (dd-mm-yyyy) <span class="text-danger">*</span>
                 </label>
-                <div class="input-group input-group-sm">
+                <div class="input-group input-group-sm position-relative">
                   <input type="text" class="form-control form-control-sm font-mono fw-bold" [(ngModel)]="formData.dateInput" name="dateInput" placeholder="dd-mm-yyyy" required>
                   <button type="button" class="btn btn-sm btn-outline-secondary bg-light border px-2" (click)="openDatePicker(datePickerInput)" title="Choose date from calendar">
                     <i class="bi bi-calendar-date-fill text-danger"></i>
                   </button>
-                  <input #datePickerInput type="date" class="position-absolute" style="opacity: 0; pointer-events: none; width: 0; height: 0;" [ngModel]="toIsoDate(formData.dateInput)" (ngModelChange)="onDatePickerChange($event)">
+                  <input #datePickerInput 
+                         type="date" 
+                         tabindex="-1"
+                         aria-hidden="true"
+                         class="position-absolute" 
+                         style="opacity: 0; width: 1px; height: 1px; border: 0; padding: 0; margin: 0; clip: rect(0,0,0,0); overflow: hidden; left: 0; bottom: 0;" 
+                         [value]="toIsoDate(formData.dateInput)" 
+                         (change)="onDatePickerChange(datePickerInput.value)"
+                         (input)="onDatePickerChange(datePickerInput.value)">
                 </div>
               </div>
 

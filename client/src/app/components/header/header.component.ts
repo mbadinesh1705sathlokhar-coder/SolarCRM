@@ -94,6 +94,12 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.refreshSub = timer(0, 20000).subscribe(() => {
       this.loadAllNotifications();
     });
+
+    // Silently auto-subscribe device to push notifications in the background if granted
+    const currentUser = this.authService.currentUser();
+    if (currentUser?.name && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      this.pushService.requestPermissionAndSubscribe(currentUser.name).catch(() => {});
+    }
   }
 
   private loadDismissedNotifications(): void {
@@ -230,7 +236,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
             message: `"${task.title}" (${task.status})`,
             timeInfo: task.dueDate ? `Due: ${task.dueDate}` : undefined,
             tagBadge: 'TEAM TASK',
-            tagClass: 'bg-purple-subtle text-purple border border-purple-subtle',
+            tagClass: 'bg-light text-dark border border-secondary-subtle',
             statusBadge: task.status || 'Pending',
             statusClass: task.status === 'Completed' ? 'bg-success-subtle text-success' : 'bg-light text-dark border',
             route: '/activity/tasks',

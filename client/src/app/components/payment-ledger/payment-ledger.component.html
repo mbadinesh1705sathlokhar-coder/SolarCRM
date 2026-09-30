@@ -119,18 +119,17 @@
             <th class="text-end" style="min-width: 150px;">Payment Received</th>
             <th class="text-end" style="min-width: 150px;">Due Amount</th>
             <th class="text-center" style="min-width: 110px;">Status</th>
-            <th class="text-center" style="min-width: 80px;">Action</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngIf="loading">
-            <td colspan="8" class="text-center py-5">
+            <td colspan="7" class="text-center py-5">
               <div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
               <span class="text-muted">Loading clients payment ledger...</span>
             </td>
           </tr>
           <tr *ngIf="!loading && filteredClients.length === 0">
-            <td colspan="8" class="text-center py-5 text-muted">
+            <td colspan="7" class="text-center py-5 text-muted">
               <i class="bi bi-folder-x fs-2 d-block mb-2 text-secondary"></i>
               No clients found matching filters.
             </td>
@@ -161,11 +160,6 @@
               <span class="badge" [ngClass]="(c.due || 0) <= 0 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'">
                 {{ (c.due || 0) <= 0 ? 'Fully Paid' : 'Due Recoverable' }}
               </span>
-            </td>
-            <td class="text-center" (click)="$event.stopPropagation()">
-              <button class="btn btn-outline-danger border-0 btn-sm p-1" (click)="deleteClientAllPayments(c, $event)" title="Delete/Clear all recorded payments for {{ c.clientName }}">
-                <i class="bi bi-trash3 fs-6"></i>
-              </button>
             </td>
           </tr>
         </tbody>
@@ -467,12 +461,20 @@
                   <label class="form-label small fw-bold text-dark">
                     Date (dd-mm-yyyy) <span class="text-danger">*</span>
                   </label>
-                  <div class="input-group">
+                  <div class="input-group position-relative">
                     <input type="text" class="form-control font-mono fw-bold" [(ngModel)]="formData.dateInput" name="dateInput" placeholder="dd-mm-yyyy" required>
                     <button type="button" class="btn btn-outline-secondary bg-light border px-2" (click)="openDatePicker(datePickerInput)" title="Choose date from calendar">
                       <i class="bi bi-calendar-date-fill text-primary"></i>
                     </button>
-                    <input #datePickerInput type="date" class="position-absolute" style="opacity: 0; pointer-events: none; width: 0; height: 0;" [ngModel]="toIsoDate(formData.dateInput)" (ngModelChange)="onDatePickerChange($event)">
+                    <input #datePickerInput 
+                           type="date" 
+                           tabindex="-1"
+                           aria-hidden="true"
+                           class="position-absolute" 
+                           style="opacity: 0; width: 1px; height: 1px; border: 0; padding: 0; margin: 0; clip: rect(0,0,0,0); overflow: hidden; left: 0; bottom: 0;" 
+                           [value]="toIsoDate(formData.dateInput)" 
+                           (change)="onDatePickerChange(datePickerInput.value)"
+                           (input)="onDatePickerChange(datePickerInput.value)">
                   </div>
                   <small class="text-muted fs-8">Picked: {{ formData.dateInput || 'dd-mm-yyyy' }}</small>
                 </div>

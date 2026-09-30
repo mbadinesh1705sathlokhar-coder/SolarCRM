@@ -59,6 +59,7 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
   isEditVendorModal = false;
   vendorForm = this.getEmptyVendor();
   vendorModalMaterials: { [mat: string]: boolean } = {};
+  vendorModalMaterialRates: { [mat: string]: number | null } = {};
 
   // Delete Vendor Modal
   isDeleteVendorModalOpen = false;
@@ -73,6 +74,7 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     creditDays: string;
     description: string;
     materials: { [mat: string]: boolean };
+    materialRates: { [mat: string]: number | null };
   } = {
     vendorName: '',
     salesCoordinator: 'Renuka',
@@ -80,7 +82,8 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     location: '',
     creditDays: '30 Days',
     description: '',
-    materials: {}
+    materials: {},
+    materialRates: {}
   };
   savingVendorDetails = false;
 
@@ -230,7 +233,7 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     });
   }
 
-  initVendorDetailsForm(vendor: OfficeVendor & { description?: string }): void {
+  initVendorDetailsForm(vendor: OfficeVendor & { description?: string; materialRates?: any }): void {
     const matMap: { [mat: string]: boolean } = {};
     const existing = (vendor.materialsSpec || '')
       .split(',')
@@ -241,6 +244,19 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       matMap[mat] = existing.includes(mat.toLowerCase());
     }
 
+    let ratesMap: { [mat: string]: number | null } = {};
+    if (vendor.materialRates) {
+      if (typeof vendor.materialRates === 'string') {
+        try {
+          ratesMap = JSON.parse(vendor.materialRates);
+        } catch (e) {
+          ratesMap = {};
+        }
+      } else if (typeof vendor.materialRates === 'object') {
+        ratesMap = { ...vendor.materialRates };
+      }
+    }
+
     this.vendorDetailsForm = {
       vendorName: vendor.vendorName || '',
       salesCoordinator: vendor.salesCoordinator || 'Renuka',
@@ -248,8 +264,25 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       location: vendor.location || '',
       creditDays: vendor.creditDays || '30 Days',
       description: vendor.description || '',
-      materials: matMap
+      materials: matMap,
+      materialRates: ratesMap
     };
+  }
+
+  getSelectedMaterialsList(): string[] {
+    if (!this.vendorDetailsForm || !this.vendorDetailsForm.materials) return [];
+    const keys = Object.keys(this.vendorDetailsForm.materials).filter(m => !!this.vendorDetailsForm.materials[m]);
+    const ordered = this.availableMaterials.filter(m => keys.includes(m));
+    const extra = keys.filter(m => !this.availableMaterials.includes(m));
+    return [...ordered, ...extra];
+  }
+
+  getModalSelectedMaterialsList(): string[] {
+    if (!this.vendorModalMaterials) return [];
+    const keys = Object.keys(this.vendorModalMaterials).filter(m => !!this.vendorModalMaterials[m]);
+    const ordered = this.availableMaterials.filter(m => keys.includes(m));
+    const extra = keys.filter(m => !this.availableMaterials.includes(m));
+    return [...ordered, ...extra];
   }
 
   loadVendorLedger(id: number): void {
@@ -440,8 +473,18 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const selectedMats = Object.keys(this.vendorDetailsForm.materials)
-      .filter(k => this.vendorDetailsForm.materials[k]);
+    const selectedMats = this.getSelectedMaterialsList();
+
+    // Clean and validate rates as double numbers for all selected materials
+    const cleanRates: { [mat: string]: number } = {};
+    for (const mat of selectedMats) {
+      const val = this.vendorDetailsForm.materialRates[mat];
+      if (val !== null && val !== undefined && !isNaN(Number(val))) {
+        cleanRates[mat] = parseFloat(Number(val).toFixed(2));
+      } else {
+        cleanRates[mat] = 0.0;
+      }
+    }
 
     this.savingVendorDetails = true;
     const payload = {
@@ -451,7 +494,8 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       location: this.vendorDetailsForm.location,
       creditDays: this.vendorDetailsForm.creditDays,
       description: this.vendorDetailsForm.description,
-      materialsSpec: selectedMats.join(', ')
+      materialsSpec: selectedMats.join(', '),
+      materialRates: cleanRates
     };
 
     this.vendorService.updateVendor(this.selectedVendor.id, payload).subscribe({
@@ -481,6 +525,7 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     this.isEditVendorModal = false;
     this.vendorForm = this.getEmptyVendor();
     this.vendorModalMaterials = {};
+    this.vendorModalMaterialRates = {};
     for (const m of this.availableMaterials) {
       this.vendorModalMaterials[m] = false;
     }
@@ -491,9 +536,21 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     this.isEditVendorModal = true;
     this.vendorForm = { ...v };
     this.vendorModalMaterials = {};
+    this.vendorModalMaterialRates = {};
     const existing = (v.materialsSpec || '').split(',').map(m => m.trim().toLowerCase());
     for (const m of this.availableMaterials) {
       this.vendorModalMaterials[m] = existing.includes(m.toLowerCase());
+    }
+    if (v.materialRates) {
+      if (typeof v.materialRates === 'string') {
+        try {
+          this.vendorModalMaterialRates = JSON.parse(v.materialRates);
+        } catch (e) {
+          this.vendorModalMaterialRates = {};
+        }
+      } else if (typeof v.materialRates === 'object') {
+        this.vendorModalMaterialRates = { ...v.materialRates };
+      }
     }
     this.isVendorModalOpen = true;
   }
@@ -508,12 +565,21 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const mats = Object.keys(this.vendorModalMaterials)
-      .filter(k => this.vendorModalMaterials[k]);
+    const mats = this.getModalSelectedMaterialsList();
+    const cleanRates: { [mat: string]: number } = {};
+    for (const mat of mats) {
+      const val = this.vendorModalMaterialRates[mat];
+      if (val !== null && val !== undefined && !isNaN(Number(val))) {
+        cleanRates[mat] = parseFloat(Number(val).toFixed(2));
+      } else {
+        cleanRates[mat] = 0.0;
+      }
+    }
 
     const payload = {
       ...this.vendorForm,
-      materialsSpec: mats.join(', ')
+      materialsSpec: mats.join(', '),
+      materialRates: cleanRates
     };
 
     if (this.isEditVendorModal && this.vendorForm.id) {

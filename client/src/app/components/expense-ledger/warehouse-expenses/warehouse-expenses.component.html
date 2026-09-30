@@ -144,13 +144,27 @@
               {{ e.formattedDate || toDisplayDate(e.expenseDate) }}
             </td>
 
-            <!-- Purpose / Material -->
+            <!-- Purpose / Material (Click to edit) -->
             <td>
-              <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold px-2 py-0.5" style="font-size: 0.72rem; letter-spacing: 0.01em;">
-                <i class="bi bi-box-seam-fill me-1" style="font-size: 0.68rem;"></i>{{ e.purpose || 'Consumables' }}
-              </span>
-              <div *ngIf="e.remarks" class="text-muted mt-0.5" style="font-size: 0.68rem; line-height: 1.2;">
-                {{ e.remarks }}
+              <div *ngIf="canEdit()"
+                   class="d-inline-block cursor-pointer material-edit-trigger"
+                   (click)="openEditModal(e)"
+                   title="Click to edit warehouse expense">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold px-2 py-0.5 material-badge">
+                  <i class="bi bi-box-seam-fill me-1" style="font-size: 0.68rem;"></i>{{ e.purpose || 'Consumables' }}
+                  <i class="bi bi-pencil-fill ms-1 opacity-50" style="font-size: 0.6rem;"></i>
+                </span>
+                <div *ngIf="e.remarks" class="text-muted mt-0.5" style="font-size: 0.68rem; line-height: 1.2;">
+                  {{ e.remarks }}
+                </div>
+              </div>
+              <div *ngIf="!canEdit()">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold px-2 py-0.5" style="font-size: 0.72rem; letter-spacing: 0.01em;">
+                  <i class="bi bi-box-seam-fill me-1" style="font-size: 0.68rem;"></i>{{ e.purpose || 'Consumables' }}
+                </span>
+                <div *ngIf="e.remarks" class="text-muted mt-0.5" style="font-size: 0.68rem; line-height: 1.2;">
+                  {{ e.remarks }}
+                </div>
               </div>
             </td>
 
@@ -185,15 +199,13 @@
               ₹ {{ (e.amount || 0) | number:'1.2-2' }}
             </td>
 
-            <!-- Actions -->
+            <!-- Actions (Delete only; Edit opened by clicking Material) -->
             <td class="text-center">
               <div class="d-inline-flex align-items-center gap-1">
-                <button *ngIf="canEdit()" class="btn btn-outline-primary border-0 btn-sm p-1" (click)="openEditModal(e)" title="Edit Warehouse Expense">
-                  <i class="bi bi-pencil-square fs-6"></i>
-                </button>
                 <button *ngIf="canDelete()" class="btn btn-outline-danger border-0 btn-sm p-1" (click)="confirmDelete(e)" title="Delete Warehouse Expense">
                   <i class="bi bi-trash3 fs-6"></i>
                 </button>
+                <span *ngIf="!canDelete()" class="text-muted small">—</span>
               </div>
             </td>
           </tr>
@@ -239,12 +251,20 @@
                 <label class="form-label small fw-bold text-dark mb-1">
                   Date (dd-mm-yyyy) <span class="text-danger">*</span>
                 </label>
-                <div class="input-group input-group-sm">
+                <div class="input-group input-group-sm position-relative">
                   <input type="text" class="form-control form-control-sm font-mono fw-bold" [(ngModel)]="formData.dateInput" name="dateInput" placeholder="dd-mm-yyyy" required>
                   <button type="button" class="btn btn-sm btn-outline-secondary bg-light border px-2" (click)="openDatePicker(datePickerInput)" title="Choose date from calendar">
                     <i class="bi bi-calendar-date-fill text-primary"></i>
                   </button>
-                  <input #datePickerInput type="date" class="position-absolute" style="opacity: 0; pointer-events: none; width: 0; height: 0;" [ngModel]="toIsoDate(formData.dateInput)" (ngModelChange)="onDatePickerChange($event)">
+                  <input #datePickerInput 
+                         type="date" 
+                         tabindex="-1"
+                         aria-hidden="true"
+                         class="position-absolute" 
+                         style="opacity: 0; width: 1px; height: 1px; border: 0; padding: 0; margin: 0; clip: rect(0,0,0,0); overflow: hidden; left: 0; bottom: 0;" 
+                         [value]="toIsoDate(formData.dateInput)" 
+                         (change)="onDatePickerChange(datePickerInput.value)"
+                         (input)="onDatePickerChange(datePickerInput.value)">
                 </div>
               </div>
 

@@ -1116,15 +1116,15 @@ export class CampaignsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   canAdd(): boolean {
-    return this.authService.canAdd('sales');
+    return this.authService.canAdd('campaigns') || this.authService.canAdd('sales');
   }
 
   canEdit(): boolean {
-    return this.authService.canEdit('sales');
+    return this.authService.canEdit('campaigns') || this.authService.canEdit('sales');
   }
 
   canDelete(): boolean {
-    return this.authService.canDelete('sales');
+    return this.authService.canDelete('campaigns') || this.authService.canDelete('sales');
   }
 
   exportLeadsPdf(): void {

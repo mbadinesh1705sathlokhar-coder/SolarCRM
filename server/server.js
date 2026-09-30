@@ -13,6 +13,7 @@ const { SalesLead } = require('./models/SalesLead');
 const { Campaign, CampaignLead, CampaignExpense } = require('./models/Campaign');
 const { Employee } = require('./models/Employee');
 const { OfficeVendor } = require('./models/OfficeVendor');
+const { VendorMaterialRate } = require('./models/VendorMaterialRate');
 const { Indent, IndentMaterial, WarehouseMaterial, GatePass, GatePassItem, CartItem } = require('./models/Inventory');
 const { MasterList, MasterListItem } = require('./models/MasterList');
 const { SitePlan } = require('./models/SitePlan');

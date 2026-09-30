@@ -155,11 +155,35 @@ export class AuthService {
     if (!user) return false;
     const perms = user.accessPermissions;
     if (!perms) return false;
-    if (perms.navPages && perms.navPages[target] !== undefined) {
-      return !!perms.navPages[target]?.canAdd;
+    const key = target === 'opportunity' ? 'oppurtunities' : target;
+    if (perms.navPages) {
+      if (perms.navPages[key] !== undefined) return !!perms.navPages[key]?.canAdd;
+      if (perms.navPages[target] !== undefined) return !!perms.navPages[target]?.canAdd;
     }
-    if ((perms as any)[target]) {
+    if ((perms as any)[key] !== undefined) {
+      return !!(perms as any)[key]?.canAdd;
+    }
+    if ((perms as any)[target] !== undefined) {
       return !!(perms as any)[target]?.canAdd;
+    }
+    const moduleMap: Record<string, string> = {
+      'campaigns': 'sales',
+      'leads': 'sales',
+      'oppurtunities': 'sales',
+      'opportunity': 'sales',
+      'awarded-sites': 'sales',
+      'payment-ledger': 'finance',
+      'expense-ledger': 'finance',
+      'vendor-ledger': 'finance',
+      'expo-expenses': 'finance',
+      'meetings': 'activity',
+      'calls': 'activity',
+      'tasks': 'activity',
+      'site-plan': 'activity'
+    };
+    const parentMod = moduleMap[target] || moduleMap[key];
+    if (parentMod && (perms as any)[parentMod] !== undefined) {
+      return !!(perms as any)[parentMod]?.canAdd;
     }
     return !!perms.canAdd;
   }
@@ -170,11 +194,35 @@ export class AuthService {
     if (!user) return false;
     const perms = user.accessPermissions;
     if (!perms) return false;
-    if (perms.navPages && perms.navPages[target] !== undefined) {
-      return !!perms.navPages[target]?.canEdit;
+    const key = target === 'opportunity' ? 'oppurtunities' : target;
+    if (perms.navPages) {
+      if (perms.navPages[key] !== undefined) return !!perms.navPages[key]?.canEdit;
+      if (perms.navPages[target] !== undefined) return !!perms.navPages[target]?.canEdit;
     }
-    if ((perms as any)[target]) {
+    if ((perms as any)[key] !== undefined) {
+      return !!(perms as any)[key]?.canEdit;
+    }
+    if ((perms as any)[target] !== undefined) {
       return !!(perms as any)[target]?.canEdit;
+    }
+    const moduleMap: Record<string, string> = {
+      'campaigns': 'sales',
+      'leads': 'sales',
+      'oppurtunities': 'sales',
+      'opportunity': 'sales',
+      'awarded-sites': 'sales',
+      'payment-ledger': 'finance',
+      'expense-ledger': 'finance',
+      'vendor-ledger': 'finance',
+      'expo-expenses': 'finance',
+      'meetings': 'activity',
+      'calls': 'activity',
+      'tasks': 'activity',
+      'site-plan': 'activity'
+    };
+    const parentMod = moduleMap[target] || moduleMap[key];
+    if (parentMod && (perms as any)[parentMod] !== undefined) {
+      return !!(perms as any)[parentMod]?.canEdit;
     }
     return !!perms.canEdit;
   }
@@ -185,11 +233,35 @@ export class AuthService {
     if (!user) return false;
     const perms = user.accessPermissions;
     if (!perms) return false;
-    if (perms.navPages && perms.navPages[target] !== undefined) {
-      return !!perms.navPages[target]?.canDelete;
+    const key = target === 'opportunity' ? 'oppurtunities' : target;
+    if (perms.navPages) {
+      if (perms.navPages[key] !== undefined) return !!perms.navPages[key]?.canDelete;
+      if (perms.navPages[target] !== undefined) return !!perms.navPages[target]?.canDelete;
     }
-    if ((perms as any)[target]) {
+    if ((perms as any)[key] !== undefined) {
+      return !!(perms as any)[key]?.canDelete;
+    }
+    if ((perms as any)[target] !== undefined) {
       return !!(perms as any)[target]?.canDelete;
+    }
+    const moduleMap: Record<string, string> = {
+      'campaigns': 'sales',
+      'leads': 'sales',
+      'oppurtunities': 'sales',
+      'opportunity': 'sales',
+      'awarded-sites': 'sales',
+      'payment-ledger': 'finance',
+      'expense-ledger': 'finance',
+      'vendor-ledger': 'finance',
+      'expo-expenses': 'finance',
+      'meetings': 'activity',
+      'calls': 'activity',
+      'tasks': 'activity',
+      'site-plan': 'activity'
+    };
+    const parentMod = moduleMap[target] || moduleMap[key];
+    if (parentMod && (perms as any)[parentMod] !== undefined) {
+      return !!(perms as any)[parentMod]?.canDelete;
     }
     return !!perms.canDelete;
   }

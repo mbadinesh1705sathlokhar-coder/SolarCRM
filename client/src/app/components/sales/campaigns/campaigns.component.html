@@ -98,26 +98,27 @@
         <div class="top-scrollbar-thumb-shim" [style.width.px]="tableScrollWidth"></div>
       </div>
       <div class="table-responsive" #tableWrapper (scroll)="onTableScroll()">
-        <table class="table table-hover align-middle mb-0 compact-table" #dataTableEl style="min-width: 850px;">
+        <table class="table table-hover align-middle mb-0 compact-table" #dataTableEl style="min-width: 950px;">
           <thead class="table-light">
             <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
               <th style="width: 130px;">Date</th>
               <th>Campaign Name</th>
               <th>Venue</th>
-              <th style="width: 220px;" class="text-center">Expo Details</th>
-              <th style="width: 130px;" class="text-center">Updates Date</th>
+              <th style="width: 130px;" class="text-center">Expo Leads</th>
+              <th style="width: 140px;" class="text-center">Expo Expenses</th>
+              <th style="width: 130px;" class="text-center">Updated Date</th>
               <th style="width: 90px;" class="text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="loading">
-              <td colspan="6" class="text-center py-4 text-muted">
+              <td colspan="7" class="text-center py-4 text-muted">
                 <div class="spinner-border spinner-border-sm text-primary me-2"></div>
                 Loading campaigns...
               </td>
             </tr>
             <tr *ngIf="!loading && filteredCampaigns.length === 0">
-              <td colspan="6" class="text-center py-5 text-muted">
+              <td colspan="7" class="text-center py-5 text-muted">
                 <i class="bi bi-megaphone fs-2 d-block mb-2 text-secondary"></i>
                 No campaigns found. Click <strong>Add Campaign</strong> above to create one.
               </td>
@@ -146,28 +147,29 @@
                 <i class="bi bi-geo-alt me-1 text-muted"></i>{{ c.venue }}
               </td>
 
-              <!-- Expo Details: Dropdown naming 'Leads' and 'Expenses' -->
+              <!-- Expo Leads -->
               <td class="text-center">
-                <div class="d-inline-flex align-items-center gap-1">
-                  <!-- Option Selector Dropdown / Buttons -->
-                  <button class="btn btn-xs btn-outline-primary d-flex align-items-center gap-1 px-2 py-1"
-                          (click)="selectCampaignView(c, 'leads')"
-                          title="View and manage leads acquired at this expo">
-                    <i class="bi bi-people-fill"></i>
-                    <span>Leads</span>
-                    <span class="badge bg-primary rounded-pill ms-1" style="font-size: 0.65rem;">{{ c.leadCount || 0 }}</span>
-                  </button>
-                  <button class="btn btn-xs btn-outline-danger d-flex align-items-center gap-1 px-2 py-1"
-                          (click)="selectCampaignView(c, 'expenses')"
-                          title="View and manage expo expenses">
-                    <i class="bi bi-cash-stack"></i>
-                    <span>Expenses</span>
-                    <span class="badge bg-danger rounded-pill ms-1" style="font-size: 0.65rem;">₹{{ (c.totalExpenses || 0) | number:'1.0-0' }}</span>
-                  </button>
-                </div>
+                <button class="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill"
+                        (click)="selectCampaignView(c, 'leads')"
+                        title="View and manage leads acquired at this expo">
+                  <i class="bi bi-people-fill"></i>
+                  <span>Leads</span>
+                  <span class="badge bg-primary rounded-pill ms-1" style="font-size: 0.68rem;">{{ c.leadCount || 0 }}</span>
+                </button>
               </td>
 
-              <!-- Updates Date -->
+              <!-- Expo Expenses -->
+              <td class="text-center">
+                <button class="btn btn-xs btn-outline-danger d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill"
+                        (click)="selectCampaignView(c, 'expenses')"
+                        title="View and manage expo expenses">
+                  <i class="bi bi-cash-stack"></i>
+                  <span>Expenses</span>
+                  <span class="badge bg-danger rounded-pill ms-1" style="font-size: 0.68rem;">₹{{ (c.totalExpenses || 0) | number:'1.0-0' }}</span>
+                </button>
+              </td>
+
+              <!-- Updated Date -->
               <td class="font-mono small text-nowrap text-center">
                 {{ formatDate(c.updatedAt || c.campaignDate) }}
               </td>
@@ -235,7 +237,7 @@
               <th class="text-center" style="min-width: 130px; width: 130px;">Lead Status</th>
               <th style="min-width: 130px;">Lead Handler</th>
               <th style="min-width: 250px;">Lead Remarks</th>
-              <th style="min-width: 120px; width: 120px;" class="text-center">Updates Date</th>
+              <th style="min-width: 120px; width: 120px;" class="text-center">Updated Date</th>
               <th style="min-width: 90px; width: 90px;" class="text-center">Actions</th>
             </tr>
           </thead>

@@ -291,10 +291,15 @@
               <td>
                 <span class="badge bg-success-subtle text-success">{{ m.status || 'Scheduled' }}</span>
               </td>
-              <td class="text-end" (click)="$event.stopPropagation()">
-                <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger" (click)="deleteMeeting(m, $event)">
-                  <i class="bi bi-trash"></i>
-                </button>
+              <td class="text-end pe-3" (click)="$event.stopPropagation()">
+                <div class="d-inline-flex gap-1">
+                  <button *ngIf="canEdit()" class="btn btn-sm btn-outline-primary action-icon-btn shadow-none" (click)="openEditMeetingModal(m)" title="Edit Meeting">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteMeeting(m, $event)" title="Delete Meeting">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </div>
               </td>
             </tr>
             <tr *ngIf="filteredMeetings.length === 0">
@@ -401,7 +406,15 @@
                 <small class="text-muted"><i class="bi bi-clock me-1"></i>{{ formatTime12Hour(call.time) }}</small>
               </td>
               <td>
-                <div class="fw-bold text-dark">{{ call.clientVendorName }}</div>
+                <a *ngIf="canEdit()" href="javascript:void(0)" 
+                   class="fw-bold text-dark text-decoration-none hover-link"
+                   (click)="openEditCallModal(call)"
+                   title="Click to edit call log">
+                  {{ call.clientVendorName }}
+                </a>
+                <span *ngIf="!canEdit()" class="fw-bold text-dark">
+                  {{ call.clientVendorName }}
+                </span>
               </td>
               <td>
                 <span class="fw-semibold text-dark">{{ call.title }}</span>
@@ -424,10 +437,15 @@
               <td>
                 <span class="badge bg-light text-dark border">{{ call.callerName || 'Renuka' }}</span>
               </td>
-              <td class="text-end">
-                <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger" (click)="deleteCall(call)" title="Delete Call Log">
-                  <i class="bi bi-trash"></i>
-                </button>
+              <td class="text-end pe-3">
+                <div class="d-inline-flex gap-1">
+                  <button *ngIf="canEdit()" class="btn btn-sm btn-outline-primary action-icon-btn shadow-none" (click)="openEditCallModal(call)" title="Edit Call Log">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteCall(call)" title="Delete Call Log">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </div>
               </td>
             </tr>
             <tr *ngFor="let empty of (filteredCalls.length === 0 ? [1] : [])">
@@ -558,10 +576,15 @@
               <td class="text-secondary small" style="max-width: 250px;">
                 <span class="text-truncate d-block">{{ task.description || '-' }}</span>
               </td>
-              <td class="text-end">
-                <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger" (click)="deleteTask(task)" title="Delete Task">
-                  <i class="bi bi-trash"></i>
-                </button>
+              <td class="text-end pe-3">
+                <div class="d-inline-flex gap-1">
+                  <button *ngIf="canEdit()" class="btn btn-sm btn-outline-primary action-icon-btn shadow-none" (click)="openEditTaskModal(task)" title="Edit Task">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteTask(task)" title="Delete Task">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </div>
               </td>
             </tr>
             <tr *ngFor="let empty of (filteredTasks.length === 0 ? [1] : [])">
@@ -765,7 +788,7 @@
     <div class="p-3 d-flex align-items-center justify-content-between text-white" style="background-color: #db2777;">
       <div class="d-flex align-items-center gap-2">
         <i class="bi bi-telephone-fill fs-5"></i>
-        <h6 class="mb-0 fw-bold">Log Sales Team Call</h6>
+        <h6 class="mb-0 fw-bold">{{ editingCallId ? 'Edit Sales Team Call' : 'Log Sales Team Call' }}</h6>
       </div>
       <button type="button" class="btn-close btn-close-white" (click)="closeCallModal()"></button>
     </div>
@@ -821,7 +844,9 @@
         <!-- Footer -->
         <div class="d-flex align-items-center justify-content-end gap-2 mt-4 pt-3 border-top">
           <button type="button" class="btn btn-outline-secondary px-3" (click)="closeCallModal()">Cancel</button>
-          <button type="submit" *ngIf="canAdd()" class="btn btn-primary px-4" style="background-color: #db2777; border-color: #db2777;">Save Call Log</button>
+          <button type="submit" *ngIf="editingCallId ? canEdit() : canAdd()" class="btn btn-primary px-4" style="background-color: #db2777; border-color: #db2777;">
+            {{ editingCallId ? 'Update Call Log' : 'Save Call Log' }}
+          </button>
         </div>
       </form>
     </div>

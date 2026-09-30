@@ -254,6 +254,21 @@ export class ContactsService {
     );
   }
 
+  updateCall(id: number, call: Partial<CallLog>): Observable<CallLog> {
+    return this.http.put<CallLog>(`${this.apiUrl}/calls/${id}`, call).pipe(
+      catchError(err => {
+        const cached = this.getLocalCalls();
+        const index = cached.findIndex(c => c.id === id);
+        if (index !== -1) {
+          cached[index] = { ...cached[index], ...call };
+          localStorage.setItem('sathlokhar_calls', JSON.stringify(cached));
+          return of(cached[index]);
+        }
+        return of(call as CallLog);
+      })
+    );
+  }
+
   deleteCall(id: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/calls/${id}`).pipe(
       catchError(() => {

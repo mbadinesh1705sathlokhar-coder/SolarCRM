@@ -164,9 +164,10 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label small fw-bold text-dark mb-1">Sales Coordinator</label>
-                <select class="form-select shadow-sm" [(ngModel)]="vendorForm.salesCoordinator" name="salesCoordinator">
+                <input type="text" class="form-control shadow-sm" list="coordinatorOptionsList" [(ngModel)]="vendorForm.salesCoordinator" name="salesCoordinator" placeholder="Enter or select coordinator">
+                <datalist id="coordinatorOptionsList">
                   <option *ngFor="let c of coordinatorOptions" [value]="c">{{ c }}</option>
-                </select>
+                </datalist>
               </div>
               <div class="col-md-6">
                 <label class="form-label small fw-bold text-dark mb-1">Phone No</label>

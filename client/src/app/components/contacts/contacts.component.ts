@@ -100,6 +100,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
   callSearchTerm: string = '';
   callStatusFilter: string = 'All';
   isCallModalOpen = false;
+  editingCallId: number | null = null;
   callForm: {
     date: string;
     time: string;
@@ -766,6 +767,7 @@ export class ContactsComponent implements OnInit, OnDestroy {
       alert('You do not have permission to log calls.');
       return;
     }
+    this.editingCallId = null;
     this.callForm = {
       date: formatLocalDate(new Date()),
       time: new Date().toTimeString().substring(0, 5),
@@ -780,8 +782,29 @@ export class ContactsComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  openEditCallModal(call: CallLog): void {
+    if (!this.canEdit()) {
+      alert('You do not have permission to edit call logs.');
+      return;
+    }
+    this.editingCallId = call.id || null;
+    this.callForm = {
+      date: call.date ? call.date.substring(0, 10) : formatLocalDate(new Date()),
+      time: call.time || '10:00',
+      title: call.title || '',
+      clientVendorName: call.clientVendorName || '',
+      status: (call.status || 'New Lead') as CallStatus,
+      description: call.description || '',
+      callerName: call.callerName || 'Renuka',
+      phoneNumber: call.phoneNumber || ''
+    };
+    this.isCallModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
   closeCallModal(): void {
     this.isCallModalOpen = false;
+    this.editingCallId = null;
     this.cdr.markForCheck();
   }
 
@@ -791,11 +814,23 @@ export class ContactsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.contactsService.createCall(this.callForm).subscribe(() => {
-      this.loadCalls();
-      this.closeCallModal();
-      this.cdr.markForCheck();
-    });
+    if (this.editingCallId) {
+      if (!this.canEdit()) {
+        alert('You do not have permission to edit call logs.');
+        return;
+      }
+      this.contactsService.updateCall(this.editingCallId, this.callForm).subscribe(() => {
+        this.loadCalls();
+        this.closeCallModal();
+        this.cdr.markForCheck();
+      });
+    } else {
+      this.contactsService.createCall(this.callForm).subscribe(() => {
+        this.loadCalls();
+        this.closeCallModal();
+        this.cdr.markForCheck();
+      });
+    }
   }
 
   deleteCall(call: CallLog): void {
@@ -1000,15 +1035,15 @@ export class ContactsComponent implements OnInit, OnDestroy {
 
   // --- PERMISSION CHECKS ---
   canAdd(): boolean {
-    return this.authService.canAdd('activity');
+    return this.authService.canAdd(this.activeTab) || this.authService.canAdd('activity');
   }
 
   canEdit(): boolean {
-    return this.authService.canEdit('activity');
+    return this.authService.canEdit(this.activeTab) || this.authService.canEdit('activity');
   }
 
   canDelete(): boolean {
-    return this.authService.canDelete('activity');
+    return this.authService.canDelete(this.activeTab) || this.authService.canDelete('activity');
   }
 
   exportCallsToPdf(): void {

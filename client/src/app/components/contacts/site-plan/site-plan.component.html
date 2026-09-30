@@ -73,7 +73,7 @@
       <table class="table table-hover align-middle mb-0 custom-site-plan-table">
         <thead class="table-light text-uppercase text-muted" style="font-size: 0.75rem; letter-spacing: 0.04em;">
           <tr>
-            <th class="ps-4" style="min-width: 130px;">Date Assigned</th>
+            <th class="ps-4" style="min-width: 140px;">Date & Time</th>
             <th style="min-width: 200px;">Client Name</th>
             <th style="min-width: 170px;">Engineer Name</th>
             <th style="min-width: 250px;">Description</th>
@@ -101,20 +101,23 @@
 
           <!-- Rows -->
           <tr *ngFor="let plan of filteredSitePlans" class="site-plan-row">
-            <!-- Date Assigned -->
-            <td class="ps-4">
-              <div class="d-flex align-items-center gap-1.5">
-                <i class="bi bi-calendar-event text-success" style="font-size: 0.8rem;"></i>
-                <span class="date-text text-dark">{{ formatDate(plan.date) }}</span>
-                <span *ngIf="plan.time" class="badge bg-light text-secondary border ms-1 font-mono" style="font-size: 0.7rem;">
-                  {{ formatTime(plan.time) }}
-                </span>
-              </div>
+            <!-- Date & Time -->
+            <td class="ps-4 text-nowrap">
+              <div class="fw-bold text-dark">{{ formatDate(plan.date) }}</div>
+              <small class="text-muted d-block mt-0.5" *ngIf="plan.time">
+                <i class="bi bi-clock me-1"></i>{{ formatTime12Hour(plan.time) }}
+              </small>
             </td>
 
             <!-- Client Name -->
             <td>
-              <div class="client-text text-dark">{{ plan.clientName || '-' }}</div>
+              <a *ngIf="canEdit()" href="javascript:void(0)" 
+                 class="client-text text-dark text-decoration-none hover-link"
+                 (click)="openEditModal(plan)"
+                 title="Click to edit site plan">
+                {{ plan.clientName || '-' }}
+              </a>
+              <div *ngIf="!canEdit()" class="client-text text-dark">{{ plan.clientName || '-' }}</div>
             </td>
 
             <!-- Engineer Name -->
@@ -141,16 +144,9 @@
               </span>
             </td>
 
-            <!-- Actions (Edit & Delete only, No Add) -->
+            <!-- Actions (Delete only; Edit opened by clicking Client Name) -->
             <td class="text-center pe-4">
               <div class="d-inline-flex gap-1">
-                <button type="button"
-                        *ngIf="canEdit()"
-                        class="btn btn-sm btn-outline-primary action-icon-btn shadow-none"
-                        (click)="openEditModal(plan)"
-                        title="Edit Site Plan">
-                  <i class="bi bi-pencil-square"></i>
-                </button>
                 <button type="button"
                         *ngIf="canDelete()"
                         class="btn btn-sm btn-outline-danger action-icon-btn shadow-none"
@@ -158,6 +154,7 @@
                         title="Delete Site Plan">
                   <i class="bi bi-trash3"></i>
                 </button>
+                <span *ngIf="!canDelete()" class="text-muted small">—</span>
               </div>
             </td>
           </tr>

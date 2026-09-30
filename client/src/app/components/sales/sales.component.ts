@@ -725,10 +725,13 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   // --- CREATE LEAD ---
   openAddModal(): void {
     if (!this.canAdd()) {
-      this.showToast('You do not have permission to add new sales leads.', 'info');
+      this.showToast('You do not have permission to add new records.', 'info');
       return;
     }
     this.leadForm = this.getEmptyLead();
+    if (this.activeTab === 'opportunity') {
+      this.leadForm.leadStatus = 'Qualify';
+    }
     const currUser = this.authService.currentUser();
     if (!this.authService.isAdmin() && currUser?.name) {
       const matched = this.handlerOptions.find(h => h.toLowerCase() === currUser.name.toLowerCase() || currUser.name.toLowerCase().includes(h.toLowerCase()));
@@ -788,15 +791,19 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // --- EDIT LEAD ---
   openEditModal(lead: SalesLead): void {
+    if (lead.leadStatus === 'Order Won') {
+      this.showToast('Order Won opportunities are confirmed as Awarded Sites and are locked from editing.', 'info');
+      return;
+    }
     const isOpp = this.isOpportunityStatus(lead.leadStatus);
     if (isOpp) {
       if (!this.canEditOpportunity()) {
-        this.showToast('Only Admin can edit opportunities. View only.', 'info');
+        this.showToast('You do not have permission to edit opportunities. View only.', 'info');
         return;
       }
     } else {
       if (!this.canEditLead()) {
-        this.showToast('Only Admin can edit lead details. View only.', 'info');
+        this.showToast('You do not have permission to edit lead details. View only.', 'info');
         return;
       }
     }
@@ -814,6 +821,11 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   saveEditLead(): void {
     if (!this.leadToEdit?.id) return;
+    if (this.leadToEdit.leadStatus === 'Order Won') {
+      this.showToast('Order Won opportunities are confirmed as Awarded Sites and are locked from editing.', 'info');
+      this.closeEditModal();
+      return;
+    }
     if (!this.leadForm.leadName?.trim()) {
       this.showToast('Please enter the Lead Name.', 'danger');
       return;
@@ -952,17 +964,22 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   // --- QUICK STATUS CHANGE IN TABLE ROW ---
   changeStatus(lead: SalesLead, newStatus: string, selectEl?: HTMLSelectElement): void {
     if (!lead.id || lead.leadStatus === newStatus) return;
+    if (lead.leadStatus === 'Order Won') {
+      if (selectEl) selectEl.value = 'Order Won';
+      this.showToast('Order Won opportunities are confirmed as Awarded Sites and are locked from editing.', 'info');
+      return;
+    }
     const isCurrentOpp = this.isOpportunityStatus(lead.leadStatus);
     if (isCurrentOpp) {
       if (!this.canChangeOpportunityStatus()) {
         if (selectEl) selectEl.value = lead.leadStatus;
-        this.showToast('Only Admin can modify opportunity status. View only.', 'info');
+        this.showToast('You do not have permission to modify opportunity status. View only.', 'info');
         return;
       }
     } else {
       if (!this.canChangeLeadStatus()) {
         if (selectEl) selectEl.value = lead.leadStatus;
-        this.showToast('Only Admin or Daya can modify lead status. View only.', 'info');
+        this.showToast('You do not have permission to modify lead status. View only.', 'info');
         return;
       }
     }
@@ -1362,6 +1379,10 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // --- DELETE LEAD ---
   confirmDelete(lead: SalesLead): void {
+    if (lead.leadStatus === 'Order Won') {
+      this.showToast('Order Won opportunities cannot be deleted because they are confirmed Awarded Sites.', 'info');
+      return;
+    }
     if (!this.canDelete()) {
       this.showToast('You do not have permission to delete sales records.', 'danger');
       return;
@@ -1384,31 +1405,56 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   canAdd(): boolean {
-    return this.isAdmin() || this.isDaya();
+    if (this.isAdmin()) return true;
+    const pageKey = this.activeTab === 'opportunity' ? 'oppurtunities' : 'leads';
+    return this.authService.canAdd(pageKey) || 
+           this.authService.canAdd('leads') || 
+           this.authService.canAdd('sales') || 
+           this.isDaya();
   }
 
   canEdit(): boolean {
-    return this.isAdmin();
+    if (this.isAdmin()) return true;
+    const pageKey = this.activeTab === 'opportunity' ? 'oppurtunities' : 'leads';
+    return this.authService.canEdit(pageKey) || 
+           this.authService.canEdit('sales') || 
+           this.isDaya();
   }
 
   canEditLead(): boolean {
-    return this.isAdmin();
+    if (this.isAdmin()) return true;
+    return this.authService.canEdit('leads') || 
+           this.authService.canEdit('sales') || 
+           this.isDaya();
   }
 
   canEditOpportunity(): boolean {
-    return this.isAdmin();
+    if (this.isAdmin()) return true;
+    return this.authService.canEdit('oppurtunities') || 
+           this.authService.canEdit('opportunity') || 
+           this.authService.canEdit('sales');
   }
 
   canChangeLeadStatus(): boolean {
-    return this.isAdmin() || this.isDaya();
+    if (this.isAdmin()) return true;
+    return this.authService.canEdit('leads') || 
+           this.authService.canAdd('oppurtunities') || 
+           this.authService.canEdit('sales') || 
+           this.isDaya();
   }
 
   canChangeOpportunityStatus(): boolean {
-    return this.isAdmin();
+    if (this.isAdmin()) return true;
+    return this.authService.canEdit('oppurtunities') || 
+           this.authService.canEdit('opportunity') || 
+           this.authService.canEdit('sales');
   }
 
   canDelete(): boolean {
-    return this.isAdmin();
+    if (this.isAdmin()) return true;
+    const pageKey = this.activeTab === 'opportunity' ? 'oppurtunities' : 'leads';
+    return this.authService.canDelete(pageKey) || 
+           this.authService.canDelete('sales');
   }
 
   closeDeleteModal(): void {
@@ -1419,6 +1465,11 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   executeDelete(): void {
     if (!this.leadToDelete?.id) return;
+    if (this.leadToDelete.leadStatus === 'Order Won') {
+      this.showToast('Order Won opportunities cannot be deleted because they are confirmed Awarded Sites.', 'info');
+      this.closeDeleteModal();
+      return;
+    }
     const targetId = this.leadToDelete.id;
     const targetLeadId = this.leadToDelete.leadId;
 
