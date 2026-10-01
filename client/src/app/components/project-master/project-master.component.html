@@ -1,4 +1,4 @@
-<div class="container-fluid px-4 py-3">
+<div class="container-fluid p-3 p-md-4">
 
   <!-- Toast Notifications -->
   <div *ngIf="successMsg" class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-3 shadow-sm border-0" role="alert">
@@ -13,7 +13,7 @@
   </div>
 
   <!-- Header & Action Bar -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-3 border-bottom gap-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center pb-2 mb-3 border-bottom gap-3 subnav-sticky">
     <div class="d-flex align-items-center">
       <div>
         <h3 class="mb-0 fw-bold text-dark tracking-tight">Awarded Sites Directory</h3>
@@ -40,14 +40,7 @@
       </a>
     </div>
 
-    <div class="d-flex gap-2 mt-2 mt-md-0">
-      <button class="btn btn-outline-danger btn-sm px-3 shadow-sm d-flex align-items-center" (click)="exportToPdf()" title="Export PDF">
-        <i class="bi bi-file-earmark-pdf-fill me-1.5"></i> PDF
-      </button>
-      <button class="btn btn-outline-success btn-sm px-3 shadow-sm d-flex align-items-center" (click)="exportToCsv()" title="Export Excel">
-        <i class="bi bi-file-earmark-excel-fill me-1.5"></i> EXCEL
-      </button>
-    </div>
+
   </div>
 
   <!-- KPI Summary Cards -->
@@ -94,15 +87,17 @@
       </div>
     </div>
 
-    <!-- Total Margin -->
+    <!-- Total Margin (%) -->
     <div class="col-12 col-sm-6 col-xl">
       <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-4 border-warning">
         <div class="text-muted text-uppercase fw-semibold d-flex justify-content-between align-items-center" style="font-size: 0.72rem;">
-          <span>Margin</span>
+          <span>Margin %</span>
           <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;">Exp: ₹{{ metrics.totalExpenses | number:'1.0-0' }}</span>
         </div>
-        <div class="fs-4 fw-bold text-dark mt-1">₹{{ metrics.totalMargin | number:'1.0-0' }}</div>
-        <div class="text-muted" style="font-size: 0.75rem;">(Site Value - Expenses)</div>
+        <div class="fs-4 fw-bold mt-1 font-mono" [ngClass]="totalMarginPercentage < 0 ? 'text-danger' : 'text-success'">
+          {{ totalMarginPercentage | number:'1.1-2' }}%
+        </div>
+        <div class="text-muted font-mono" style="font-size: 0.75rem;">(Margin: ₹{{ metrics.totalMargin | number:'1.0-0' }})</div>
       </div>
     </div>
   </div>
@@ -258,10 +253,13 @@
         </div>
       </div>
 
-      <!-- Reset Filter Button (Active when filters are applied) -->
-      <div class="col-12 col-sm-auto" *ngIf="hasActiveFilters">
-        <button type="button" class="btn btn-sm btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-1 shadow-none" (click)="resetAllFilters()" title="Reset all search and filters">
-          <i class="bi bi-arrow-counterclockwise"></i> Reset
+      <!-- PDF & EXCEL Export Buttons (Positioned above search table) -->
+      <div class="col-12 col-sm-auto ms-auto d-flex align-items-center gap-2">
+        <button class="btn btn-outline-danger btn-sm px-3 shadow-sm d-flex align-items-center" (click)="exportToPdf()" title="Export PDF">
+          <i class="bi bi-file-earmark-pdf-fill me-1.5"></i> PDF
+        </button>
+        <button class="btn btn-outline-success btn-sm px-3 shadow-sm d-flex align-items-center" (click)="exportToCsv()" title="Export Excel">
+          <i class="bi bi-file-earmark-excel-fill me-1.5"></i> EXCEL
         </button>
       </div>
     </div>
@@ -291,59 +289,36 @@
       </div>
     </div>
 
-    <!-- TOP HORIZONTAL SCROLLBAR (Synchronized with table) -->
-    <div #topScrollContainer class="top-scrollbar-wrapper" (scroll)="onTopScroll()" title="Scroll horizontally across all 29 columns">
-      <div class="top-scrollbar-dummy" [style.width.px]="tableScrollWidth"></div>
-    </div>
 
-    <div #tableContainer class="table-responsive table-no-bottom-scroll" (scroll)="onTableScroll()" style="max-height: 650px; overflow-x: auto;">
-      <table #dataTable class="table custom-table table-hover align-middle mb-0" style="min-width: 4600px;">
+    <div #tableContainer class="table-responsive" style="max-height: 650px; overflow-x: auto;">
+      <table #dataTable class="table custom-table table-hover align-middle mb-0">
         <thead>
           <tr>
-            <th>Awarded Date</th>
-            <th class="cursor-pointer user-select-none text-nowrap" (click)="toggleSiteIdSort()" title="Click to sort Site ID: Big to Small / Small to Big" style="cursor: pointer;">
+            <th style="width: 120px;">Awarded Date</th>
+            <th class="cursor-pointer user-select-none text-nowrap" (click)="toggleSiteIdSort()" title="Click to sort Site ID: Big to Small / Small to Big" style="cursor: pointer; width: 110px;">
               <div class="d-inline-flex align-items-center gap-1.5">
                 <span>Site ID</span>
                 <i class="bi fs-7" [ngClass]="siteIdSortDirection === 'desc' ? 'bi-sort-numeric-down-alt text-primary fw-bold' : 'bi-sort-numeric-down text-primary fw-bold'"></i>
               </div>
             </th>
-            <th style="min-width: 280px; max-width: 420px;">Client Name</th>
-            <th>Location</th>
-            <th>Contact No</th>
-            <th>Email ID</th>
-            <th>Address</th>
-            <th>Site Capacity</th>
-            <th class="text-end">Site Value</th>
-            <th>Site Type</th>
-            <th>System Type</th>
-            <th>Site Category</th>
-            <th>Client Type</th>
-            <th>Sale Type</th>
-            <th>Order By</th>
-            <th style="min-width: 140px;">Lead by</th>
-            <th class="text-end text-success">Received</th>
-            <th class="text-end text-danger">Due</th>
-            <th class="text-end">Site Expenses</th>
-            <th class="text-end text-primary">Margin %</th>
-            <!-- Single Milestones Column -->
-            <th class="text-center bg-info-subtle text-info-emphasis text-nowrap" style="min-width: 250px;">
-              <i class="bi bi-gear-wide-connected me-1"></i>Milestones & Handover
-            </th>
-            <!-- Calculated Progress -->
-            <th class="text-center bg-warning-subtle text-warning-emphasis">Work in Process</th>
-            <th class="text-center bg-success-subtle text-success-emphasis">Completed</th>
+            <th style="min-width: 240px;">Client Name</th>
+            <th style="min-width: 150px;">Location</th>
+            <th class="text-end" style="width: 140px;">Site Value</th>
+            <th style="width: 140px;">Order By</th>
+            <th class="text-center bg-success-subtle text-success-emphasis" style="width: 110px;">Completed</th>
+            <th class="text-center" style="width: 130px;">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngIf="loading">
-            <td colspan="22" class="text-center py-5 text-muted">
+            <td colspan="8" class="text-center py-5 text-muted">
               <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
               Loading projects from database...
             </td>
           </tr>
 
           <tr *ngIf="!loading && filteredProjects.length === 0">
-            <td colspan="22" class="text-center py-5 text-muted">
+            <td colspan="8" class="text-center py-5 text-muted">
               <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
               No project records found matching your filters.
             </td>
@@ -359,7 +334,7 @@
                 {{ p.siteId }}
               </span>
             </td>
-            <td style="min-width: 280px; max-width: 420px;" [title]="p.clientName">
+            <td [title]="p.clientName">
               <a *ngIf="canEdit()" href="javascript:void(0)" (click)="openEditModal(p)" class="client-link text-decoration-none text-dark fw-bold d-inline-block" title="Click to edit project">
                 <i class="bi bi-person-fill text-teal me-1"></i>{{ p.clientName }}
               </a>
@@ -375,124 +350,10 @@
                 </ng-container>
               </div>
             </td>
-            <td class="text-truncate" style="max-width: 120px;" [title]="p.location">{{ p.location || '-' }}</td>
-            <td class="font-mono text-nowrap">{{ p.contactNo || '-' }}</td>
-            <td class="text-truncate font-mono" style="max-width: 140px;" [title]="p.emailId">{{ p.emailId || '-' }}</td>
-            <td class="text-truncate" style="max-width: 150px;" [title]="p.address">{{ p.address || '-' }}</td>
-            <td class="fw-semibold text-nowrap">{{ p.siteCapacity || '-' }}</td>
+            <td class="text-truncate" style="max-width: 160px;" [title]="p.location">{{ p.location || '-' }}</td>
             <td class="text-end fw-bold font-mono">₹{{ p.siteValue | number:'1.0-0' }}</td>
-            
-            <!-- Site Type Badge -->
-            <td>
-              <span class="badge badge-site-type" [ngClass]="{
-                'badge-commercial': p.siteType === 'Commercial',
-                'badge-industrial': p.siteType === 'Industrial',
-                'badge-residential': p.siteType === 'Residential',
-                'badge-residential-common': p.siteType === 'Residential Common',
-                'badge-ground-mount': p.siteType === 'Ground Mount'
-              }">{{ p.siteType }}</span>
-            </td>
-
-            <!-- System Type Badge -->
-            <td>
-              <span class="badge bg-secondary-subtle text-dark border">{{ p.systemType || 'Other' }}</span>
-            </td>
-
-            <td>{{ p.siteCategory || '-' }}</td>
-            <td><span class="badge bg-light text-dark border">{{ p.clientType }}</span></td>
-            <td>{{ p.saleType || '-' }}</td>
             <td class="fw-semibold text-dark text-nowrap">{{ p.orderBy || '-' }}</td>
-            <td class="fw-semibold text-dark text-nowrap">
-              <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
-                <i class="bi bi-person-badge text-primary me-1" *ngIf="p.leadBy"></i>{{ p.leadBy || '—' }}
-              </span>
-            </td>
-
-            <!-- Financials -->
-            <td class="text-end fw-semibold font-mono">
-              <button class="btn btn-link text-decoration-none p-0 fw-bold text-success font-mono d-inline-flex align-items-center" (click)="openClientPaymentLedger(p)" title="Click to view client payments & add installments">
-                <span>₹{{ p.received | number:'1.0-0' }}</span>
-                <i class="bi bi-wallet2 ms-1 opacity-75" style="font-size: 0.72rem;"></i>
-              </button>
-            </td>
-            <td class="text-end fw-bold text-danger font-mono">₹{{ p.due | number:'1.0-0' }}</td>
-            <td class="text-end font-mono">₹{{ p.siteExpenses | number:'1.0-0' }}</td>
-            <td class="text-end fw-bold text-primary font-mono">
-              {{ p.marginPercentage !== undefined && p.marginPercentage !== null ? p.marginPercentage : 0 }}%
-            </td>
-
-            <!-- Single Column: Milestones Dropdown + Checkboxes (Compact Single Line with 6px gap) -->
-            <td class="text-center bg-info-subtle px-2 py-1" style="min-width: 250px;">
-              <div class="d-inline-flex align-items-center flex-nowrap" style="gap: 6px;">
-                <!-- Dropdown: Material Supply, Installation, EB Process, Documents -->
-                <select class="form-select form-select-xs fw-semibold milestone-stage-select shadow-none py-0 px-2"
-                        style="width: 110px; height: 26px; font-size: 0.72rem;"
-                        [ngModel]="getMilestoneStage(p)"
-                        (ngModelChange)="onStageChange(p, $event)"
-                        [disabled]="!canEdit()"
-                        [class.stage-pending]="getMilestoneStage(p) === 'Pending'"
-                        [class.stage-supply]="getMilestoneStage(p) === 'Material Supply'"
-                        [class.stage-install]="getMilestoneStage(p) === 'Installation'"
-                        [class.stage-eb]="getMilestoneStage(p) === 'EB Process'"
-                        [class.stage-docs]="getMilestoneStage(p) === 'Documents'">
-                  <option value="Pending">Pending</option>
-                  <option value="Material Supply">Material Supply</option>
-                  <option value="Installation">Installation</option>
-                  <option value="EB Process">EB Process</option>
-                  <option value="Documents">Documents</option>
-                </select>
-
-                <!-- Checkboxes: Warranty, Handed Over -->
-                <div class="d-inline-flex align-items-center gap-2 py-0 px-2 rounded bg-white border border-light-subtle shadow-xs" style="height: 26px;">
-                  <!-- Warranty Checkbox -->
-                  <div class="form-check form-check-inline m-0 d-inline-flex align-items-center gap-1 p-0"
-                       [title]="getMilestoneStage(p) === 'Documents' ? 'Click to toggle Warranty' : 'Select Documents stage to enable Warranty'">
-                    <input class="form-check-input m-0 cursor-pointer"
-                           type="checkbox"
-                           [id]="'warranty-' + p.id"
-                           [checked]="p.warranty"
-                           [disabled]="!canEdit() || getMilestoneStage(p) !== 'Documents'"
-                           (change)="onWarrantyToggle(p, $event)"
-                           style="width: 13px; height: 13px;">
-                    <label class="form-check-label fw-semibold text-nowrap m-0 cursor-pointer"
-                           [for]="'warranty-' + p.id"
-                           [class.text-muted]="!canEdit() || getMilestoneStage(p) !== 'Documents'"
-                           [class.text-dark]="canEdit() && getMilestoneStage(p) === 'Documents'"
-                           style="font-size: 0.7rem;">
-                      Warranty
-                    </label>
-                  </div>
-
-                  <!-- Handed Over Checkbox -->
-                  <div class="form-check form-check-inline m-0 d-inline-flex align-items-center gap-1 p-0"
-                       [title]="getMilestoneStage(p) === 'Documents' ? 'Click to toggle Handed Over' : 'Select Documents stage to enable Handed Over'">
-                    <input class="form-check-input m-0 cursor-pointer"
-                           type="checkbox"
-                           [id]="'handedOver-' + p.id"
-                           [checked]="p.handedOver"
-                           [disabled]="!canEdit() || getMilestoneStage(p) !== 'Documents'"
-                           (change)="onHandedOverToggle(p, $event)"
-                           style="width: 13px; height: 13px;">
-                    <label class="form-check-label fw-semibold text-nowrap m-0 cursor-pointer"
-                           [for]="'handedOver-' + p.id"
-                           [class.text-muted]="!canEdit() || getMilestoneStage(p) !== 'Documents'"
-                           [class.text-dark]="canEdit() && getMilestoneStage(p) === 'Documents'"
-                           style="font-size: 0.7rem;">
-                      Handed Over
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </td>
-
-            <!-- Work in Process -->
-            <td class="text-center bg-warning-subtle">
-              <span class="badge bg-warning text-dark font-mono px-2 py-1">{{ p.workInProgressPercentage }}%</span>
-              <div class="progress mt-1 mx-auto" style="height: 4px; width: 60px;">
-                <div class="progress-bar bg-warning" [style.width.%]="p.workInProgressPercentage"></div>
-              </div>
-            </td>
-
+            
             <!-- Completed -->
             <td class="text-center bg-success-subtle">
               <span class="badge font-mono px-2 py-1" [ngClass]="p.completedPercentage === 100 ? 'bg-success text-white' : 'bg-success-subtle text-success border border-success-subtle'">
@@ -500,6 +361,24 @@
               </span>
               <div class="progress mt-1 mx-auto" style="height: 4px; width: 60px;">
                 <div class="progress-bar bg-success" [style.width.%]="p.completedPercentage"></div>
+              </div>
+            </td>
+
+            <!-- Actions: PDF, Delete -->
+            <td class="text-center text-nowrap">
+              <div class="d-inline-flex align-items-center gap-1.5">
+                <button type="button" 
+                        class="btn btn-sm btn-outline-danger p-1 px-1.5 border-0" 
+                        (click)="exportSingleClientPdf(p)" 
+                        title="View / Download PDF Report">
+                  <i class="bi bi-file-earmark-pdf fs-6"></i>
+                </button>
+                <button type="button" 
+                        class="btn btn-sm btn-outline-danger p-1 px-1.5 border-0" 
+                        (click)="confirmDelete(p)" 
+                        title="Delete Site Record">
+                  <i class="bi bi-trash3 fs-6"></i>
+                </button>
               </div>
             </td>
           </tr>

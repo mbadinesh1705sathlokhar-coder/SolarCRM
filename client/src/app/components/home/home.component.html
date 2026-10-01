@@ -17,8 +17,12 @@
   <!-- Header Section with Role Badge -->
   <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3 pb-3 border-bottom">
     <div class="d-flex align-items-center gap-3">
-      <div class="home-avatar-circle shadow-sm bg-primary-subtle text-primary fw-bold fs-5">
-        {{ (currentUser?.name || 'U')[0] }}
+      <div class="home-avatar-circle shadow-sm bg-primary-subtle text-primary fw-bold fs-5 overflow-hidden position-relative d-flex align-items-center justify-content-center cursor-pointer" 
+           style="width: 44px; height: 44px; border-radius: 50%;"
+           (click)="authService.openPhotoModal()"
+           title="Click to view or change profile photo">
+        <img *ngIf="authService.currentUser()?.photo" [src]="authService.currentUser()?.photo" [alt]="authService.currentUser()?.name" class="w-100 h-100 object-fit-cover rounded-circle">
+        <span *ngIf="!authService.currentUser()?.photo">{{ (authService.currentUser()?.name || 'U')[0] }}</span>
       </div>
       <div>
         <h4 class="mb-0 fw-bold text-dark d-flex align-items-center gap-2">

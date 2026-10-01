@@ -436,7 +436,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private updateActiveMenu(url: string): void {
     if (url.includes('/home')) {
       this.activeTopMenu = 'Dashboard';
-    } else if (url.includes('/sales')) {
+    } else if (url.includes('/sales') || url.includes('/awarded-sites')) {
       this.activeTopMenu = 'Sales';
     } else if (url.includes('/payment-ledger') || url.includes('/expense-ledger') || url.includes('/warehouse-expenses') || url.includes('/vendor-ledger') || url.includes('/expo-expenses') || url.includes('/finances')) {
       this.activeTopMenu = 'Finances';
@@ -446,7 +446,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.activeTopMenu = 'Inventory';
     } else if (url.includes('/contacts') || url.includes('/activity')) {
       this.activeTopMenu = 'Calls';
-    } else if (url.includes('/dashboard') || url.includes('/awarded-sites') || url.includes('/projects')) {
+    } else if (url.includes('/dashboard') || url.includes('/projects')) {
       this.activeTopMenu = 'Analytics';
     }
     this.cdr.markForCheck();
@@ -483,6 +483,60 @@ export class HeaderComponent implements OnInit, OnDestroy {
     event?.stopPropagation();
     this.isProfileOpen = false;
     this.authService.logout();
+  }
+
+  isUploadingPhoto = false;
+
+  openPhotoModal(event?: Event): void {
+    event?.stopPropagation();
+    this.authService.openPhotoModal();
+  }
+
+  closePhotoModal(): void {
+    this.authService.closePhotoModal();
+  }
+
+  onPhotoFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+
+    this.isUploadingPhoto = true;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64Data = reader.result as string;
+      this.authService.updateUserPhoto(base64Data).subscribe({
+        next: () => {
+          this.isUploadingPhoto = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.isUploadingPhoto = false;
+          this.cdr.markForCheck();
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removePhoto(): void {
+    if (!confirm('Are you sure you want to remove your profile photo?')) return;
+    this.isUploadingPhoto = true;
+    this.authService.updateUserPhoto('').subscribe({
+      next: () => {
+        this.isUploadingPhoto = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isUploadingPhoto = false;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   @HostListener('document:click', ['$event'])

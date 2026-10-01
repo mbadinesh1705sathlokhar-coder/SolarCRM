@@ -1,6 +1,12 @@
 <header class="global-navbar">
-  <!-- Brand on far left -->
-  <div class="navbar-brand-section">
+  <!-- Brand on far left with 3-stripes Sidebar Toggle -->
+  <div class="navbar-brand-section d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-light border-0 px-2 py-1 shadow-xs sidebar-toggle-btn d-flex align-items-center justify-content-center"
+            style="width: 34px; height: 34px; border-radius: 6px; background-color: #f1f5f9; color: #1e293b;"
+            (click)="authService.toggleSidebar()"
+            title="Toggle Sidebar Menu">
+      <i class="bi bi-list fs-4"></i>
+    </button>
     <a routerLink="/home" class="brand-link">
       <img src="logo-icon.png" alt="Sathlokhar Emblem" class="brand-emblem-small">
       <span class="brand-title">Sathlokhar<span class="brand-highlight">SOLAR</span></span>
@@ -230,7 +236,7 @@
       <div class="user-profile-popover shadow-lg" *ngIf="isProfileOpen" (click)="$event.stopPropagation()">
         <!-- Header Banner -->
         <div class="profile-popover-banner p-3 text-white text-center position-relative">
-          <div class="profile-popover-avatar mx-auto mb-2 shadow-sm rounded-circle position-relative">
+          <div class="profile-popover-avatar mx-auto mb-2 shadow-sm rounded-circle position-relative cursor-pointer" (click)="openPhotoModal($event)" title="Click to view full photo or change photo">
             <img *ngIf="user.photo" [src]="user.photo" [alt]="user.name" class="w-100 h-100 rounded-circle object-fit-cover">
             <i *ngIf="!user.photo" class="bi bi-person-fill text-white-50" style="font-size: 2.5rem; line-height: 72px;"></i>
           </div>
@@ -300,3 +306,58 @@
     </div>
   </div>
 </header>
+
+<!-- Profile Photo Preview & Upload Modal -->
+<div *ngIf="authService.isPhotoModalOpen()" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(15, 23, 42, 0.75); z-index: 11000;" (click)="closePhotoModal()">
+  <div class="modal-dialog modal-dialog-centered modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header bg-dark text-white p-3 border-0">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-person-bounding-box text-info"></i>
+          <span>Profile Picture</span>
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closePhotoModal()"></button>
+      </div>
+
+      <!-- Modal Body (Enlarged DP Image View) -->
+      <div class="modal-body p-4 text-center bg-light">
+        <div class="profile-photo-preview-wrapper mx-auto mb-3 shadow-md rounded-circle border border-4 border-white overflow-hidden position-relative bg-dark d-flex align-items-center justify-content-center" style="width: 170px; height: 170px;">
+          <img *ngIf="authService.currentUser()?.photo" 
+               [src]="authService.currentUser()?.photo" 
+               [alt]="authService.currentUser()?.name" 
+               class="w-100 h-100 object-fit-cover rounded-circle">
+          <div *ngIf="!authService.currentUser()?.photo" class="d-flex align-items-center justify-content-center w-100 h-100 bg-primary-subtle text-primary fw-bold display-3">
+            {{ (authService.currentUser()?.name || 'U')[0] }}
+          </div>
+        </div>
+
+        <h6 class="fw-bold text-dark mb-0">{{ authService.currentUser()?.name }}</h6>
+        <small class="text-muted d-block mb-3">{{ authService.currentUser()?.emailId || authService.currentUser()?.designation || 'Staff' }}</small>
+
+        <!-- Hidden File Input -->
+        <input type="file" #photoFileInput (change)="onPhotoFileSelected($event)" accept="image/*" class="d-none">
+
+        <!-- Action Buttons -->
+        <div class="d-flex flex-column gap-2">
+          <button type="button" 
+                  class="btn btn-primary btn-sm fw-semibold shadow-xs d-flex align-items-center justify-content-center gap-2 py-2"
+                  (click)="photoFileInput.click()"
+                  [disabled]="isUploadingPhoto">
+            <span *ngIf="isUploadingPhoto" class="spinner-border spinner-border-sm me-1"></span>
+            <i class="bi bi-camera-fill"></i>
+            <span>{{ authService.currentUser()?.photo ? 'Change Profile Photo' : 'Upload New Photo' }}</span>
+          </button>
+
+          <button *ngIf="authService.currentUser()?.photo" 
+                  type="button" 
+                  class="btn btn-outline-danger btn-sm fw-semibold py-1.5"
+                  (click)="removePhoto()"
+                  [disabled]="isUploadingPhoto">
+            <i class="bi bi-trash me-1"></i> Remove Photo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

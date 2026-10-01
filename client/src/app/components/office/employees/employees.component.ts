@@ -237,6 +237,14 @@ export class EmployeesComponent implements OnInit, AfterViewInit, OnDestroy {
     return false;
   }
 
+  canEditPhoto(): boolean {
+    if (this.isAdmin()) return true;
+    if (this.employeeToEdit) {
+      return this.isSelf(this.employeeToEdit);
+    }
+    return false;
+  }
+
   canEdit(emp: Employee): boolean {
     return this.isAdmin() || this.isSelf(emp) || this.authService.canEdit('office-employees') || this.authService.canEdit('office');
   }

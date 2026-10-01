@@ -15,7 +15,7 @@
   </div>
 
   <!-- Header with Sales Pill Tabs -->
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-2 border-bottom subnav-sticky">
     <div class="d-flex align-items-center">
       <h4 class="fw-bold mb-0 text-dark tracking-tight">Sales & Pipeline Management</h4>
     </div>
@@ -39,18 +39,7 @@
       </a>
     </div>
 
-    <!-- Top Action Buttons -->
-    <div *ngIf="activeSubView === 'campaigns'" class="d-flex align-items-center gap-2">
-      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
-              (click)="exportCampaignsPdf()" title="Download Campaigns Summary PDF">
-        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
-      </button>
-      <button *ngIf="canAdd()" class="btn btn-sm btn-primary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
-              style="background-color: #0f766e; border-color: #0f766e;"
-              (click)="openAddCampaignModal()">
-        <i class="bi bi-plus-lg"></i> Add Campaign
-      </button>
-    </div>
+
     <div *ngIf="activeSubView === 'leads'" class="d-flex align-items-center gap-2">
       <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
               (click)="exportLeadsPdf()" title="Download Campaign Leads PDF">
@@ -85,18 +74,23 @@
           <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
           <input type="text" class="form-control border-start-0 bg-light" placeholder="Search campaign name, venue..." [(ngModel)]="searchTerm">
         </div>
-        <div class="small text-muted">
-          Showing <strong>{{ filteredCampaigns.length }}</strong> campaigns
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted me-2">Showing <strong>{{ filteredCampaigns.length }}</strong> campaigns</span>
+          <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-1.5 d-flex align-items-center gap-1.5"
+                  (click)="exportCampaignsPdf()" title="Download Campaigns Summary PDF">
+            <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+          </button>
+          <button *ngIf="canAdd()" class="btn btn-sm btn-primary fw-semibold shadow-sm px-3 py-1.5 d-flex align-items-center gap-1"
+                  style="background-color: #0f766e; border-color: #0f766e;"
+                  (click)="openAddCampaignModal()">
+            <i class="bi bi-plus-lg"></i> Add Campaign
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Campaigns Table -->
     <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
-      <!-- Top Horizontal Scrollbar (Synchronized with Table Scroll) -->
-      <div class="top-scrollbar-track" #topScrollWrapper (scroll)="onTopScroll()" [style.display]="tableScrollWidth > tableClientWidth ? 'block' : 'none'">
-        <div class="top-scrollbar-thumb-shim" [style.width.px]="tableScrollWidth"></div>
-      </div>
       <div class="table-responsive" #tableWrapper (scroll)="onTableScroll()">
         <table class="table table-hover align-middle mb-0 compact-table" #dataTableEl style="min-width: 950px;">
           <thead class="table-light">
@@ -221,10 +215,6 @@
 
     <!-- Leads Table -->
     <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
-      <!-- Top Horizontal Scrollbar (Synchronized with Table Scroll) -->
-      <div class="top-scrollbar-track" #topScrollLeadsWrapper (scroll)="onTopScrollLeads()" [style.display]="leadsScrollWidth > leadsClientWidth ? 'block' : 'none'">
-        <div class="top-scrollbar-thumb-shim" [style.width.px]="leadsScrollWidth"></div>
-      </div>
       <div class="table-responsive" #leadsTableWrapper (scroll)="onTableScrollLeads()">
         <table class="table table-hover align-middle mb-0 compact-table" #leadsTableEl style="min-width: 1400px;">
           <thead class="table-light">

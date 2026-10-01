@@ -49,7 +49,19 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   loading = false;
   searchQuery = '';
   dueFilter: 'All' | 'HasDue' | 'Paid' = 'All';
+  orderByFilter: string = 'All';
+  orderByOptions: string[] = ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH'];
   siteIdSortDirection: 'asc' | 'desc' | 'none' = 'desc';
+
+  updateOrderByOptions(): void {
+    const list = new Set<string>(['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH']);
+    this.projects.forEach(p => {
+      if (p.orderBy && p.orderBy.trim()) {
+        list.add(p.orderBy.trim());
+      }
+    });
+    this.orderByOptions = Array.from(list).sort((a, b) => a.localeCompare(b));
+  }
 
   // Pagination for Client List (max 115 clients, 0 duplicates)
   currentPage = 1;
@@ -153,6 +165,7 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     const cached = this.projectService.getCachedProjects();
     if (cached && cached.length > 0) {
       this.projects = cached.filter(p => !this.isWarehouse(p));
+      this.updateOrderByOptions();
       this.loading = false;
       this.updateTableWidth();
     } else {
@@ -164,6 +177,7 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       next: (res) => {
         if (res.success) {
           this.projects = (res.data || []).filter(p => !this.isWarehouse(p));
+          this.updateOrderByOptions();
           this.updateTableWidth();
         }
         this.loading = false;
@@ -235,6 +249,10 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       list = list.filter(p => (Number(p.due) || 0) <= 0);
     }
 
+    if (this.orderByFilter !== 'All') {
+      list = list.filter(p => (p.orderBy || '').trim().toLowerCase() === this.orderByFilter.trim().toLowerCase());
+    }
+
     if (this.siteIdSortDirection !== 'none') {
       const dir = this.siteIdSortDirection;
       list = [...list].sort((a, b) => {
@@ -277,6 +295,11 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   onDueFilterChange(): void {
+    this.currentPage = 1;
+    this.updateTableWidth();
+  }
+
+  onOrderByFilterChange(): void {
     this.currentPage = 1;
     this.updateTableWidth();
   }

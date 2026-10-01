@@ -64,6 +64,14 @@
           </div>
         </div>
 
+        <!-- Order By / Engineer Filter -->
+        <div style="min-width: 200px;">
+          <select class="form-select" [(ngModel)]="orderByFilter" (change)="onOrderByFilterChange()">
+            <option value="All">All Engineers (Order By)</option>
+            <option *ngFor="let opt of orderByOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
+
         <!-- Margin Filter -->
         <div style="min-width: 210px;">
           <select class="form-select" [(ngModel)]="marginFilter" (change)="onMarginFilterChange()">

@@ -1,4 +1,4 @@
-<div class="container-fluid p-4">
+<div class="container-fluid p-3 p-md-4">
 
   <!-- Toast Notification -->
   <div *ngIf="toastMessage" class="toast-notification alert alert-{{ toastType }} shadow-lg d-flex align-items-center justify-content-between p-3 rounded-3" role="alert">
@@ -10,7 +10,7 @@
   </div>
 
   <!-- Page Header & Overview Metrics -->
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-3 border-bottom">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-2 border-bottom subnav-sticky">
     <div class="d-flex align-items-center">
       <h4 class="fw-bold mb-0 text-dark tracking-tight">Sales & Pipeline Management</h4>
     </div>
@@ -152,10 +152,6 @@
       </div>
     </div>
 
-    <!-- Top Horizontal Scrollbar (Synchronized with Table Scroll) -->
-    <div class="top-scrollbar-track" #topScrollWrapper (scroll)="onTopScroll()" [style.display]="tableScrollWidth > tableClientWidth ? 'block' : 'none'">
-      <div class="top-scrollbar-thumb-shim" [style.width.px]="tableScrollWidth"></div>
-    </div>
 
     <!-- Scrollable Table Container -->
     <div class="table-responsive" #tableWrapper (scroll)="onTableScroll()">

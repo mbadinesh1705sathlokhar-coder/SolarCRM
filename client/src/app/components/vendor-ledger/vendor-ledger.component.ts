@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import Chart from 'chart.js/auto';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { VendorLedgerService, VendorPoWo, VendorPayment, VendorWithLedgerData } from '../../services/vendor-ledger.service';
 import { OfficeVendor } from '../../services/office.service';
 import { MasterListService } from '../../services/master-list.service';
@@ -988,5 +990,178 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       this.toastMessage = '';
       this.cdr.markForCheck();
     }, 4500);
+  }
+
+  // Export Vendor PDF Statement
+  exportVendorPdf(vendor: OfficeVendor): void {
+    if (!vendor || !vendor.id) return;
+
+    this.vendorService.getVendorWithLedger(vendor.id).subscribe({
+      next: (res) => {
+        const data: VendorWithLedgerData = res.data;
+        const vInfo = data.vendor || vendor;
+        const powos = data.poWos || [];
+        const payments = data.payments || [];
+
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = 210;
+        const margin = 14;
+
+        // 1. Header Banner
+        doc.setFillColor(15, 118, 110); // Teal brand
+        doc.rect(0, 0, pageWidth, 26, 'F');
+
+        // Accent Line
+        doc.setFillColor(245, 158, 11);
+        doc.rect(0, 26, pageWidth, 1.5, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(255, 255, 255);
+        doc.text('SOLAR SATHLOKHAR', margin, 11);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(224, 242, 254);
+        doc.text('OFFICIAL VENDOR PROCUREMENT & ACCOUNTS LEDGER STATEMENT', margin, 17);
+
+        doc.setFontSize(7.5);
+        doc.text(`Vendor ID: #${vInfo.id}  |  Generated: ${new Date().toLocaleDateString('en-GB')}`, margin, 22);
+
+        let currentY = 34;
+
+        // 2. Vendor Information Box
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(15, 118, 110);
+        doc.text(`${vInfo.vendorName || 'Vendor Profile'}`, margin, currentY);
+
+        currentY += 5;
+
+        const vendorProfileOverview = [
+          ['Vendor Name', vInfo.vendorName || '-', 'Coordinator', vInfo.salesCoordinator || '-'],
+          ['Phone No', vInfo.phoneNo || '-', 'Location', vInfo.location || '-'],
+          ['Credit Days', vInfo.creditDays || '30 Days', 'Materials', vInfo.materialsSpec || '-'],
+          ['Notes / Description', vInfo.description || '-', 'Report Date', new Date().toLocaleDateString('en-GB')]
+        ];
+
+        autoTable(doc, {
+          body: vendorProfileOverview,
+          startY: currentY,
+          theme: 'plain',
+          styles: { fontSize: 8, cellPadding: 2 },
+          columnStyles: {
+            0: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 35 },
+            1: { textColor: [30, 41, 59], cellWidth: 60 },
+            2: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 35 },
+            3: { textColor: [30, 41, 59], cellWidth: 50 }
+          }
+        });
+
+        currentY = (doc as any).lastAutoTable.finalY + 8;
+
+        // 3. Financial Summary Card
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.text('Vendor Accounts Summary (CR / DR Balance)', margin, currentY);
+
+        currentY += 4;
+
+        const summaryData = [
+          [
+            `₹ ${(data.totalCr || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+            `₹ ${(data.totalDr || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+            `₹ ${(data.dueToPay || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          ]
+        ];
+
+        autoTable(doc, {
+          head: [['Total Incurred (CR)', 'Total Paid (DR)', 'Outstanding Due to Pay']],
+          body: summaryData,
+          startY: currentY,
+          styles: { fontSize: 9, cellPadding: 3, halign: 'center' },
+          headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold', halign: 'center' },
+          bodyStyles: { fontStyle: 'bold', textColor: [30, 41, 59] }
+        });
+
+        currentY = (doc as any).lastAutoTable.finalY + 8;
+
+        // 4. PO / WO Orders Table
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`Purchase Orders & Work Orders (${powos.length} Vouchers)`, margin, currentY);
+
+        currentY += 4;
+
+        if (powos.length === 0) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(148, 163, 184);
+          doc.text('No PO / WO vouchers recorded for this vendor.', margin, currentY + 4);
+          currentY += 10;
+        } else {
+          const powoRows = powos.map((p: any) => [
+            p.voucharNo || '-',
+            p.date ? new Date(p.date).toLocaleDateString('en-GB') : '-',
+            p.projectRef || '-',
+            p.description || '-',
+            p.status || 'Active',
+            `₹ ${(p.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          ]);
+
+          autoTable(doc, {
+            head: [['Voucher No', 'Date', 'Project Ref', 'Description / Details', 'Status', 'Incurred Amount (CR)']],
+            body: powoRows,
+            startY: currentY,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [241, 245, 249], textColor: [15, 118, 110], fontStyle: 'bold' },
+            columnStyles: { 5: { halign: 'right', fontStyle: 'bold' } }
+          });
+
+          currentY = (doc as any).lastAutoTable.finalY + 8;
+        }
+
+        // 5. Payment Ledger Table
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`Payment Disbursements (${payments.length} Payments)`, margin, currentY);
+
+        currentY += 4;
+
+        if (payments.length === 0) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(148, 163, 184);
+          doc.text('No payment transactions recorded for this vendor.', margin, currentY + 4);
+        } else {
+          const paymentRows = payments.map((pay: any) => [
+            pay.voucharNo || '-',
+            pay.paymentDate ? new Date(pay.paymentDate).toLocaleDateString('en-GB') : '-',
+            pay.paymentMode || 'Bank Transfer',
+            pay.notes || '-',
+            `₹ ${(pay.amountPaid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          ]);
+
+          autoTable(doc, {
+            head: [['Payment Ref', 'Date', 'Mode', 'Notes', 'Amount Paid (DR)']],
+            body: paymentRows,
+            startY: currentY,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [241, 245, 249], textColor: [15, 118, 110], fontStyle: 'bold' },
+            columnStyles: { 4: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] } }
+          });
+        }
+
+        const safeVendorName = (vInfo.vendorName || 'Vendor').replace(/[^a-zA-Z0-9_-]/g, '_');
+        doc.save(`Vendor_Ledger_${safeVendorName}.pdf`);
+        this.showToast(`Vendor PDF exported for ${vInfo.vendorName}!`, 'success');
+      },
+      error: () => {
+        this.showToast('Failed to load vendor data for PDF.', 'danger');
+      }
+    });
   }
 }

@@ -478,6 +478,11 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     });
   }
 
+  get totalMarginPercentage(): number {
+    if (!this.metrics || !this.metrics.totalSiteValue || this.metrics.totalSiteValue === 0) return 0;
+    return (this.metrics.totalMargin / this.metrics.totalSiteValue) * 100;
+  }
+
   // --- TABLE PAGINATION GETTERS & METHODS ---
   get totalPages(): number {
     if (this.pageSize === 'All') return 1;
@@ -1306,6 +1311,155 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
 
     doc.save(`Solar_Sathlokhar_Projects_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.successMsg = 'Project Master PDF exported successfully!';
+  }
+
+  // Export Individual Client PDF Dossier
+  exportSingleClientPdf(p: Project): void {
+    if (!p) return;
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = 210;
+    const margin = 14;
+
+    // 1. Header Banner
+    doc.setFillColor(15, 118, 110); // Teal brand
+    doc.rect(0, 0, pageWidth, 26, 'F');
+
+    // Accent line (Gold)
+    doc.setFillColor(245, 158, 11);
+    doc.rect(0, 26, pageWidth, 1.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text('SOLAR SATHLOKHAR', margin, 11);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(224, 242, 254);
+    doc.text('AWARDED SITE MASTER SPECIFICATION & CLIENT DOSSIER', margin, 17);
+
+    doc.setFontSize(7.5);
+    doc.text(`Site ID: ${p.siteId || 'N/A'}  |  Report Date: ${new Date().toLocaleDateString('en-GB')}`, margin, 22);
+
+    let currentY = 34;
+
+    // 2. Client Overview Box
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(15, 118, 110);
+    doc.text(`${p.clientName || 'Client Profile'} (${p.siteId})`, margin, currentY);
+
+    currentY += 5;
+
+    // Client Details Summary Table
+    const clientOverviewData = [
+      ['Client Name', p.clientName || '-', 'Awarded Date', p.awardedDate ? this.formatDate(p.awardedDate) : '-'],
+      ['Site ID', p.siteId || '-', 'Location', p.location || '-'],
+      ['Contact No', p.contactNo || '-', 'Email ID', p.emailId || '-'],
+      ['Address', p.address || '-', 'Order By / Manager', p.orderBy || '-'],
+      ['Sales Lead By', p.leadBy || '-', 'Client Type', p.clientType || '-']
+    ];
+
+    autoTable(doc, {
+      body: clientOverviewData,
+      startY: currentY,
+      theme: 'plain',
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: {
+        0: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 35 },
+        1: { textColor: [30, 41, 59], cellWidth: 60 },
+        2: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 35 },
+        3: { textColor: [30, 41, 59], cellWidth: 50 }
+      }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 8;
+
+    // 3. Technical Specifications
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    doc.text('Technical & Site System Specifications', margin, currentY);
+
+    currentY += 4;
+
+    const techSpecs = [
+      ['Site Capacity (kW)', `${p.siteCapacity || '0'} kW`, 'Site Type', p.siteType || '-'],
+      ['System Type', p.systemType || '-', 'Site Category', p.siteCategory || '-'],
+      ['Sale Type', p.saleType || '-', 'Work Progress', `${p.completedPercentage || 0}% Completed`]
+    ];
+
+    autoTable(doc, {
+      head: [['Specification Metric', 'Value', 'System Attribute', 'Value']],
+      body: techSpecs,
+      startY: currentY,
+      styles: { fontSize: 8, cellPadding: 2.2 },
+      headStyles: { fillColor: [241, 245, 249], textColor: [15, 118, 110], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 8;
+
+    // 4. Financial Portfolio Summary
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    doc.text('Financial Portfolio & Contract Summary', margin, currentY);
+
+    currentY += 4;
+
+    const financialsData = [
+      [
+        `₹ ${(p.siteValue || 0).toLocaleString('en-IN')}`,
+        `₹ ${(p.received || 0).toLocaleString('en-IN')}`,
+        `₹ ${(p.due || 0).toLocaleString('en-IN')}`,
+        `₹ ${(p.siteExpenses || 0).toLocaleString('en-IN')}`,
+        `${p.marginPercentage || 0}%`
+      ]
+    ];
+
+    autoTable(doc, {
+      head: [['Site Contract Value', 'Total Received', 'Pending Due', 'Site Expenses', 'Profit Margin %']],
+      body: financialsData,
+      startY: currentY,
+      styles: { fontSize: 8.5, cellPadding: 3, halign: 'center' },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold', halign: 'center' },
+      bodyStyles: { fontStyle: 'bold', textColor: [30, 41, 59] }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 8;
+
+    // 5. Milestones & Handover Status
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    doc.text('Milestones & Commissioning Checklist', margin, currentY);
+
+    currentY += 4;
+
+    const milestonesData = [
+      ['Materials Supply Stage', p.materialsSupply ? 'Completed ✓' : 'Pending', p.materialsSupply ? 'Completed' : 'Pending'],
+      ['Installation Stage', p.installation ? 'Completed ✓' : 'Pending', p.installation ? 'Completed' : 'Pending'],
+      ['EB Process / Grid Sync', p.ebProcess ? 'Completed ✓' : 'Pending', p.ebProcess ? 'Completed' : 'Pending'],
+      ['Documentation Package', p.documents ? 'Completed ✓' : 'Pending', p.documents ? 'Completed' : 'Pending'],
+      ['Warranty Status', p.warranty ? 'Active / Handed Over ✓' : 'Not Active', '-'],
+      ['Final Handed Over', p.handedOver ? 'Handed Over to Client ✓' : 'In Progress', '-']
+    ];
+
+    autoTable(doc, {
+      head: [['Project Milestone / Milestone Stage', 'Status', 'Completion / Action Date']],
+      body: milestonesData,
+      startY: currentY,
+      styles: { fontSize: 8, cellPadding: 2.2 },
+      headStyles: { fillColor: [241, 245, 249], textColor: [15, 118, 110], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+
+    // Save PDF file
+    const safeClientName = (p.clientName || 'Client').replace(/[^a-zA-Z0-9_-]/g, '_');
+    doc.save(`Awarded_Site_${p.siteId}_${safeClientName}.pdf`);
+    this.showToast(`PDF generated for ${p.clientName}`, 'success');
   }
 
   // Client Details Modal & Chart Visualizers

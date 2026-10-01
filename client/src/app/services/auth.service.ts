@@ -28,6 +28,44 @@ export class AuthService {
     return u.role === 'admin' || user.includes('mbadinesh1705');
   });
 
+  // Sidebar Toggle State (3 Stripes Hamburger Button)
+  isSidebarVisible = signal<boolean>(true);
+
+  toggleSidebar(): void {
+    this.isSidebarVisible.update(v => !v);
+  }
+
+  // Profile Photo Preview & Upload Modal State
+  isPhotoModalOpen = signal<boolean>(false);
+
+  openPhotoModal(): void {
+    this.isPhotoModalOpen.set(true);
+  }
+
+  closePhotoModal(): void {
+    this.isPhotoModalOpen.set(false);
+  }
+
+  updateUserPhoto(photoDataUrl: string): Observable<any> {
+    const user = this.currentUserSignal();
+    if (!user || !user.id) return of(null);
+
+    const updatedUser = { ...user, photo: photoDataUrl };
+    return this.http.put<{ success: boolean; data: Employee }>(`${this.apiUrl}/employees/${user.id}`, { photo: photoDataUrl }).pipe(
+      tap(res => {
+        if (res.success && res.data) {
+          this.setCurrentUser(res.data);
+        } else {
+          this.setCurrentUser(updatedUser);
+        }
+      }),
+      catchError(() => {
+        this.setCurrentUser(updatedUser);
+        return of(null);
+      })
+    );
+  }
+
   constructor() {
     if (this.currentUserSignal()?.id) {
       this.refreshCurrentUser().subscribe();

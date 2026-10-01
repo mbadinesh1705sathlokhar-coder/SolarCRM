@@ -14,12 +14,12 @@ export class SidebarComponent {
   private router = inject(Router);
   public authService = inject(AuthService);
 
-  isSalesOpen = true;
-  isFinancesOpen = true;
-  isExpensesLedgerOpen = true;
-  isActivityOpen = true;
-  isOfficeOpen = true;
-  isInventoryOpen = true;
+  isSalesOpen = false;
+  isFinancesOpen = false;
+  isExpensesLedgerOpen = false;
+  isActivityOpen = false;
+  isOfficeOpen = false;
+  isInventoryOpen = false;
 
   toggleSales(): void {
     this.isSalesOpen = !this.isSalesOpen;
