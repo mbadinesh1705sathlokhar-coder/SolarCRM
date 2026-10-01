@@ -35,7 +35,8 @@ const SiteExpenseLedger = conDb.define('SiteExpenseLedger', {
     },
     clientName: {
         type: DataTypes.STRING(255),
-        allowNull: false,
+        allowNull: true,
+        defaultValue: '',
         field: 'client_name'
     },
     amount: {

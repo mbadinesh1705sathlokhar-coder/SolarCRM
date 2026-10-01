@@ -159,33 +159,29 @@
       <!-- ===================================================================== -->
       <!-- VIEW 1: LEADS TAB                                                     -->
       <!-- ===================================================================== -->
-      <table *ngIf="activeTab === 'leads'" class="table table-hover align-middle mb-0 custom-table" #dataTableEl style="min-width: 1550px;">
+      <table *ngIf="activeTab === 'leads'" class="table table-hover align-middle mb-0 custom-table" #dataTableEl style="width: 100%;">
         <thead>
           <tr>
-            <th style="min-width: 50px; width: 50px;" class="text-center">#</th>
-            <th style="min-width: 120px;">Lead_Id</th>
-            <th style="min-width: 120px;">Lead_Date</th>
-            <th style="min-width: 220px;">Lead_Name</th>
-            <th style="min-width: 150px;">Lead_Contact</th>
-            <th style="min-width: 200px;">Lead_Email</th>
-            <th style="min-width: 160px;">Lead_Location</th>
-            <th style="min-width: 150px;" class="text-center">Lead_Status</th>
-            <th style="min-width: 140px;">Lead_Handler</th>
-            <th style="min-width: 250px;">Lead_Remarks</th>
-            <th style="min-width: 130px;" class="text-center">Updated Date</th>
-            <th style="min-width: 100px;" class="text-center">Actions</th>
+            <th style="width: 12%; min-width: 100px;">Lead_Id</th>
+            <th style="width: 12%; min-width: 100px;">Lead_Date</th>
+            <th style="width: 16%; min-width: 130px;">Lead_Name</th>
+            <th style="width: 15%; min-width: 120px;">Lead_Location</th>
+            <th style="width: 14%; min-width: 120px;" class="text-center">Lead_Status</th>
+            <th style="width: 14%; min-width: 120px;">Lead_Handler</th>
+            <th style="width: 12%; min-width: 105px;" class="text-center">Updated Date</th>
+            <th style="width: 5%; min-width: 60px;" class="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngIf="loading">
-            <td colspan="12" class="text-center py-5 text-muted">
+            <td colspan="8" class="text-center py-5 text-muted">
               <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
               Loading sales leads from database...
             </td>
           </tr>
 
           <tr *ngIf="!loading && leadsList.length === 0">
-            <td colspan="12" class="text-center py-5 text-muted">
+            <td colspan="8" class="text-center py-5 text-muted">
               <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
               No leads found matching current filter criteria.
               <div class="mt-2">
@@ -196,8 +192,7 @@
             </td>
           </tr>
 
-          <tr *ngFor="let lead of leadsList; let i = index">
-            <td class="text-center text-muted font-mono small">{{ i + 1 }}</td>
+          <tr *ngFor="let lead of leadsList">
             <td>
               <span class="badge bg-light text-dark border font-mono fw-bold">{{ lead.leadId }}</span>
             </td>
@@ -210,19 +205,7 @@
                 <i class="bi bi-person-fill text-teal me-1"></i>{{ lead.leadName }}
               </span>
             </td>
-            <td class="font-mono small text-nowrap">
-              <a *ngIf="lead.leadContact" [href]="'tel:' + lead.leadContact" class="text-decoration-none text-dark">
-                <i class="bi bi-telephone text-muted me-1"></i>{{ lead.leadContact }}
-              </a>
-              <span *ngIf="!lead.leadContact" class="text-muted">—</span>
-            </td>
-            <td class="small text-truncate font-mono" style="max-width: 180px;" [title]="lead.leadEmail">
-              <a *ngIf="lead.leadEmail" [href]="'mailto:' + lead.leadEmail" class="text-decoration-none text-primary">
-                {{ lead.leadEmail }}
-              </a>
-              <span *ngIf="!lead.leadEmail" class="text-muted">—</span>
-            </td>
-            <td class="small text-truncate" style="max-width: 150px;" [title]="lead.leadLocation">
+            <td class="small text-truncate" style="max-width: 160px;" [title]="lead.leadLocation">
               <i class="bi bi-geo-alt text-muted me-1"></i>{{ lead.leadLocation || '—' }}
             </td>
 
@@ -252,11 +235,6 @@
               </span>
             </td>
 
-            <!-- Lead_Remarks -->
-            <td class="small text-muted text-truncate" style="max-width: 220px;" [title]="lead.leadRemarks">
-              {{ lead.leadRemarks || '—' }}
-            </td>
-
             <!-- Updated Date -->
             <td class="font-mono small text-nowrap text-center">
               {{ formatDate(lead.updatedAt || lead.leadDate) }}
@@ -278,38 +256,29 @@
       <!-- ===================================================================== -->
       <!-- VIEW 2: OPPURTUNITY TAB (Leads changed to Oppurtunity)               -->
       <!-- ===================================================================== -->
-      <table *ngIf="activeTab === 'opportunity'" class="table table-hover align-middle mb-0 custom-table" #dataTableOppEl style="min-width: 1900px;">
+      <table *ngIf="activeTab === 'opportunity'" class="table table-hover align-middle mb-0 custom-table" #dataTableOppEl style="width: 100%;">
         <thead class="table-warning-subtle text-uppercase text-dark" style="background-color: #fef3c7;">
           <tr>
-            <th style="min-width: 50px; width: 50px;" class="text-center">#</th>
-            <th style="min-width: 130px;">Oppurtunity_ID</th>
-            <th style="min-width: 120px;">Oppurtunity_Date</th>
-            <th style="min-width: 220px;">Client Name</th>
-            <th style="min-width: 200px;" class="text-center">Oppurtunity_status</th>
-            <th style="min-width: 150px;">Oppurtunity_Contact</th>
-            <th style="min-width: 200px;">Oppurtunity_Email</th>
-            <th style="min-width: 160px;">Oppurtunity_Location</th>
-            <th style="min-width: 130px;">Site Type</th>
-            <th style="min-width: 120px;">System Type</th>
-            <th style="min-width: 130px;">Site Category</th>
-            <th style="min-width: 110px;">Sale Type</th>
-            <th style="min-width: 120px;">Client Type</th>
-            <th style="min-width: 140px;">Oppurtunity_Handler</th>
-            <th style="min-width: 250px;">Oppurtunity_Remarks</th>
-            <th style="min-width: 130px;" class="text-center">Updated Date</th>
-            <th style="min-width: 100px;" class="text-center">Actions</th>
+            <th style="width: 12%; min-width: 100px;">ID</th>
+            <th style="width: 12%; min-width: 100px;">Date</th>
+            <th style="width: 18%; min-width: 130px;">Client Name</th>
+            <th style="width: 16%; min-width: 140px;" class="text-center">Status</th>
+            <th style="width: 14%; min-width: 110px;">Location</th>
+            <th style="width: 13%; min-width: 110px;">Handler</th>
+            <th style="width: 10%; min-width: 100px;" class="text-center">Updated Date</th>
+            <th style="width: 5%; min-width: 60px;" class="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngIf="loading">
-            <td colspan="17" class="text-center py-5 text-muted">
+            <td colspan="8" class="text-center py-5 text-muted">
               <div class="spinner-border spinner-border-sm text-warning me-2" role="status"></div>
               Loading qualified opportunities...
             </td>
           </tr>
 
           <tr *ngIf="!loading && opportunitiesList.length === 0">
-            <td colspan="17" class="text-center py-5 text-muted">
+            <td colspan="8" class="text-center py-5 text-muted">
               <i class="bi bi-folder2-open fs-1 d-block mb-2 text-secondary"></i>
               No active opportunities yet.
               <p class="small text-muted mb-3">To add an opportunity, change a lead's status to <strong>"Qualify"</strong> in the Leads tab or create a new one.</p>
@@ -319,8 +288,7 @@
             </td>
           </tr>
 
-          <tr *ngFor="let opp of opportunitiesList; let i = index" class="opportunity-row">
-            <td class="text-center text-muted font-mono small">{{ i + 1 }}</td>
+          <tr *ngFor="let opp of opportunitiesList" class="opportunity-row">
             <td>
               <span class="badge bg-warning-subtle text-warning-emphasis border border-warning font-mono fw-bold">
                 <i class="bi bi-bookmark-fill text-warning me-1"></i>{{ opp.leadId }}
@@ -341,7 +309,7 @@
             </td>
 
             <!-- Oppurtunity_status -->
-            <td class="text-center" style="min-width: 185px;">
+            <td class="text-center">
               <!-- When Order Won: Fixed, non-editable locked badge -->
               <div *ngIf="opp.leadStatus === 'Order Won'"
                    class="status-locked-pill w-100"
@@ -374,45 +342,8 @@
               </select>
             </td>
 
-            <td class="font-mono small text-nowrap">
-              <a *ngIf="opp.leadContact" [href]="'tel:' + opp.leadContact" class="text-decoration-none text-dark">
-                <i class="bi bi-telephone text-muted me-1"></i>{{ opp.leadContact }}
-              </a>
-              <span *ngIf="!opp.leadContact" class="text-muted">—</span>
-            </td>
-            <td class="small text-truncate font-mono" style="max-width: 180px;" [title]="opp.leadEmail">
-              <a *ngIf="opp.leadEmail" [href]="'mailto:' + opp.leadEmail" class="text-decoration-none text-primary">
-                {{ opp.leadEmail }}
-              </a>
-              <span *ngIf="!opp.leadEmail" class="text-muted">—</span>
-            </td>
             <td class="small text-truncate" style="max-width: 150px;" [title]="opp.leadLocation">
               <i class="bi bi-geo-alt text-muted me-1"></i>{{ opp.leadLocation || '—' }}
-            </td>
-
-            <!-- Site Type -->
-            <td class="small">
-              <span class="badge bg-light text-dark border">{{ opp.siteType || 'Residential' }}</span>
-            </td>
-
-            <!-- System Type -->
-            <td class="small">
-              <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">{{ opp.systemType || 'Ongrid' }}</span>
-            </td>
-
-            <!-- Site Category -->
-            <td class="small">
-              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ opp.siteCategory || 'TATA SPG' }}</span>
-            </td>
-
-            <!-- Sale Type -->
-            <td class="small">
-              <span class="badge bg-secondary-subtle text-secondary border">{{ opp.saleType || 'B2C' }}</span>
-            </td>
-
-            <!-- Client Type -->
-            <td class="small">
-              <span class="badge bg-light text-dark border">{{ opp.clientType || 'Individual' }}</span>
             </td>
 
             <!-- Oppurtunity_Handler -->
@@ -420,11 +351,6 @@
               <span class="badge badge-handler">
                 <i class="bi bi-person-check-fill me-1"></i>{{ opp.leadHandler }}
               </span>
-            </td>
-
-            <!-- Oppurtunity_Remarks -->
-            <td class="small text-muted text-truncate" style="max-width: 220px;" [title]="opp.leadRemarks">
-              {{ opp.leadRemarks || '—' }}
             </td>
 
             <!-- Updated Date -->
@@ -435,10 +361,10 @@
             <!-- Actions -->
             <td class="text-center">
               <div class="btn-group btn-group-sm">
-                <button *ngIf="canDelete() && opp.leadStatus !== 'Order Won'" class="btn btn-outline-danger border-0 p-1" (click)="confirmDelete(opp)" title="Delete Opportunity">
+                <button *ngIf="canDelete()" class="btn btn-outline-danger border-0 p-1" (click)="confirmDelete(opp)" title="Delete Opportunity">
                   <i class="bi bi-trash3 fs-6"></i>
                 </button>
-                <span *ngIf="!canDelete() || opp.leadStatus === 'Order Won'" class="text-muted small" title="Order Won record is locked from modification">—</span>
+                <span *ngIf="!canDelete()" class="text-muted small">—</span>
               </div>
             </td>
           </tr>
@@ -1465,15 +1391,21 @@
                 </div>
 
                 <div class="col-md-4">
-                  <label class="form-label small fw-bold text-success">Payment Received (₹)</label>
-                  <input type="number" step="0.01" class="form-control font-mono fs-5 text-success shadow-none" [(ngModel)]="awardProjectForm.received" name="awardReceived" placeholder="0">
-                  <small class="text-muted">Advances or milestone payments received</small>
+                  <label class="form-label small fw-bold text-success d-flex align-items-center justify-content-between">
+                    <span>Payment Received (₹)</span>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-lock-fill me-1"></i>Client Payment Ledger</span>
+                  </label>
+                  <input type="number" step="0.01" class="form-control font-mono fs-5 text-success shadow-none bg-light" [(ngModel)]="awardProjectForm.received" name="awardReceived" placeholder="0" [disabled]="true" readonly>
+                  <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Non-editable. Record in Client Payment Ledger.</small>
                 </div>
 
                 <div class="col-md-4">
-                  <label class="form-label small fw-bold text-danger">Site Expenses (₹)</label>
-                  <input type="number" step="0.01" class="form-control font-mono fs-5 text-danger shadow-none" [(ngModel)]="awardProjectForm.siteExpenses" name="awardSiteExpenses" placeholder="0">
-                  <small class="text-muted">Initial project expenses incurred</small>
+                  <label class="form-label small fw-bold text-danger d-flex align-items-center justify-content-between">
+                    <span>Site Expenses (₹)</span>
+                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="bi bi-lock-fill me-1"></i>Expenses Ledger</span>
+                  </label>
+                  <input type="number" step="0.01" class="form-control font-mono fs-5 text-dark shadow-none bg-light" [(ngModel)]="awardProjectForm.siteExpenses" name="awardSiteExpenses" placeholder="0" [disabled]="true" readonly>
+                  <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Non-editable. Record in Expense Ledger.</small>
                 </div>
 
                 <div class="col-12 mt-3">
@@ -1496,44 +1428,51 @@
 
             <!-- CARD 4: INITIAL MILESTONES -->
             <div class="card border-0 shadow-xs rounded-3 p-3 bg-white">
-              <h6 class="fw-bold text-dark border-bottom pb-2 mb-3 d-flex align-items-center gap-2">
-                <i class="bi bi-check2-square text-primary"></i> 4. Project Milestones & Handover (Optional)
+              <h6 class="fw-bold text-dark border-bottom pb-2 mb-2 d-flex align-items-center justify-content-between">
+                <span class="d-flex align-items-center gap-2">
+                  <i class="bi bi-check2-square text-primary"></i> 4. Project Milestones &amp; Handover
+                </span>
+                <span class="badge bg-light text-secondary border"><i class="bi bi-lock-fill me-1"></i>Non-editable on Award</span>
               </h6>
+              <div class="alert alert-secondary py-1.5 px-3 small d-flex align-items-center mb-3 text-dark border-0 bg-light rounded-3">
+                <i class="bi bi-info-circle-fill text-primary me-2"></i>
+                <span>New project milestones initialize as Pending (0% completed) and are locked during site award.</span>
+              </div>
               <div class="row g-3">
                 <div class="col-6 col-md-4">
                   <div class="form-check">
-                    <input class="form-check-input shadow-none" type="checkbox" id="mMaterial" [(ngModel)]="awardProjectForm.materialsSupply" name="awardMaterialsSupply">
-                    <label class="form-check-label small fw-semibold" for="mMaterial">Materials Supply</label>
+                    <input class="form-check-input shadow-none" type="checkbox" id="mMaterial" [checked]="false" [disabled]="true">
+                    <label class="form-check-label small fw-semibold text-muted" for="mMaterial">Materials Supply</label>
                   </div>
                 </div>
                 <div class="col-6 col-md-4">
                   <div class="form-check">
-                    <input class="form-check-input shadow-none" type="checkbox" id="mInstall" [(ngModel)]="awardProjectForm.installation" name="awardInstallation">
-                    <label class="form-check-label small fw-semibold" for="mInstall">Installation</label>
+                    <input class="form-check-input shadow-none" type="checkbox" id="mInstall" [checked]="false" [disabled]="true">
+                    <label class="form-check-label small fw-semibold text-muted" for="mInstall">Installation</label>
                   </div>
                 </div>
                 <div class="col-6 col-md-4">
                   <div class="form-check">
-                    <input class="form-check-input shadow-none" type="checkbox" id="mEb" [(ngModel)]="awardProjectForm.ebProcess" name="awardEbProcess">
-                    <label class="form-check-label small fw-semibold" for="mEb">EB Process</label>
+                    <input class="form-check-input shadow-none" type="checkbox" id="mEb" [checked]="false" [disabled]="true">
+                    <label class="form-check-label small fw-semibold text-muted" for="mEb">EB Process</label>
                   </div>
                 </div>
                 <div class="col-6 col-md-4">
                   <div class="form-check">
-                    <input class="form-check-input shadow-none" type="checkbox" id="mDocs" [(ngModel)]="awardProjectForm.documents" name="awardDocuments">
-                    <label class="form-check-label small fw-semibold" for="mDocs">Documents</label>
+                    <input class="form-check-input shadow-none" type="checkbox" id="mDocs" [checked]="false" [disabled]="true">
+                    <label class="form-check-label small fw-semibold text-muted" for="mDocs">Documents</label>
                   </div>
                 </div>
                 <div class="col-6 col-md-4">
                   <div class="form-check">
-                    <input class="form-check-input shadow-none" type="checkbox" id="mWarranty" [(ngModel)]="awardProjectForm.warranty" name="awardWarranty">
-                    <label class="form-check-label small fw-semibold" for="mWarranty">Warranty</label>
+                    <input class="form-check-input shadow-none" type="checkbox" id="mWarranty" [checked]="false" [disabled]="true">
+                    <label class="form-check-label small fw-semibold text-muted" for="mWarranty">Warranty</label>
                   </div>
                 </div>
                 <div class="col-6 col-md-4">
                   <div class="form-check">
-                    <input class="form-check-input shadow-none" type="checkbox" id="mHandover" [(ngModel)]="awardProjectForm.handedOver" name="awardHandedOver">
-                    <label class="form-check-label small fw-semibold" for="mHandover">Handed Over</label>
+                    <input class="form-check-input shadow-none" type="checkbox" id="mHandover" [checked]="false" [disabled]="true">
+                    <label class="form-check-label small fw-semibold text-muted" for="mHandover">Handed Over</label>
                   </div>
                 </div>
               </div>

@@ -24,7 +24,7 @@ const VendorPoWo = conDb.define('VendorPoWo', {
         field: 'date'
     },
     poWoNumber: {
-        type: DataTypes.STRING(20),
+        type: DataTypes.STRING(100),
         allowNull: false,
         field: 'po_wo_number'
     },

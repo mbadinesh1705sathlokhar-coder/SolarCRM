@@ -1138,15 +1138,15 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
           doc.text('No payment transactions recorded for this vendor.', margin, currentY + 4);
         } else {
           const paymentRows = payments.map((pay: any) => [
-            pay.voucharNo || '-',
-            pay.paymentDate ? new Date(pay.paymentDate).toLocaleDateString('en-GB') : '-',
+            pay.urnNumber || pay.voucharNo || '-',
+            pay.paymentDate ? new Date(pay.paymentDate).toLocaleDateString('en-GB') : (pay.date ? new Date(pay.date).toLocaleDateString('en-GB') : '-'),
             pay.paymentMode || 'Bank Transfer',
-            pay.notes || '-',
-            `₹ ${(pay.amountPaid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+            pay.notes || pay.remarks || '-',
+            `₹ ${(pay.amountPaid || pay.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
           ]);
 
           autoTable(doc, {
-            head: [['Payment Ref', 'Date', 'Mode', 'Notes', 'Amount Paid (DR)']],
+            head: [['UTR / Ref No.', 'Date', 'Mode', 'Notes', 'Amount Paid (DR)']],
             body: paymentRows,
             startY: currentY,
             styles: { fontSize: 8, cellPadding: 2 },

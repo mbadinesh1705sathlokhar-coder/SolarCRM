@@ -109,11 +109,19 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Dynamic Master List Option Arrays (Loaded from MasterListService)
   masterSiteTypes: string[] = ['Residential', 'Commercial', 'Industrial', 'Ground Mount', 'Car Port', 'Floating', 'Residential Common'];
-  masterSystemTypes: string[] = ['Ongrid', 'Off Grid', 'Hybrid', 'Solar Pump'];
+  masterSystemTypes: string[] = ['On Grid', 'Off Grid', 'Hybrid', 'Solar Pump'];
   masterClientTypes: string[] = ['Individual', 'Company', 'Institutional', 'Association', 'Govt. Org'];
   saleTypeOptions: string[] = ['B2C', 'Direct B2B', 'Retailer B2B'];
   siteCategoryOptions: string[] = ['TATA SPG', 'Waree', 'Premier', 'Other'];
   orderByOptions: string[] = ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH'];
+
+  getDefaultSystemType(): string {
+    const found = this.masterSystemTypes.find(t => {
+      const norm = (t || '').toLowerCase().replace(/[\s_-]+/g, '');
+      return norm === 'ongrid' || norm === 'ongird';
+    });
+    return found || this.masterSystemTypes[0] || 'On Grid';
+  }
 
   // Data
   allLeads: SalesLead[] = [];
@@ -729,6 +737,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.leadForm = this.getEmptyLead();
+    this.leadForm.systemType = this.getDefaultSystemType();
     if (this.activeTab === 'opportunity') {
       this.leadForm.leadStatus = 'Qualify';
     }
@@ -809,6 +818,13 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.leadToEdit = lead;
     this.leadForm = { ...lead };
+    if (this.leadForm.systemType) {
+      const norm = this.leadForm.systemType.toLowerCase().replace(/[\s_-]+/g, '');
+      const matched = this.masterSystemTypes.find(t => t.toLowerCase().replace(/[\s_-]+/g, '') === norm);
+      this.leadForm.systemType = matched || this.getDefaultSystemType();
+    } else {
+      this.leadForm.systemType = this.getDefaultSystemType();
+    }
     this.isEditModalOpen = true;
     this.cdr.markForCheck();
   }
@@ -1143,6 +1159,16 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isSubmittingProject = true;
     this.cdr.markForCheck();
 
+    // Reset ledger financials and milestones to 0 / false so they are tracked independently
+    this.awardProjectForm.received = 0;
+    this.awardProjectForm.siteExpenses = 0;
+    this.awardProjectForm.materialsSupply = false;
+    this.awardProjectForm.installation = false;
+    this.awardProjectForm.ebProcess = false;
+    this.awardProjectForm.documents = false;
+    this.awardProjectForm.warranty = false;
+    this.awardProjectForm.handedOver = false;
+
     // 1. Create project in Awarded Sites
     this.projectService.createProject(this.awardProjectForm).subscribe({
       next: (projRes) => {
@@ -1214,7 +1240,14 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
           this.masterSiteTypes = findItems('Site_Type', this.masterSiteTypes);
           this.saleTypeOptions = findItems('Sale_Type', this.saleTypeOptions);
           this.masterClientTypes = findItems('Client_Type', this.masterClientTypes);
-          this.masterSystemTypes = findItems('System_Type', findItems('Sys_Type', this.masterSystemTypes));
+          this.masterSystemTypes = findItems('System_Type', findItems('Sys_Type', this.masterSystemTypes)).map(s => {
+            const norm = (s || '').toLowerCase().replace(/[\s_-]+/g, '');
+            if (norm === 'ongrid' || norm === 'ongird') return 'On Grid';
+            return s;
+          });
+          if (!this.leadForm.systemType || this.leadForm.systemType === 'Ongrid' || this.leadForm.systemType === 'On Gird') {
+            this.leadForm.systemType = this.getDefaultSystemType();
+          }
           this.siteCategoryOptions = findItems('Site_Category', findItems('Site Category', this.siteCategoryOptions));
           const orderItems = findItems('Order_By', []);
           if (orderItems.length > 0) this.orderByOptions = orderItems;
@@ -1362,7 +1395,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
       received: 0,
       siteExpenses: 0,
       siteType: 'Residential',
-      systemType: 'Ongrid',
+      systemType: this.getDefaultSystemType(),
       siteCategory: 'TATA SPG',
       clientType: 'Individual',
       saleType: 'B2C',
@@ -1379,10 +1412,6 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // --- DELETE LEAD ---
   confirmDelete(lead: SalesLead): void {
-    if (lead.leadStatus === 'Order Won') {
-      this.showToast('Order Won opportunities cannot be deleted because they are confirmed Awarded Sites.', 'info');
-      return;
-    }
     if (!this.canDelete()) {
       this.showToast('You do not have permission to delete sales records.', 'danger');
       return;
@@ -1465,11 +1494,6 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   executeDelete(): void {
     if (!this.leadToDelete?.id) return;
-    if (this.leadToDelete.leadStatus === 'Order Won') {
-      this.showToast('Order Won opportunities cannot be deleted because they are confirmed Awarded Sites.', 'info');
-      this.closeDeleteModal();
-      return;
-    }
     const targetId = this.leadToDelete.id;
     const targetLeadId = this.leadToDelete.leadId;
 
@@ -1499,7 +1523,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
       leadEmail: '',
       leadLocation: '',
       siteType: 'Residential',
-      systemType: 'Ongrid',
+      systemType: this.getDefaultSystemType(),
       siteCategory: 'TATA SPG',
       saleType: 'B2C',
       clientType: 'Individual',

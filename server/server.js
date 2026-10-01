@@ -118,7 +118,7 @@ async function seedProjectsIfEmpty() {
 async function startServer() {
     try {
         await Db();
-        await conDb.sync({ alter: true });
+        await conDb.sync();
         console.log('Database models synced successfully with MySQL.');
 
         await seedProjectsIfEmpty();

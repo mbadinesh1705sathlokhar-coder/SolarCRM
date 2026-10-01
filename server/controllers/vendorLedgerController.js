@@ -65,9 +65,11 @@ async function getVendorWithLedger(req, res) {
         // Auto-generate PO/WO records from matching Expenses Ledger entries
         const existingPoNums = new Set(poWos.map(p => (p.poWoNumber || '').trim().toLowerCase()));
         const expensePoWos = syncedExpenses.map(exp => {
-            const voucher = (exp.billVoucher && exp.billVoucher !== 'Submitted' && exp.billVoucher !== 'Not Submitted')
-                ? exp.billVoucher
-                : (exp.paymentThrough ? `${exp.paymentThrough.replace(/\./g, '')}-${exp.id}` : `PO-${exp.id}`);
+            const voucher = (exp.invoiceNo && exp.invoiceNo.trim())
+                ? exp.invoiceNo.trim()
+                : ((exp.billVoucher && exp.billVoucher !== 'Submitted' && exp.billVoucher !== 'Not Submitted')
+                    ? exp.billVoucher
+                    : (exp.paymentThrough ? `${exp.paymentThrough.replace(/\./g, '')}-${exp.id}` : `PO-${exp.id}`));
             return {
                 id: `exp_${exp.id}`,
                 expenseId: exp.id,

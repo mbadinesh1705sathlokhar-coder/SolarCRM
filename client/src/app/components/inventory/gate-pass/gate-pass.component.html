@@ -263,7 +263,7 @@
                     <th style="width: 95px;" class="text-center">QUANTITY *</th>
                     <th style="width: 110px;" class="text-end">RATE (₹)</th>
                     <th style="min-width: 200px;">VENDOR NAME</th>
-                    <th style="width: 120px;" class="text-end">AMOUNT (₹)</th>
+                    <th style="min-width: 145px; width: 145px;" class="text-end">AMOUNT (₹)</th>
                     <th style="width: 40px;"></th>
                   </tr>
                 </thead>
@@ -325,9 +325,9 @@
                     </td>
 
                     <!-- AMOUNT (Auto-calculated Quantity * Rate) -->
-                    <td>
-                      <div class="form-control form-control-sm font-mono text-end fw-bold bg-light text-dark shadow-xs border">
-                        ₹ {{ (m.amount || 0) | number:'1.2-2' }}
+                    <td style="min-width: 145px; width: 145px;">
+                      <div class="form-control form-control-sm font-mono text-end fw-bold bg-light text-dark shadow-xs border text-nowrap d-flex align-items-center justify-content-end" style="white-space: nowrap; font-size: 0.82rem; height: 31px;">
+                        <span>₹&nbsp;{{ (m.amount || 0) | number:'1.2-2' }}</span>
                       </div>
                     </td>
 
@@ -440,14 +440,14 @@
           </div>
 
           <div class="table-responsive">
-            <table class="table table-sm table-bordered align-middle mb-0">
-              <thead class="table-light text-uppercase text-secondary" style="font-size: 0.72rem;">
+            <table class="table table-sm table-bordered align-middle mb-0 dispatched-descriptions-table">
+              <thead class="table-light text-uppercase text-secondary">
                 <tr>
-                  <th style="width: 45px;" class="text-center">#</th>
+                  <th style="width: 40px;" class="text-center">#</th>
                   <th>Material / Description</th>
-                  <th style="width: 80px;" class="text-center">Unit</th>
-                  <th style="width: 80px;" class="text-center">Qty</th>
-                  <th style="width: 100px;" class="text-end">Rate (₹)</th>
+                  <th style="width: 75px;" class="text-center">Unit</th>
+                  <th style="width: 75px;" class="text-center">Qty</th>
+                  <th style="width: 95px;" class="text-end">Rate (₹)</th>
                   <th>Vendor Name</th>
                   <th style="width: 110px;" class="text-end">Amount (₹)</th>
                 </tr>
@@ -456,18 +456,18 @@
                 <!-- If items array exists -->
                 <ng-container *ngIf="selectedGatePassForView.items && selectedGatePassForView.items.length > 0">
                   <tr *ngFor="let it of selectedGatePassForView.items; let idx = index">
-                    <td class="text-center font-mono text-muted small">{{ idx + 1 }}</td>
+                    <td class="text-center font-mono text-muted">{{ idx + 1 }}</td>
                     <td class="fw-medium text-dark">{{ it.materialName }}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">{{ it.unit || 'Nos' }}</span></td>
-                    <td class="text-center font-mono fw-bold">{{ it.quantity }}</td>
-                    <td class="text-end font-mono">{{ it.rate ? ('₹ ' + (it.rate | number:'1.2-2')) : '—' }}</td>
+                    <td class="text-center font-mono fw-semibold">{{ it.quantity }}</td>
+                    <td class="text-end font-mono text-nowrap">{{ it.rate ? ('₹ ' + (it.rate | number:'1.2-2')) : '—' }}</td>
                     <td>
                       <span *ngIf="it.vendorName" class="badge bg-light text-secondary border">
                         <i class="bi bi-truck me-1"></i>{{ it.vendorName }}
                       </span>
                       <span *ngIf="!it.vendorName" class="text-muted small">—</span>
                     </td>
-                    <td class="text-end font-mono fw-bold text-success">
+                    <td class="text-end font-mono text-success text-nowrap desc-amount-cell">
                       {{ (it.amount !== undefined && it.amount !== null && it.amount > 0) ? ('₹ ' + (it.amount | number:'1.2-2')) : '—' }}
                     </td>
                   </tr>
@@ -476,13 +476,13 @@
                 <!-- Fallback if single legacy description -->
                 <ng-container *ngIf="(!selectedGatePassForView.items || selectedGatePassForView.items.length === 0) && selectedGatePassForView.descriptions">
                   <tr>
-                    <td class="text-center font-mono text-muted small">1</td>
+                    <td class="text-center font-mono text-muted">1</td>
                     <td class="fw-medium text-dark">{{ cleanDescription(selectedGatePassForView.descriptions) }}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">{{ selectedGatePassForView.unit }}</span></td>
-                    <td class="text-center font-mono fw-bold">{{ selectedGatePassForView.quantity }}</td>
+                    <td class="text-center font-mono fw-semibold">{{ selectedGatePassForView.quantity }}</td>
                     <td class="text-end font-mono">—</td>
                     <td class="text-muted small">—</td>
-                    <td class="text-end font-mono fw-bold text-success">
+                    <td class="text-end font-mono text-success text-nowrap desc-amount-cell">
                       {{ getGatePassTotal(selectedGatePassForView) > 0 ? ('₹ ' + (getGatePassTotal(selectedGatePassForView) | number:'1.2-2')) : '—' }}
                     </td>
                   </tr>
@@ -490,8 +490,8 @@
               </tbody>
               <tfoot class="table-light">
                 <tr>
-                  <th colspan="6" class="text-end text-uppercase small fw-bold">Total Amount:</th>
-                  <th class="text-end font-mono fw-bolder text-primary fs-7">
+                  <th colspan="6" class="text-end text-uppercase fw-bold desc-total-label">Total Amount:</th>
+                  <th class="text-end font-mono text-primary text-nowrap desc-total-amount">
                     ₹ {{ getGatePassTotal(selectedGatePassForView) | number:'1.2-2' }}
                   </th>
                 </tr>

@@ -121,3 +121,40 @@
   box-shadow: 0 2px 4px rgba(234, 179, 8, 0.2) !important;
   transform: translateY(-1px);
 }
+
+/* Dispatched Descriptions & Materials Modal Table */
+.dispatched-descriptions-table th {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  padding: 6px 8px !important;
+  letter-spacing: 0.02em;
+}
+
+.dispatched-descriptions-table td {
+  font-size: 0.76rem !important;
+  padding: 5px 8px !important;
+}
+
+.dispatched-descriptions-table .desc-amount-cell {
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+
+.dispatched-descriptions-table .desc-total-label {
+  font-size: 0.74rem !important;
+  padding: 6px 8px !important;
+}
+
+.dispatched-descriptions-table .desc-total-amount {
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  padding: 6px 8px !important;
+}
+
+.dispatched-descriptions-table .badge {
+  font-size: 0.7rem !important;
+  padding: 2px 6px !important;
+}
+

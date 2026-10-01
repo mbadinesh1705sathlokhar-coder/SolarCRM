@@ -439,9 +439,6 @@
               </td>
               <td class="text-end pe-3">
                 <div class="d-inline-flex gap-1">
-                  <button *ngIf="canEdit()" class="btn btn-sm btn-outline-primary action-icon-btn shadow-none" (click)="openEditCallModal(call)" title="Edit Call Log">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
                   <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteCall(call)" title="Delete Call Log">
                     <i class="bi bi-trash3"></i>
                   </button>

@@ -275,13 +275,6 @@ exports.deleteLead = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Sales lead not found' });
         }
 
-        if (lead.leadStatus === 'Order Won') {
-            return res.status(400).json({
-                success: false,
-                message: 'Order Won opportunities are confirmed Awarded Sites and cannot be deleted.'
-            });
-        }
-
         await lead.destroy();
         res.json({ success: true, message: 'Sales lead deleted successfully' });
     } catch (err) {

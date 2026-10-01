@@ -581,28 +581,44 @@
 
             <!-- TAB 3: Financials & Ledger -->
             <div *ngIf="modalTab === 'finance'" class="row g-3">
-              <div class="col-md-4">
-                <label class="form-label small fw-bold">Site Value (₹)</label>
-                <input type="number" step="0.01" class="form-control font-mono fs-5" [(ngModel)]="projectForm.siteValue" name="siteValue">
-                <small class="text-muted">Total agreed project value</small>
+              <div class="col-12" *ngIf="isEditMode">
+                <div class="alert alert-secondary py-2 px-3 small d-flex align-items-center mb-1 text-dark border-0 bg-light rounded-3">
+                  <i class="bi bi-shield-lock-fill text-primary me-2 fs-6"></i>
+                  <span><strong>Financials &amp; Ledgers are non-editable:</strong> Client payments are recorded in <strong>Client Payment Ledger</strong> and expenses in <strong>Expense Ledger</strong> to prevent payment mismatches.</span>
+                </div>
+              </div>
+              <div class="col-12" *ngIf="!isEditMode">
+                <div class="alert alert-secondary py-2 px-3 small d-flex align-items-center mb-1 text-dark border-0 bg-light rounded-3">
+                  <i class="bi bi-info-circle-fill text-primary me-2 fs-6"></i>
+                  <span>Enter the agreed <strong>Site Value</strong>. Received payments and direct expenses are non-editable here and must be recorded separately in the respective ledgers.</span>
+                </div>
               </div>
 
               <div class="col-md-4">
-                <label class="form-label small fw-bold text-success">
-                  Received (₹)
-                  <span class="badge bg-success-subtle text-success ms-1">Client Payment Ledger</span>
+                <label class="form-label small fw-bold d-flex align-items-center justify-content-between">
+                  <span>Site Value (₹) <span class="text-danger">*</span></span>
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="bi bi-pencil-fill me-1"></i>Editable</span>
                 </label>
-                <input type="number" step="0.01" class="form-control font-mono fs-5 text-success" [(ngModel)]="projectForm.received" name="received">
-                <small class="text-muted">Amount received so far</small>
+                <input type="number" step="0.01" class="form-control font-mono fs-5 text-primary fw-bold" [(ngModel)]="projectForm.siteValue" name="siteValue" placeholder="0" required>
+                <small class="text-muted">Total agreed project value (Editable)</small>
               </div>
 
               <div class="col-md-4">
-                <label class="form-label small fw-bold">
-                  Site Expenses (₹)
-                  <span class="badge bg-secondary-subtle text-secondary ms-1">Expenses Ledger</span>
+                <label class="form-label small fw-bold text-success d-flex align-items-center justify-content-between">
+                  <span>Received (₹)</span>
+                  <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-lock-fill me-1"></i>Client Payment Ledger</span>
                 </label>
-                <input type="number" step="0.01" class="form-control font-mono fs-5" [(ngModel)]="projectForm.siteExpenses" name="siteExpenses">
-                <small class="text-muted">Direct expenses incurred</small>
+                <input type="number" step="0.01" class="form-control font-mono fs-5 text-success bg-light" [(ngModel)]="projectForm.received" name="received" [disabled]="true" readonly>
+                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Non-editable. Synced from Client Payment Ledger.</small>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-secondary d-flex align-items-center justify-content-between">
+                  <span>Site Expenses (₹)</span>
+                  <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="bi bi-lock-fill me-1"></i>Expenses Ledger</span>
+                </label>
+                <input type="number" step="0.01" class="form-control font-mono fs-5 text-dark bg-light" [(ngModel)]="projectForm.siteExpenses" name="siteExpenses" [disabled]="true" readonly>
+                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Non-editable. Synced from Expense Ledger.</small>
               </div>
 
               <!-- Computed Preview Box -->
@@ -631,16 +647,23 @@
 
             <!-- TAB 4: Milestones & Progress -->
             <div *ngIf="modalTab === 'milestones'" class="row g-4">
-              <div class="col-12">
+              <div class="col-12" *ngIf="isEditMode">
+                <div class="alert alert-secondary py-2 px-3 small d-flex align-items-center mb-0 text-dark border-0 bg-light rounded-3">
+                  <i class="bi bi-shield-lock-fill text-secondary me-2 fs-6"></i>
+                  <span><strong>Milestones &amp; Progress are non-editable:</strong> Milestone execution stages and handover statuses are locked from editing.</span>
+                </div>
+              </div>
+
+              <div class="col-12" *ngIf="!isEditMode">
                 <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-0">
                   <i class="bi bi-info-circle-fill me-2 fs-6"></i>
-                  Each milestone tick contributes <strong>16.67%</strong> to Completed. All 6 ticks equal <strong>100%</strong>. Work in Process equals <strong>(100 - Completed)</strong>.
+                  Each milestone tick contributes <strong>16.67%</strong> to Completed. All 6 ticks equal <strong>100%</strong>. Work in Process equals <strong>(100 - Completed)</strong>. New projects initialize at Pending stage.
                 </div>
               </div>
 
               <!-- Stage Dropdown Card -->
               <div class="col-md-6">
-                <div class="card p-3 border rounded-3 h-100 shadow-sm">
+                <div class="card p-3 border rounded-3 h-100 shadow-sm" [class.bg-light]="isEditMode">
                   <label class="form-label fw-bold text-dark small mb-2 d-flex justify-content-between align-items-center">
                     <span>Execution Stage</span>
                     <span class="badge" 
@@ -652,52 +675,62 @@
                       {{ formMilestoneStage }}
                     </span>
                   </label>
-                  <select class="form-select form-select-sm font-medium" 
+                  <select class="form-select form-select-sm font-medium bg-light" 
                           [ngModel]="formMilestoneStage" 
                           (ngModelChange)="onFormStageChange($event)" 
-                          name="formMilestoneStage">
+                          name="formMilestoneStage"
+                          [disabled]="true">
                     <option value="Pending">Pending (Not Started)</option>
                     <option value="Material Supply">Material Supply</option>
                     <option value="Installation">Installation</option>
                     <option value="EB Process">EB Process</option>
                     <option value="Documents">Documents</option>
                   </select>
-                  <small class="text-muted mt-2 d-block">Configures progress from Material Supply through Documents.</small>
+                  <small class="text-muted mt-2 d-block" *ngIf="isEditMode">
+                    <i class="bi bi-lock-fill me-1"></i>Non-editable. Milestone execution stage is locked.
+                  </small>
+                  <small class="text-muted mt-2 d-block" *ngIf="!isEditMode">
+                    Initial status defaults to Pending (Not Started).
+                  </small>
                 </div>
               </div>
 
               <!-- Handover & Warranty Checkboxes Card -->
               <div class="col-md-6">
-                <div class="card p-3 border rounded-3 h-100 shadow-sm" [class.bg-light]="formMilestoneStage !== 'Documents'">
-                  <label class="form-label fw-bold text-dark small mb-2">
-                    <span>Handover & Warranty Configuration</span>
+                <div class="card p-3 border rounded-3 h-100 shadow-sm bg-light">
+                  <label class="form-label fw-bold text-dark small mb-2 d-flex justify-content-between align-items-center">
+                    <span>Handover &amp; Warranty Configuration</span>
+                    <span class="badge bg-light text-secondary border"><i class="bi bi-lock-fill me-1"></i>Locked</span>
                   </label>
                   <div class="d-flex flex-column gap-2 mt-1">
-                    <div class="form-check" [title]="formMilestoneStage === 'Documents' ? '' : 'Enabled only when stage is Documents'">
+                    <div class="form-check" title="Non-editable in project record">
                       <input class="form-check-input" 
                              type="checkbox" 
                              id="modal-warranty" 
                              [(ngModel)]="projectForm.warranty" 
                              name="modalWarranty"
-                             [disabled]="formMilestoneStage !== 'Documents'">
-                      <label class="form-check-label small fw-semibold" for="modal-warranty" [class.text-muted]="formMilestoneStage !== 'Documents'">
+                             [disabled]="true">
+                      <label class="form-check-label small fw-semibold text-muted" for="modal-warranty">
                         Warranty (+16.67%)
                       </label>
                     </div>
-                    <div class="form-check" [title]="formMilestoneStage === 'Documents' ? '' : 'Enabled only when stage is Documents'">
+                    <div class="form-check" title="Non-editable in project record">
                       <input class="form-check-input" 
                              type="checkbox" 
                              id="modal-handedOver" 
                              [(ngModel)]="projectForm.handedOver" 
                              name="modalHandedOver"
-                             [disabled]="formMilestoneStage !== 'Documents'">
-                      <label class="form-check-label small fw-semibold" for="modal-handedOver" [class.text-muted]="formMilestoneStage !== 'Documents'">
+                             [disabled]="true">
+                      <label class="form-check-label small fw-semibold text-muted" for="modal-handedOver">
                         Handed Over (+16.67%)
                       </label>
                     </div>
                   </div>
-                  <small class="text-muted mt-2 d-block" *ngIf="formMilestoneStage !== 'Documents'">
-                    <i class="bi bi-lock-fill me-1"></i>These options unlock once Documents stage is reached.
+                  <small class="text-muted mt-2 d-block" *ngIf="isEditMode">
+                    <i class="bi bi-lock-fill me-1"></i>Non-editable. Handover and warranty settings are locked.
+                  </small>
+                  <small class="text-muted mt-2 d-block" *ngIf="!isEditMode">
+                    <i class="bi bi-lock-fill me-1"></i>Handover and warranty initialize as Pending.
                   </small>
                 </div>
               </div>
@@ -730,14 +763,16 @@
                     </h6>
                     <small class="text-muted">Breakdown of Client Payments, Site Expenses, and Margin as per Agreement Site Value</small>
                   </div>
-                  <div class="badge bg-white text-dark border px-3 py-1.5 shadow-xs font-mono fs-7">
-                    <span class="text-muted fw-normal me-1">Site Value:</span>
-                    <strong class="text-primary">₹ {{ (projectForm.siteValue || 0) | number:'1.2-2' }}</strong>
+                  <div class="d-flex align-items-center gap-2 bg-white border rounded-2 px-2.5 py-1 shadow-xs">
+                    <label class="small text-muted mb-0 fw-semibold text-nowrap">
+                      <i class="bi bi-pencil-square text-primary me-1"></i>Site Value (₹):
+                    </label>
+                    <input type="number" step="0.01" class="form-control form-control-sm font-mono fw-bold text-primary shadow-none border-primary" style="width: 135px; height: 28px;" [(ngModel)]="projectForm.siteValue" name="analyticSiteValue" placeholder="0">
                   </div>
                 </div>
 
                 <div class="row g-3">
-                  <!-- Chart 1: Client Payment Breakdown (Donut/Pie Graph) -->
+                  <!-- Chart 1: Client Payment Breakdown (Donut + Vertical Bar Graph) -->
                   <div class="col-md-6">
                     <div class="card bg-white border rounded-3 p-3 h-100 shadow-sm">
                       <div class="d-flex align-items-center justify-content-between mb-2">
@@ -747,11 +782,11 @@
                         </span>
                       </div>
 
-                      <!-- Donut Graphic + Legend -->
-                      <div class="d-flex align-items-center justify-content-center gap-4 py-2">
+                      <!-- Donut Graphic + Vertical Graph Bar + Legend -->
+                      <div class="d-flex align-items-center justify-content-between gap-3 py-2">
                         <!-- Circular Pie/Donut SVG -->
-                        <div class="position-relative d-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">
-                          <svg viewBox="0 0 36 36" style="width: 110px; height: 110px; transform: rotate(-90deg);">
+                        <div class="position-relative d-flex align-items-center justify-content-center flex-shrink-0" style="width: 105px; height: 105px;">
+                          <svg viewBox="0 0 36 36" style="width: 100px; height: 100px; transform: rotate(-90deg);">
                             <!-- Background Circle (Due / Unpaid) -->
                             <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                   fill="none" stroke="#fecaca" stroke-width="4.2" />
@@ -763,6 +798,27 @@
                           <div class="position-absolute text-center">
                             <span class="fw-bold fs-6 text-dark d-block font-mono mb-0" style="line-height: 1;">{{ formReceivedPct }}%</span>
                             <small class="text-muted" style="font-size: 0.65rem;">Collected</small>
+                          </div>
+                        </div>
+
+                        <!-- Vertical Graph Bar (Next to Donut) -->
+                        <div class="d-flex align-items-end gap-2 px-2 py-1 bg-light rounded-3 border flex-shrink-0" style="height: 105px;" title="Vertical Payment Realization Bar">
+                          <!-- Received Vertical Bar -->
+                          <div class="d-flex flex-column align-items-center justify-content-end h-100" style="width: 22px;">
+                            <small class="fw-bold text-success font-mono" style="font-size: 0.62rem; margin-bottom: 2px;">{{ formReceivedPct }}%</small>
+                            <div class="w-100 bg-white rounded-top border" style="height: 70px; display: flex; flex-direction: column-reverse; overflow: hidden;">
+                              <div class="w-100 bg-success rounded-top" [style.height.%]="formReceivedPct" style="transition: height 0.4s ease;" title="Received: {{ formReceivedPct }}%"></div>
+                            </div>
+                            <span class="text-muted fw-bold text-uppercase mt-1" style="font-size: 0.62rem;">Recv</span>
+                          </div>
+
+                          <!-- Balance Due Vertical Bar -->
+                          <div class="d-flex flex-column align-items-center justify-content-end h-100" style="width: 22px;">
+                            <small class="fw-bold text-danger font-mono" style="font-size: 0.62rem; margin-bottom: 2px;">{{ formDuePct }}%</small>
+                            <div class="w-100 bg-white rounded-top border" style="height: 70px; display: flex; flex-direction: column-reverse; overflow: hidden;">
+                              <div class="w-100 bg-danger rounded-top" [style.height.%]="formDuePct" style="transition: height 0.4s ease;" title="Due: {{ formDuePct }}%"></div>
+                            </div>
+                            <span class="text-muted fw-bold text-uppercase mt-1" style="font-size: 0.62rem;">Due</span>
                           </div>
                         </div>
 
@@ -788,16 +844,10 @@
                           </div>
                         </div>
                       </div>
-
-                      <!-- Progress indicator bar -->
-                      <div class="progress mt-2" style="height: 6px;">
-                        <div class="progress-bar bg-success" [style.width.%]="formReceivedPct" title="Received"></div>
-                        <div class="progress-bar bg-danger" [style.width.%]="formDuePct" title="Due"></div>
-                      </div>
                     </div>
                   </div>
 
-                  <!-- Chart 2: Site Expenses vs Margin Breakdown (Donut/Pie Graph) -->
+                  <!-- Chart 2: Site Expenses vs Margin Breakdown (Donut + Vertical Bar Graph) -->
                   <div class="col-md-6">
                     <div class="card bg-white border rounded-3 p-3 h-100 shadow-sm">
                       <div class="d-flex align-items-center justify-content-between mb-2">
@@ -811,11 +861,11 @@
                         </span>
                       </div>
 
-                      <!-- Donut Graphic + Legend -->
-                      <div class="d-flex align-items-center justify-content-center gap-4 py-2">
+                      <!-- Donut Graphic + Vertical Graph Bar + Legend -->
+                      <div class="d-flex align-items-center justify-content-between gap-3 py-2">
                         <!-- Circular Pie/Donut SVG -->
-                        <div class="position-relative d-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">
-                          <svg viewBox="0 0 36 36" style="width: 110px; height: 110px; transform: rotate(-90deg);">
+                        <div class="position-relative d-flex align-items-center justify-content-center flex-shrink-0" style="width: 105px; height: 105px;">
+                          <svg viewBox="0 0 36 36" style="width: 100px; height: 100px; transform: rotate(-90deg);">
                             <!-- Background Circle (Expenses) -->
                             <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                   fill="none" stroke="#fed7aa" stroke-width="4.2" />
@@ -827,6 +877,27 @@
                           <div class="position-absolute text-center">
                             <span class="fw-bold fs-6 text-dark d-block font-mono mb-0" style="line-height: 1;">{{ formMarginPct }}%</span>
                             <small class="text-muted" style="font-size: 0.65rem;">Margin</small>
+                          </div>
+                        </div>
+
+                        <!-- Vertical Graph Bar (Next to Donut) -->
+                        <div class="d-flex align-items-end gap-2 px-2 py-1 bg-light rounded-3 border flex-shrink-0" style="height: 105px;" title="Vertical Expenses vs Margin Bar">
+                          <!-- Expenses Vertical Bar -->
+                          <div class="d-flex flex-column align-items-center justify-content-end h-100" style="width: 22px;">
+                            <small class="fw-bold text-danger font-mono" style="font-size: 0.62rem; margin-bottom: 2px;">{{ formExpensePct }}%</small>
+                            <div class="w-100 bg-white rounded-top border" style="height: 70px; display: flex; flex-direction: column-reverse; overflow: hidden;">
+                              <div class="w-100 rounded-top" style="background-color: #f97316; transition: height 0.4s ease;" [style.height.%]="formExpensePct" title="Expenses: {{ formExpensePct }}%"></div>
+                            </div>
+                            <span class="text-muted fw-bold text-uppercase mt-1" style="font-size: 0.62rem;">Exp</span>
+                          </div>
+
+                          <!-- Margin Vertical Bar -->
+                          <div class="d-flex flex-column align-items-center justify-content-end h-100" style="width: 22px;">
+                            <small class="fw-bold font-mono" [ngClass]="formMarginPct >= 0 ? 'text-primary' : 'text-danger'" style="font-size: 0.62rem; margin-bottom: 2px;">{{ formMarginPct }}%</small>
+                            <div class="w-100 bg-white rounded-top border" style="height: 70px; display: flex; flex-direction: column-reverse; overflow: hidden;">
+                              <div class="w-100 rounded-top" [style.background-color]="formMarginPct >= 0 ? '#0ea5e9' : '#ef4444'" [style.height.%]="formMarginPct > 0 ? formMarginPct : 0" style="transition: height 0.4s ease;" title="Margin: {{ formMarginPct }}%"></div>
+                            </div>
+                            <span class="text-muted fw-bold text-uppercase mt-1" style="font-size: 0.62rem;">Mrgn</span>
                           </div>
                         </div>
 
@@ -854,60 +925,12 @@
                           </div>
                         </div>
                       </div>
-
-                      <!-- Progress indicator bar -->
-                      <div class="progress mt-2" style="height: 6px;">
-                        <div class="progress-bar" style="background-color: #0ea5e9;" [style.width.%]="formMarginPct > 0 ? formMarginPct : 0" title="Margin"></div>
-                        <div class="progress-bar" style="background-color: #f97316;" [style.width.%]="formExpensePct" title="Expenses"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Graph Sheet 3: Full Site Value Financial Comparison Bar -->
-                  <div class="col-12">
-                    <div class="card bg-white border rounded-3 p-3 shadow-sm">
-                      <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fw-bold text-dark small">Financial Ledger Summary Comparison Sheet</span>
-                        <span class="text-muted small">Total Realized vs Incurred Cost as per Agreement Value</span>
-                      </div>
-                      <div class="d-flex flex-column gap-2">
-                        <!-- Row 1: Site Agreement Value -->
-                        <div>
-                          <div class="d-flex justify-content-between small mb-1">
-                            <span class="text-muted fw-semibold">1. Site Value (100% Agreement Target)</span>
-                            <span class="fw-bold text-dark font-mono">₹ {{ (projectForm.siteValue || 0) | number:'1.2-2' }} (100%)</span>
-                          </div>
-                          <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-primary" style="width: 100%;"></div>
-                          </div>
-                        </div>
-                        <!-- Row 2: Client Collections Received -->
-                        <div>
-                          <div class="d-flex justify-content-between small mb-1">
-                            <span class="text-muted fw-semibold">2. Client Payments Received (Collections)</span>
-                            <span class="fw-bold text-success font-mono">₹ {{ (projectForm.received || 0) | number:'1.2-2' }} ({{ formReceivedPct }}%)</span>
-                          </div>
-                          <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-success" [style.width.%]="formReceivedPct"></div>
-                          </div>
-                        </div>
-                        <!-- Row 3: Site Expenses Incurred -->
-                        <div>
-                          <div class="d-flex justify-content-between small mb-1">
-                            <span class="text-muted fw-semibold">3. Site Expenses &amp; Cost Incurred</span>
-                            <span class="fw-bold text-danger font-mono">₹ {{ (projectForm.siteExpenses || 0) | number:'1.2-2' }} ({{ formExpensePct }}%)</span>
-                          </div>
-                          <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-warning" [style.width.%]="formExpensePct"></div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+            </div>
 
             <!-- Form Navigation & Submit -->
             <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">

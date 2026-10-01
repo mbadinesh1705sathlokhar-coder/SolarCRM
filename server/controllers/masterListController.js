@@ -467,7 +467,7 @@ async function seedMasterListsIfEmpty() {
                 items: [
                     'Hybrid',
                     'Off Grid',
-                    'On Gird',
+                    'On Grid',
                     'Solar Pump'
                 ]
             },

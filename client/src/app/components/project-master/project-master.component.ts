@@ -1116,6 +1116,18 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     if (this.isEditMode && this.currentProjectId) {
+      const existing = this.projects.find(p => p.id === this.currentProjectId);
+      if (existing) {
+        // Allow siteValue to be updated by user, but preserve ledger-computed received, expenses, and milestones
+        this.projectForm.received = existing.received;
+        this.projectForm.siteExpenses = existing.siteExpenses;
+        this.projectForm.materialsSupply = existing.materialsSupply;
+        this.projectForm.installation = existing.installation;
+        this.projectForm.ebProcess = existing.ebProcess;
+        this.projectForm.documents = existing.documents;
+        this.projectForm.warranty = existing.warranty;
+        this.projectForm.handedOver = existing.handedOver;
+      }
       this.projectService.updateProject(this.currentProjectId, this.projectForm).subscribe({
         next: (res) => {
           this.showToast('Project updated successfully!', 'success');
@@ -1127,6 +1139,15 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
         }
       });
     } else {
+      this.projectForm.received = 0;
+      this.projectForm.siteExpenses = 0;
+      this.projectForm.materialsSupply = false;
+      this.projectForm.installation = false;
+      this.projectForm.ebProcess = false;
+      this.projectForm.documents = false;
+      this.projectForm.warranty = false;
+      this.projectForm.handedOver = false;
+
       this.projectService.createProject(this.projectForm).subscribe({
         next: (res) => {
           this.showToast('Project created successfully!', 'success');
