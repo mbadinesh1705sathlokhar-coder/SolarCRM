@@ -1,4 +1,4 @@
-﻿import { Injectable, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
@@ -90,5 +90,14 @@ export class MasterListService {
         }
       })
     );
+  }
+
+  // --- BOM MATERIAL MASTER ENDPOINTS ---
+  getBomMaterials(): Observable<{ success: boolean; data: any[]; grouped: { [key: string]: any[] } }> {
+    return this.http.get<{ success: boolean; data: any[]; grouped: { [key: string]: any[] } }>('http://localhost:2000/api/bom-materials');
+  }
+
+  saveBomMaterialGroupSpecs(groupName: string, items: any[]): Observable<{ success: boolean; message: string; data: any[] }> {
+    return this.http.post<{ success: boolean; message: string; data: any[] }>('http://localhost:2000/api/bom-materials/bulk-save', { groupName, items });
   }
 }

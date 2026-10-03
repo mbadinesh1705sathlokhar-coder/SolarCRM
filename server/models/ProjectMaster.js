@@ -135,6 +135,11 @@ const ProjectMaster = conDb.define('ProjectMaster', {
         defaultValue: false,
         field: 'handed_over'
     },
+    bomItems: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'bom_items'
+    },
     orderIndex: {
         type: DataTypes.INTEGER,
         allowNull: false,

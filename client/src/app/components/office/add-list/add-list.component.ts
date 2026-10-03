@@ -367,6 +367,14 @@ export class AddListComponent implements OnInit {
           defaultOptions: ['Assosiation', 'Company', 'Govt. Org', 'Individual', 'Institutional']
         },
         {
+          key: 'proj-materials-group',
+          columnName: 'Bill of Materials (BOM)',
+          listTitle: 'BOM',
+          category: 'Inventory',
+          description: 'Material categories and groups for Bill of Materials (BOM) Cost Sheet allocation',
+          defaultOptions: ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware']
+        },
+        {
           key: 'proj-invoice-type',
           columnName: 'Invoice Type',
           listTitle: 'Invoice Type',
@@ -416,6 +424,14 @@ export class AddListComponent implements OnInit {
           category: 'Finances',
           description: 'Settlement modes for client receipts',
           defaultOptions: ['Bank Transfer / NEFT', 'Bank Transfer / IMPS', 'Cheque / DD', 'UPI', 'Bank Deposit']
+        },
+        {
+          key: 'ledger-closing-value',
+          columnName: 'Payment Closing Tolerance / Closing Value (₹)',
+          listTitle: 'Closing Value',
+          category: 'Finances',
+          description: 'Payment closing tolerance threshold (in ₹) to consider client accounts Fully Paid (e.g. 100, 10, 50, 500)',
+          defaultOptions: ['100', '10', '50', '500']
         }
       ]
     },
@@ -506,10 +522,18 @@ export class AddListComponent implements OnInit {
     {
       id: 'inventory-all',
       group: 'Inventory',
-      title: 'Inventory (Indent, Warehouse, Gate Pass, Cart)',
+      title: 'Inventory & BOM (Materials Group, Warehouse, Indent)',
       icon: 'bi-box-seam',
       badgeColor: '#0f766e',
       columns: [
+        {
+          key: 'inv-materials-group',
+          columnName: 'Bill of Materials (BOM)',
+          listTitle: 'BOM',
+          category: 'Inventory',
+          description: 'Material Groups (Cables, Panels, Inverters, MC4 Connector, Lugs, Bucket, Structure, Earthing & Lightning, Fasteners & Hardware) for BOM Cost Sheet allocation',
+          defaultOptions: ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware']
+        },
         {
           key: 'inv-materials',
           columnName: 'Material / Stock Categories',
@@ -725,6 +749,7 @@ export class AddListComponent implements OnInit {
       this.configNoticeText = `✨ New configuration for this column. Pre-populated with ${this.formRows.length} standard options. You can customize them before saving.`;
       this.configNoticeType = 'new';
     }
+    this.checkIfBomMaterialsMode();
   }
 
   openAddModal(): void {
@@ -783,7 +808,82 @@ export class AddListComponent implements OnInit {
 
     this.configNoticeText = `Editing list "${list.title}" with ${this.formRows.length} configured options.`;
     this.configNoticeType = 'existing';
+    this.checkIfBomMaterialsMode();
     this.isModalOpen = true;
+  }
+
+  // --- HIERARCHICAL BOM MATERIAL MASTER STATE & METHODS ---
+  isBomMaterialsMode = false;
+  bomMaterialGroups: string[] = ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware'];
+  selectedBomGroup: string = 'Cables';
+  allBomGroupItems: { [key: string]: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] } = {};
+  bomGroupSpecRows: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] = [];
+  loadingBomSpecs = false;
+
+  loadBomMaterialsData(): void {
+    this.loadingBomSpecs = true;
+    this.masterListService.getBomMaterials().subscribe({
+      next: (res) => {
+        if (res.success && res.grouped) {
+          this.allBomGroupItems = res.grouped;
+          this.onBomGroupChange();
+        }
+        this.loadingBomSpecs = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingBomSpecs = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  onBomGroupChange(): void {
+    const raw = this.allBomGroupItems[this.selectedBomGroup] || [];
+    if (raw.length > 0) {
+      this.bomGroupSpecRows = raw.map(it => ({
+        id: it.id,
+        categoryType: it.categoryType || (this.selectedBomGroup === 'Cables' ? 'AC Cable' : 'Standard'),
+        specification: it.specification,
+        defaultUom: it.defaultUom || (this.selectedBomGroup === 'Cables' ? 'Meter' : 'Nos'),
+        unitRate: Number(it.unitRate) || 0
+      }));
+    } else {
+      this.bomGroupSpecRows = [
+        {
+          categoryType: this.selectedBomGroup === 'Cables' ? 'AC Cable' : 'Standard',
+          specification: '',
+          defaultUom: this.selectedBomGroup === 'Cables' ? 'Meter' : 'Nos',
+          unitRate: 0
+        }
+      ];
+    }
+  }
+
+  addBomSpecRow(): void {
+    this.bomGroupSpecRows.push({
+      categoryType: this.selectedBomGroup === 'Cables' ? 'AC Cable' : 'Standard',
+      specification: '',
+      defaultUom: this.selectedBomGroup === 'Cables' ? 'Meter' : 'Nos',
+      unitRate: 0
+    });
+  }
+
+  removeBomSpecRow(index: number): void {
+    if (this.bomGroupSpecRows.length === 1) {
+      this.bomGroupSpecRows[0].specification = '';
+      return;
+    }
+    this.bomGroupSpecRows.splice(index, 1);
+  }
+
+  checkIfBomMaterialsMode(): void {
+    const titleNorm = (this.formTitle || '').toLowerCase().trim();
+    const keyNorm = (this.selectedColumnKey || '').toLowerCase().trim();
+    this.isBomMaterialsMode = (titleNorm === 'bom' || titleNorm === 'materials_' || keyNorm === 'inv-materials-group' || keyNorm === 'proj-materials-group');
+    if (this.isBomMaterialsMode) {
+      this.loadBomMaterialsData();
+    }
   }
 
   closeModal(): void {
@@ -817,6 +917,27 @@ export class AddListComponent implements OnInit {
 
     if (this.isEditMode ? !this.canEdit() : !this.canAdd()) {
       this.showToast('You do not have permission to perform this action.', 'danger');
+      return;
+    }
+
+    if (this.isBomMaterialsMode) {
+      const cleanSpecs = this.bomGroupSpecRows.filter(r => r.specification && r.specification.trim().length > 0);
+      if (cleanSpecs.length === 0) {
+        this.showToast(`Please enter at least one specification for "${this.selectedBomGroup}".`, 'danger');
+        return;
+      }
+      this.masterListService.saveBomMaterialGroupSpecs(this.selectedBomGroup, cleanSpecs).subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.showToast(`BOM Specifications for "${this.selectedBomGroup}" saved to Database (${cleanSpecs.length} items)!`, 'success');
+            this.closeModal();
+            this.loadLists();
+          }
+        },
+        error: (err) => {
+          this.showToast(err.error?.message || 'Failed to save BOM material specs.', 'danger');
+        }
+      });
       return;
     }
 

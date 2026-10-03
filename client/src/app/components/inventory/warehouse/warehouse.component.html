@@ -171,22 +171,45 @@
       <form (ngSubmit)="saveMaterial()">
         <div class="modal-body p-4 bg-light">
           <div class="row g-3">
+            <!-- BOM Group & Specification Quick Selector -->
             <div class="col-12">
-              <label class="form-label small fw-bold text-dark mb-1">Material Name <span class="text-danger">*</span></label>
-              <input type="text" list="matOptionsList" class="form-control shadow-sm" placeholder="Select or type material name" [(ngModel)]="materialForm.materialName" name="materialName" required>
-              <datalist id="matOptionsList">
-                <option *ngFor="let m of materialOptions" [value]="m"></option>
-              </datalist>
+              <div class="p-3 bg-white border rounded-3 shadow-xs">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <span class="small fw-bold text-success d-flex align-items-center gap-1">
+                    <i class="bi bi-box-seam text-success"></i> Select from BOM Master List
+                  </span>
+                  <span class="badge bg-success-subtle text-success border px-2 py-0.5 font-mono" style="font-size: 0.7rem;">
+                    BOM Master
+                  </span>
+                </div>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label fs-8 text-secondary mb-1">Material Group (BOM)</label>
+                    <select class="form-select form-select-sm shadow-none" [ngModel]="selectedBomGroup" (ngModelChange)="onBomGroupSelect($event)" name="bomGroupSelect">
+                      <option value="">-- Choose BOM Group --</option>
+                      <option *ngFor="let grp of bomGroupKeys" [value]="grp">{{ grp }}</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fs-8 text-secondary mb-1">Specification / Type</label>
+                    <select class="form-select form-select-sm shadow-none" [disabled]="!selectedBomGroup" [ngModel]="selectedBomSpec" (ngModelChange)="onBomSpecSelect($event)" name="bomSpecSelect">
+                      <option value="">-- Select Specification --</option>
+                      <option *ngFor="let spec of availableBomSpecs" [value]="spec.specification">
+                        {{ spec.specification }} ({{ spec.defaultUom }})
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="col-12">
-              <label class="form-label small fw-bold text-dark mb-1">Description</label>
-              <textarea class="form-control shadow-sm" rows="2" placeholder="e.g. 5KW Distribution Box IP65 rated with MCB & SPD" [(ngModel)]="materialForm.description" name="description"></textarea>
-            </div>
+
+            <!-- Streamlined Selected Summary & Auto Unit / In-Stock Inputs -->
             <div class="col-md-6">
-              <label class="form-label small fw-bold text-dark mb-1">Unit <span class="text-danger">*</span></label>
-              <select class="form-select shadow-sm" [(ngModel)]="materialForm.unit" name="unit" required>
+              <label class="form-label small fw-bold text-dark mb-1">Unit (UOM) <span class="text-danger">*</span></label>
+              <select class="form-select shadow-sm fw-bold text-primary" [(ngModel)]="materialForm.unit" name="unit" required>
                 <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
               </select>
+              <small class="text-muted" style="font-size: 0.72rem;">Auto-derived (e.g. Meter for Cables, Nos for MC4/Panels)</small>
             </div>
             <div class="col-md-6">
               <label class="form-label small fw-bold text-dark mb-1">In-Stock Quantity <span class="text-danger">*</span></label>

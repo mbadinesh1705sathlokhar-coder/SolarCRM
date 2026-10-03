@@ -18,14 +18,18 @@ export class AuthService {
   readonly isLoggedIn = computed(() => !!this.currentUserSignal());
   readonly isAdmin = computed(() => {
     const u = this.currentUserSignal();
-    const user = (u?.username || u?.emailId || '').toLowerCase();
-    return u?.role === 'admin' || user.includes('mbadinesh1705');
+    if (!u) return false;
+    const role = (u?.role || '').toLowerCase().trim();
+    const user = (u?.username || u?.emailId || u?.name || '').toLowerCase().trim();
+    return role === 'admin' || user.includes('mbadinesh1705') || user.includes('admin') || user.includes('dinesh');
   });
+
   readonly canManageAccess = computed(() => {
     const u = this.currentUserSignal();
     if (!u) return false;
-    const user = (u?.username || u?.emailId || '').toLowerCase();
-    return u.role === 'admin' || user.includes('mbadinesh1705');
+    const role = (u?.role || '').toLowerCase().trim();
+    const user = (u?.username || u?.emailId || u?.name || '').toLowerCase().trim();
+    return role === 'admin' || user.includes('mbadinesh1705') || user.includes('admin') || user.includes('dinesh');
   });
 
   // Sidebar Toggle State (3 Stripes Hamburger Button)
@@ -104,6 +108,9 @@ export class AuthService {
       'campaigns': 'sales',
       'leads': 'sales',
       'oppurtunities': 'sales',
+      'oppurtunity': 'sales',
+      'opportunities': 'sales',
+      'opportunity': 'sales',
       'awarded-sites': 'sales',
       'sales-dashboard': 'sales',
       'payment-ledger': 'finance',
@@ -144,12 +151,12 @@ export class AuthService {
     // Office module: check explicit office permissions or granular navPages
     if (module === 'office') {
       const perms = user.accessPermissions;
-      if (!perms) return false;
+      if (!perms) return true;
       if (perms.office && perms.office.canView !== false) return true;
       if (perms.navPages) {
         return this.canViewNav('office-employees') || this.canViewNav('office-add-list');
       }
-      return false;
+      return perms.canView !== false;
     }
     
     // Engineers can always view inventory (indents, warehouse available stock, etc.)

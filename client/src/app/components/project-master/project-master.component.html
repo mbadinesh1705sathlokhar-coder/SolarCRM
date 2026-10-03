@@ -452,25 +452,30 @@
 
         <div class="modal-body p-4">
           <!-- Form Section Tabs -->
-          <ul class="nav nav-pills mb-4 border-bottom pb-2">
+          <ul class="nav nav-pills mb-4 border-bottom pb-2 flex-wrap">
             <li class="nav-item">
-              <button class="nav-link fw-semibold px-3 py-1 me-2" [class.active]="modalTab === 'basic'" (click)="modalTab = 'basic'">
+              <button class="nav-link fw-semibold px-2 py-1 me-1 text-nowrap" [class.active]="modalTab === 'basic'" (click)="modalTab = 'basic'">
                 <i class="bi bi-info-circle me-1"></i> 1. Site & Client Details
               </button>
             </li>
             <li class="nav-item">
-              <button class="nav-link fw-semibold px-3 py-1 me-2" [class.active]="modalTab === 'config'" (click)="modalTab = 'config'">
+              <button class="nav-link fw-semibold px-2 py-1 me-1 text-nowrap" [class.active]="modalTab === 'config'" (click)="modalTab = 'config'">
                 <i class="bi bi-gear me-1"></i> 2. Technical & Order
               </button>
             </li>
             <li class="nav-item">
-              <button class="nav-link fw-semibold px-3 py-1 me-2" [class.active]="modalTab === 'finance'" (click)="modalTab = 'finance'">
+              <button class="nav-link fw-semibold px-2 py-1 me-1 text-nowrap" [class.active]="modalTab === 'finance'" (click)="modalTab = 'finance'">
                 <i class="bi bi-currency-rupee me-1"></i> 3. Financials & Ledgers
               </button>
             </li>
             <li class="nav-item">
-              <button class="nav-link fw-semibold px-3 py-1" [class.active]="modalTab === 'milestones'" (click)="modalTab = 'milestones'">
-                <i class="bi bi-check2-square me-1"></i> 4. Milestones & Progress (16.67% ea)
+              <button class="nav-link fw-semibold px-2 py-1 me-1 text-nowrap" [class.active]="modalTab === 'milestones'" (click)="modalTab = 'milestones'">
+                <i class="bi bi-check2-square me-1"></i> 4. Milestones & Progress
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link fw-semibold px-2 py-1 text-nowrap" [class.active]="modalTab === 'bom'" (click)="modalTab = 'bom'">
+                <i class="bi bi-calculator me-1"></i> 5. BOM
               </button>
             </li>
           </ul>
@@ -545,10 +550,7 @@
               <div class="col-md-4">
                 <label class="form-label small fw-bold">Site Category</label>
                 <select class="form-select" [(ngModel)]="projectForm.siteCategory" name="siteCategory">
-                  <option value="TATA SPG">TATA SPG</option>
-                  <option value="Waree">Waree</option>
-                  <option value="Premier">Premier</option>
-                  <option value="Other">Other</option>
+                  <option *ngFor="let opt of masterSiteCategories" [value]="opt">{{ opt }}</option>
                 </select>
               </div>
 
@@ -647,23 +649,16 @@
 
             <!-- TAB 4: Milestones & Progress -->
             <div *ngIf="modalTab === 'milestones'" class="row g-4">
-              <div class="col-12" *ngIf="isEditMode">
-                <div class="alert alert-secondary py-2 px-3 small d-flex align-items-center mb-0 text-dark border-0 bg-light rounded-3">
-                  <i class="bi bi-shield-lock-fill text-secondary me-2 fs-6"></i>
-                  <span><strong>Milestones &amp; Progress are non-editable:</strong> Milestone execution stages and handover statuses are locked from editing.</span>
-                </div>
-              </div>
-
-              <div class="col-12" *ngIf="!isEditMode">
+              <div class="col-12">
                 <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-0">
                   <i class="bi bi-info-circle-fill me-2 fs-6"></i>
-                  Each milestone tick contributes <strong>16.67%</strong> to Completed. All 6 ticks equal <strong>100%</strong>. Work in Process equals <strong>(100 - Completed)</strong>. New projects initialize at Pending stage.
+                  Each milestone tick contributes <strong>16.67%</strong> to Completed. All 6 ticks equal <strong>100%</strong>. Work in Process equals <strong>(100 - Completed)</strong>. Select the stage or toggle warranty/handover to update project progress.
                 </div>
               </div>
 
               <!-- Stage Dropdown Card -->
               <div class="col-md-6">
-                <div class="card p-3 border rounded-3 h-100 shadow-sm" [class.bg-light]="isEditMode">
+                <div class="card p-3 border rounded-3 h-100 shadow-sm">
                   <label class="form-label fw-bold text-dark small mb-2 d-flex justify-content-between align-items-center">
                     <span>Execution Stage</span>
                     <span class="badge" 
@@ -675,62 +670,53 @@
                       {{ formMilestoneStage }}
                     </span>
                   </label>
-                  <select class="form-select form-select-sm font-medium bg-light" 
+                  <select class="form-select form-select-sm font-medium" 
                           [ngModel]="formMilestoneStage" 
                           (ngModelChange)="onFormStageChange($event)" 
-                          name="formMilestoneStage"
-                          [disabled]="true">
+                          name="formMilestoneStage">
                     <option value="Pending">Pending (Not Started)</option>
                     <option value="Material Supply">Material Supply</option>
                     <option value="Installation">Installation</option>
                     <option value="EB Process">EB Process</option>
                     <option value="Documents">Documents</option>
                   </select>
-                  <small class="text-muted mt-2 d-block" *ngIf="isEditMode">
-                    <i class="bi bi-lock-fill me-1"></i>Non-editable. Milestone execution stage is locked.
-                  </small>
-                  <small class="text-muted mt-2 d-block" *ngIf="!isEditMode">
-                    Initial status defaults to Pending (Not Started).
+                  <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-check2-circle me-1 text-success"></i>Editable mode enabled for project execution stage.
                   </small>
                 </div>
               </div>
 
               <!-- Handover & Warranty Checkboxes Card -->
               <div class="col-md-6">
-                <div class="card p-3 border rounded-3 h-100 shadow-sm bg-light">
+                <div class="card p-3 border rounded-3 h-100 shadow-sm">
                   <label class="form-label fw-bold text-dark small mb-2 d-flex justify-content-between align-items-center">
                     <span>Handover &amp; Warranty Configuration</span>
-                    <span class="badge bg-light text-secondary border"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+                    <span class="badge bg-success-subtle text-success border"><i class="bi bi-pencil-square me-1"></i>Editable</span>
                   </label>
                   <div class="d-flex flex-column gap-2 mt-1">
-                    <div class="form-check" title="Non-editable in project record">
+                    <div class="form-check" title="Check to add warranty completion tick">
                       <input class="form-check-input" 
                              type="checkbox" 
                              id="modal-warranty" 
                              [(ngModel)]="projectForm.warranty" 
-                             name="modalWarranty"
-                             [disabled]="true">
-                      <label class="form-check-label small fw-semibold text-muted" for="modal-warranty">
+                             name="modalWarranty">
+                      <label class="form-check-label small fw-semibold text-dark" for="modal-warranty">
                         Warranty (+16.67%)
                       </label>
                     </div>
-                    <div class="form-check" title="Non-editable in project record">
+                    <div class="form-check" title="Check to mark project as handed over">
                       <input class="form-check-input" 
                              type="checkbox" 
                              id="modal-handedOver" 
                              [(ngModel)]="projectForm.handedOver" 
-                             name="modalHandedOver"
-                             [disabled]="true">
-                      <label class="form-check-label small fw-semibold text-muted" for="modal-handedOver">
+                             name="modalHandedOver">
+                      <label class="form-check-label small fw-semibold text-dark" for="modal-handedOver">
                         Handed Over (+16.67%)
                       </label>
                     </div>
                   </div>
-                  <small class="text-muted mt-2 d-block" *ngIf="isEditMode">
-                    <i class="bi bi-lock-fill me-1"></i>Non-editable. Handover and warranty settings are locked.
-                  </small>
-                  <small class="text-muted mt-2 d-block" *ngIf="!isEditMode">
-                    <i class="bi bi-lock-fill me-1"></i>Handover and warranty initialize as Pending.
+                  <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-check2-circle me-1 text-success"></i>Editable mode enabled for handover &amp; warranty status.
                   </small>
                 </div>
               </div>
@@ -932,13 +918,229 @@
             </div>
             </div>
 
+            <!-- TAB 5: Bill of Materials (BOM) & Cost Sheet -->
+            <div *ngIf="modalTab === 'bom'" class="row g-3">
+              <!-- KPI Summary Banner -->
+              <div class="col-12">
+                <div class="p-3 bg-light rounded-3 border d-flex flex-wrap justify-content-between align-items-center gap-3">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="p-2 bg-primary-subtle text-primary rounded-3">
+                      <i class="bi bi-calculator fs-4"></i>
+                    </div>
+                    <div>
+                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Total Estimated BOM Cost</div>
+                      <div class="fs-5 fw-bold text-dark font-mono">₹ {{ totalBomEstimatedCost | number:'1.2-2' }}</div>
+                    </div>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="p-2 bg-warning-subtle text-warning rounded-3">
+                      <i class="bi bi-receipt fs-4"></i>
+                    </div>
+                    <div>
+                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Allocated Actual Expenses</div>
+                      <div class="fs-5 fw-bold text-danger font-mono">₹ {{ totalBomAllocatedExpenses | number:'1.2-2' }}</div>
+                    </div>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="p-2 bg-success-subtle text-success rounded-3">
+                      <i class="bi bi-piggy-bank fs-4"></i>
+                    </div>
+                    <div>
+                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Budget Variance / Balance</div>
+                      <div class="fs-5 fw-bold font-mono" [class.text-success]="(totalBomEstimatedCost - totalBomAllocatedExpenses) >= 0" [class.text-danger]="(totalBomEstimatedCost - totalBomAllocatedExpenses) < 0">
+                        ₹ {{ (totalBomEstimatedCost - totalBomAllocatedExpenses) | number:'1.2-2' }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button type="button" class="btn btn-sm btn-primary fw-semibold d-inline-flex align-items-center gap-1.5 shadow-sm" (click)="addBomItem()">
+                    <i class="bi bi-plus-circle-fill"></i> Add Material Row
+                  </button>
+                </div>
+              </div>
+
+              <!-- Site Value vs BOM Warning Banner -->
+              <div class="col-12" *ngIf="projectForm.siteValue && totalBomEstimatedCost > projectForm.siteValue">
+                <div class="alert alert-warning border-warning shadow-sm d-flex align-items-center gap-2 mb-0 rounded-3">
+                  <i class="bi bi-exclamation-triangle-fill fs-5 text-warning flex-shrink-0"></i>
+                  <div>
+                    <strong class="text-dark">⚠️ Budget Exceeded Warning: Total Estimated BOM Cost (₹ {{ totalBomEstimatedCost | number:'1.2-2' }}) exceeds Agreement Site Value (₹ {{ projectForm.siteValue | number:'1.2-2' }})!</strong>
+                    <div class="small text-secondary">The procurement budget exceeds the agreed client site value by ₹ {{ (totalBomEstimatedCost - projectForm.siteValue) | number:'1.2-2' }}. Please adjust quantities or unit rates.</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Expense Allocation Sources Breakdown -->
+              <div class="col-12">
+                <div class="d-flex flex-wrap align-items-center gap-2 p-2 bg-white border rounded-3 small">
+                  <span class="fw-bold text-secondary me-2"><i class="bi bi-pie-chart-fill me-1"></i>Incurred Source Breakdown:</span>
+                  <span class="badge bg-primary-subtle text-primary border">PO: ₹ {{ bomExpenseBreakdown.PO | number:'1.0-0' }}</span>
+                  <span class="badge bg-info-subtle text-info border">WO: ₹ {{ bomExpenseBreakdown.WO | number:'1.0-0' }}</span>
+                  <span class="badge bg-warning-subtle text-warning border">Petty Cash: ₹ {{ bomExpenseBreakdown.PettyCash | number:'1.0-0' }}</span>
+                  <span class="badge bg-secondary-subtle text-secondary border">Accounts: ₹ {{ bomExpenseBreakdown.Accounts | number:'1.0-0' }}</span>
+                  <span class="badge bg-danger-subtle text-danger border">Warehouse: ₹ {{ bomExpenseBreakdown.Warehouse | number:'1.0-0' }}</span>
+                </div>
+              </div>
+
+              <!-- BOM Items Interactive Table -->
+              <div class="col-12">
+                <div class="table-responsive border rounded-3">
+                  <table class="table table-hover align-middle mb-0 custom-table">
+                    <thead class="table-light text-uppercase fs-8 text-secondary">
+                      <tr>
+                        <th style="width: 35px;" class="text-center">#</th>
+                        <th style="min-width: 140px;">Material Group</th>
+                        <th style="min-width: 140px;">Type / Sub-Group</th>
+                        <th style="min-width: 170px;">Specification / Size</th>
+                        <th style="min-width: 90px;">UOM</th>
+                        <th class="text-end" style="min-width: 80px;">QTY</th>
+                        <th class="text-end" style="min-width: 100px;">Unit Rate (₹)</th>
+                        <th class="text-end" style="min-width: 110px;">Est. Cost (₹)</th>
+                        <th class="text-center" style="width: 50px;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody *ngFor="let item of formBomItems; let i = index">
+                      <tr class="cursor-pointer" [class.table-active]="expandedBomRowIndex === i">
+                        <!-- # & Row Expand Toggle -->
+                        <td class="text-center" (click)="toggleBomRowExpand(i)" title="Click to view/edit Actual Expenses & Bill Ref">
+                          <i class="bi me-1 text-primary" [ngClass]="expandedBomRowIndex === i ? 'bi-chevron-down-circle-fill' : 'bi-chevron-right-circle'"></i>
+                        </td>
+
+                        <!-- Group Select -->
+                        <td (click)="$event.stopPropagation()">
+                          <select class="form-select form-select-sm" [(ngModel)]="item.materialGroup" (change)="onMaterialGroupChange(item)" name="grp_{{i}}">
+                            <option *ngFor="let g of materialGroupsList" [value]="g.group">{{ g.group }}</option>
+                          </select>
+                        </td>
+
+                        <!-- Category Type Select -->
+                        <td (click)="$event.stopPropagation()">
+                          <select class="form-select form-select-sm font-semibold text-primary" [(ngModel)]="item.categoryType" (change)="onCategoryTypeChange(item)" name="cat_{{i}}">
+                            <option *ngFor="let t of getAvailableCategoryTypes(item.materialGroup)" [value]="t">{{ t }}</option>
+                          </select>
+                        </td>
+
+                        <!-- Specification Select Dropdown -->
+                        <td (click)="$event.stopPropagation()">
+                          <select class="form-select form-select-sm font-semibold text-dark" 
+                                  style="min-width: 130px;"
+                                  [(ngModel)]="item.specification" 
+                                  (change)="recalculateBomItem(item)"
+                                  name="spec_{{i}}">
+                            <option *ngFor="let s of getAvailableSpecsForType(item.materialGroup, item.categoryType || '')" [value]="s">
+                              {{ s }}
+                            </option>
+                            <option *ngIf="item.specification && !getAvailableSpecsForType(item.materialGroup, item.categoryType || '').includes(item.specification)" [value]="item.specification">
+                              {{ item.specification }}
+                            </option>
+                          </select>
+                        </td>
+
+                        <!-- UOM Select -->
+                        <td (click)="$event.stopPropagation()">
+                          <select class="form-select form-select-sm" style="min-width: 90px;" [(ngModel)]="item.uom" name="uom_{{i}}">
+                            <option *ngFor="let u of uomOptions" [value]="u">{{ u }}</option>
+                          </select>
+                        </td>
+
+                        <!-- Planned Qty -->
+                        <td (click)="$event.stopPropagation()">
+                          <input type="number" class="form-control form-control-sm text-end font-mono" [(ngModel)]="item.plannedQty" (input)="recalculateBomItem(item)" name="qty_{{i}}" min="0">
+                        </td>
+
+                        <!-- Unit Rate -->
+                        <td (click)="$event.stopPropagation()">
+                          <input type="number" class="form-control form-control-sm text-end font-mono" [(ngModel)]="item.unitRate" (input)="recalculateBomItem(item)" name="rate_{{i}}" min="0">
+                        </td>
+
+                        <!-- Est Total Cost -->
+                        <td class="text-end fw-bold font-mono text-dark" (click)="toggleBomRowExpand(i)">
+                          ₹ {{ item.estimatedTotalCost | number:'1.2-2' }}
+                        </td>
+
+                        <!-- Action -->
+                        <td class="text-center" (click)="$event.stopPropagation()">
+                          <button type="button" class="btn btn-sm btn-outline-danger p-1 border-0" (click)="removeBomItem(i)" title="Remove item">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+
+                      <!-- EXPANDABLE SUB-PANEL FOR ACTUAL EXPENSES, SOURCE, BILL REF & CHECKPOINTS -->
+                      <tr *ngIf="expandedBomRowIndex === i" class="bg-light">
+                        <td colspan="9" class="p-3 bg-light-subtle border-bottom shadow-inner">
+                          <div class="card border-primary border-opacity-25 rounded-3 p-3 bg-white shadow-xs">
+                            <div class="d-flex align-items-center justify-content-between mb-2 border-bottom pb-2">
+                              <span class="fw-bold text-dark d-flex align-items-center gap-1.5" style="font-size: 0.85rem;">
+                                <i class="bi bi-receipt text-primary"></i> Actual Expenses &amp; Warehouse Distribution Tracking for {{ item.materialGroup }} ({{ item.specification }})
+                              </span>
+                              <span class="badge" [ngClass]="isBomBudgetExceeded(item) ? 'bg-danger text-white' : 'bg-success-subtle text-success border'">
+                                {{ isBomBudgetExceeded(item) ? '⚠️ Exceeds BOM Budget' : '✓ Within Budget' }}
+                              </span>
+                            </div>
+
+                            <!-- Budget Warning Checkpoint Alert -->
+                            <div *ngIf="isBomBudgetExceeded(item)" class="alert alert-warning py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+                              <i class="bi bi-exclamation-triangle-fill text-warning fs-6"></i>
+                              <span>{{ getBomExpenseWarningMessage(item) }}</span>
+                            </div>
+
+                            <div class="row g-3">
+                              <!-- Actual Expenses (Read-Only auto-loaded from Client Expenses) -->
+                              <div class="col-md-3">
+                                <label class="form-label fs-8 text-secondary mb-1">Actual Expenses (₹) <span class="badge bg-light text-muted border font-mono">Auto-Ledger</span></label>
+                                <input type="number" class="form-control form-control-sm text-end text-danger font-mono fw-bold bg-light" [(ngModel)]="item.allocatedExpenseAmount" readonly name="exp_{{i}}" min="0" placeholder="0" title="Auto-loaded from Client Expenses ledger">
+                              </div>
+
+                              <!-- Expense Source (Read-Only) -->
+                              <div class="col-md-3">
+                                <label class="form-label fs-8 text-secondary mb-1">Source <span class="badge bg-light text-muted border font-mono">Auto-Ledger</span></label>
+                                <input type="text" class="form-control form-control-sm fw-semibold bg-light" [value]="item.expenseSource || 'Warehouse'" readonly name="src_{{i}}" title="Auto-loaded from Client Expenses ledger">
+                              </div>
+
+                              <!-- Bill / Invoice Ref with Tracking Link -->
+                              <div class="col-md-4">
+                                <label class="form-label fs-8 text-secondary mb-1">Bill / Invoice Ref</label>
+                                <div class="input-group input-group-sm">
+                                  <input type="text" class="form-control font-mono bg-light" placeholder="e.g. INV-9902" [(ngModel)]="item.invoiceRef" readonly name="inv_{{i}}">
+                                  <button type="button" class="btn btn-outline-primary px-2" (click)="trackBillRef(item)" title="Track PO/WO or Warehouse Bill Expenses">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i> Track Bill
+                                  </button>
+                                </div>
+                              </div>
+
+                              <!-- Warehouse Drawn Units -->
+                              <div class="col-md-2">
+                                <label class="form-label fs-8 text-secondary mb-1">Units Drawn</label>
+                                <input type="number" class="form-control form-control-sm font-mono text-center" [(ngModel)]="item.warehouseUnitsDrawn" name="wdrawn_{{i}}" min="0" placeholder="e.g. 100">
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+
+                    <tbody *ngIf="formBomItems.length === 0">
+                      <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">
+                          <i class="bi bi-info-circle me-1"></i> No materials added to Bill of Materials yet. Click <strong>Add Material Row</strong> to allocate materials & track client expenses.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
             <!-- Form Navigation & Submit -->
             <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
               <div>
-                <button type="button" class="btn btn-outline-secondary btn-sm me-2" *ngIf="modalTab !== 'basic'" (click)="modalTab = modalTab === 'milestones' ? 'finance' : (modalTab === 'finance' ? 'config' : 'basic')">
+                <button type="button" class="btn btn-outline-secondary btn-sm me-2" *ngIf="modalTab !== 'basic'" (click)="modalTab = modalTab === 'bom' ? 'milestones' : (modalTab === 'milestones' ? 'finance' : (modalTab === 'finance' ? 'config' : 'basic'))">
                   <i class="bi bi-arrow-left me-1"></i> Previous Step
                 </button>
-                <button type="button" class="btn btn-outline-primary btn-sm" *ngIf="modalTab !== 'milestones'" (click)="modalTab = modalTab === 'basic' ? 'config' : (modalTab === 'config' ? 'finance' : 'milestones')">
+                <button type="button" class="btn btn-outline-primary btn-sm" *ngIf="modalTab !== 'bom'" (click)="modalTab = modalTab === 'basic' ? 'config' : (modalTab === 'config' ? 'finance' : (modalTab === 'finance' ? 'milestones' : 'bom'))">
                   Next Step <i class="bi bi-arrow-right ms-1"></i>
                 </button>
               </div>
@@ -1045,7 +1247,8 @@
                 <div class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Received Payment</div>
                 <div class="fs-4 fw-bold text-success font-mono mt-1">₹{{ selectedProject.received | number:'1.0-0' }}</div>
                 <div class="small text-muted text-truncate mt-1">
-                  Due: <span class="fw-bold font-mono" [ngClass]="selectedProject.due! > 0 ? 'text-danger' : 'text-success'">₹{{ selectedProject.due | number:'1.0-0' }}</span>
+                  Status: <span class="badge" [ngClass]="getPaymentStatusInfo(selectedProject).isPaid ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'">{{ getPaymentStatusInfo(selectedProject).label }}</span>
+                  <span *ngIf="!getPaymentStatusInfo(selectedProject).isPaid" class="ms-1 fw-bold font-mono text-danger">(Due: ₹{{ getPaymentStatusInfo(selectedProject).remainingDue | number:'1.0-0' }})</span>
                 </div>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule, NavigationEnd } from '@angular/router';
 import { SalesService } from '../../services/sales.service';
 import { ProjectService } from '../../services/project.service';
 import { MasterListService } from '../../services/master-list.service';
@@ -105,7 +105,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   // Awarded Site Project Creation Modal State
   isCreateProjectModalOpen = false;
   isSubmittingProject = false;
-  awardProjectForm: Partial<Project> = this.getEmptyProject();
+  awardProjectForm: Partial<Project> = {};
 
   // Dynamic Master List Option Arrays (Loaded from MasterListService)
   masterSiteTypes: string[] = ['Residential', 'Commercial', 'Industrial', 'Ground Mount', 'Car Port', 'Floating', 'Residential Common'];
@@ -116,11 +116,11 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   orderByOptions: string[] = ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH'];
 
   getDefaultSystemType(): string {
-    const found = this.masterSystemTypes.find(t => {
+    const found = (this.masterSystemTypes || []).find(t => {
       const norm = (t || '').toLowerCase().replace(/[\s_-]+/g, '');
       return norm === 'ongrid' || norm === 'ongird';
     });
-    return found || this.masterSystemTypes[0] || 'On Grid';
+    return found || (this.masterSystemTypes && this.masterSystemTypes[0]) || 'On Grid';
   }
 
   // Data
@@ -146,14 +146,18 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   isEditModalOpen = false;
   isDeleteModalOpen = false;
 
-  leadForm: Partial<SalesLead> = this.getEmptyLead();
+  leadForm: Partial<SalesLead> = {};
   leadToEdit: SalesLead | null = null;
   leadToDelete: SalesLead | null = null;
 
   ngOnInit(): void {
+    this.awardProjectForm = this.getEmptyProject();
+    this.leadForm = this.getEmptyLead();
     this.checkCurrentTab();
-    this.router.events.subscribe(() => {
-      this.checkCurrentTab();
+    this.router.events.subscribe(event => {
+      if (event instanceof NavigationEnd) {
+        this.checkCurrentTab();
+      }
     });
     this.loadLeads();
     this.loadMasterListOptions();
@@ -161,93 +165,99 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    this.updateTableWidth();
-    if (typeof window !== 'undefined' && typeof ResizeObserver !== 'undefined') {
-      this.resizeObserver = new ResizeObserver(() => {
-        this.updateTableWidth();
-      });
-      if (this.tableWrapper?.nativeElement) {
-        this.resizeObserver.observe(this.tableWrapper.nativeElement);
+    try {
+      this.updateTableWidth();
+      if (typeof window !== 'undefined' && typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver(() => {
+          try {
+            this.updateTableWidth();
+          } catch (e) {}
+        });
+        if (this.tableWrapper && this.tableWrapper.nativeElement) {
+          this.resizeObserver.observe(this.tableWrapper.nativeElement);
+        }
       }
-      if (this.dataTableEl?.nativeElement) {
-        this.resizeObserver.observe(this.dataTableEl.nativeElement);
-      }
-      if (this.dataTableOppEl?.nativeElement) {
-        this.resizeObserver.observe(this.dataTableOppEl.nativeElement);
-      }
+    } catch (err) {
+      console.warn('ResizeObserver error:', err);
     }
   }
 
   ngOnDestroy(): void {
-    this.resizeObserver?.disconnect();
+    try {
+      this.resizeObserver?.disconnect();
+    } catch (e) {}
   }
 
   updateTableWidth(): void {
-    setTimeout(() => {
-      const currentTable = this.activeTab === 'leads' ? this.dataTableEl?.nativeElement : this.dataTableOppEl?.nativeElement;
-      if (currentTable && this.tableWrapper?.nativeElement) {
-        this.tableScrollWidth = currentTable.scrollWidth;
-        this.tableClientWidth = this.tableWrapper.nativeElement.clientWidth;
-        if (this.topScrollWrapper?.nativeElement) {
-          this.topScrollWrapper.nativeElement.scrollLeft = this.tableWrapper.nativeElement.scrollLeft;
+    try {
+      setTimeout(() => {
+        const currentTable = this.activeTab === 'leads' ? this.dataTableEl?.nativeElement : this.dataTableOppEl?.nativeElement;
+        if (currentTable && this.tableWrapper?.nativeElement) {
+          this.tableScrollWidth = currentTable.scrollWidth || 0;
+          this.tableClientWidth = this.tableWrapper.nativeElement.clientWidth || 0;
+          if (this.topScrollWrapper?.nativeElement) {
+            this.topScrollWrapper.nativeElement.scrollLeft = this.tableWrapper.nativeElement.scrollLeft;
+          }
+          this.cdr.markForCheck();
         }
-        this.cdr.markForCheck();
-      }
-    }, 50);
+      }, 50);
+    } catch (e) {}
   }
 
   onTopScroll(): void {
-    if (this.isSyncingBottom) return;
-    this.isSyncingTop = true;
-    if (this.tableWrapper?.nativeElement && this.topScrollWrapper?.nativeElement) {
-      this.tableWrapper.nativeElement.scrollLeft = this.topScrollWrapper.nativeElement.scrollLeft;
-    }
-    requestAnimationFrame(() => {
-      this.isSyncingTop = false;
-    });
+    try {
+      if (this.isSyncingBottom) return;
+      this.isSyncingTop = true;
+      if (this.tableWrapper?.nativeElement && this.topScrollWrapper?.nativeElement) {
+        this.tableWrapper.nativeElement.scrollLeft = this.topScrollWrapper.nativeElement.scrollLeft;
+      }
+      requestAnimationFrame(() => {
+        this.isSyncingTop = false;
+      });
+    } catch (e) {}
   }
 
   onTableScroll(): void {
-    if (this.isSyncingTop) return;
-    this.isSyncingBottom = true;
-    if (this.topScrollWrapper?.nativeElement && this.tableWrapper?.nativeElement) {
-      this.topScrollWrapper.nativeElement.scrollLeft = this.tableWrapper.nativeElement.scrollLeft;
-    }
-    requestAnimationFrame(() => {
-      this.isSyncingBottom = false;
-    });
+    try {
+      if (this.isSyncingTop) return;
+      this.isSyncingBottom = true;
+      if (this.topScrollWrapper?.nativeElement && this.tableWrapper?.nativeElement) {
+        this.topScrollWrapper.nativeElement.scrollLeft = this.tableWrapper.nativeElement.scrollLeft;
+      }
+      requestAnimationFrame(() => {
+        this.isSyncingBottom = false;
+      });
+    } catch (e) {}
   }
 
   private checkCurrentTab(): void {
-    const url = this.router.url;
-    if (url.includes('dashboard')) {
-      this.activeTab = 'dashboard';
-      this.loadDashboardWeeklyData();
-    } else if (url.includes('oppurtunity') || url.includes('opportunity')) {
-      this.activeTab = 'opportunity';
-    } else {
-      this.activeTab = 'leads';
-    }
-    this.cdr.markForCheck();
-    this.updateTableWidth();
+    try {
+      const url = (this.router.url || (typeof window !== 'undefined' ? window.location.pathname : '')).toLowerCase();
+      if (url.includes('/sales/dashboard') || url.endsWith('/dashboard')) {
+        this.activeTab = 'dashboard';
+        this.loadDashboardWeeklyData();
+      } else if (url.includes('oppurtunity') || url.includes('opportunity')) {
+        this.activeTab = 'opportunity';
+      } else {
+        this.activeTab = 'leads';
+      }
+      this.cdr.markForCheck();
+      this.updateTableWidth();
+    } catch (e) {}
   }
 
   setTab(tab: 'leads' | 'opportunity' | 'dashboard'): void {
-    this.activeTab = tab;
-    if (tab === 'dashboard') {
-      this.router.navigate(['/sales/dashboard']);
-      this.loadDashboardWeeklyData();
-    } else {
-      this.router.navigate([tab === 'opportunity' ? '/sales/oppurtunity' : '/sales/leads']);
-    }
-    this.cdr.markForCheck();
-    this.updateTableWidth();
-    setTimeout(() => {
-      if (this.resizeObserver) {
-        if (this.dataTableEl?.nativeElement) this.resizeObserver.observe(this.dataTableEl.nativeElement);
-        if (this.dataTableOppEl?.nativeElement) this.resizeObserver.observe(this.dataTableOppEl.nativeElement);
+    try {
+      this.activeTab = tab;
+      if (tab === 'dashboard') {
+        this.router.navigate(['/sales/dashboard']);
+        this.loadDashboardWeeklyData();
+      } else {
+        this.router.navigate([tab === 'opportunity' ? '/sales/oppurtunity' : '/sales/leads']);
       }
-    }, 100);
+      this.cdr.markForCheck();
+      this.updateTableWidth();
+    } catch (e) {}
   }
 
   canViewSalesDashboard(): boolean {
@@ -625,7 +635,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.salesService.getLeads().subscribe({
       next: (res) => {
-        if (res.success) {
+        if (res.success && res.data) {
           this.allLeads = res.data;
         }
         this.loading = false;
@@ -634,8 +644,8 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error loading leads:', err);
-        this.showToast('Failed to load leads from server.', 'danger');
         this.loading = false;
+        this.updateTableWidth();
         this.cdr.markForCheck();
       }
     });

@@ -358,8 +358,108 @@
             </div>
           </div>
 
-          <!-- 2. Dynamic Descriptions Section (Add / Edit / Delete Options) -->
-          <div class="bg-white p-3 rounded-3 border shadow-xs">
+          <!-- 2A. Hierarchical BOM Material Specifications Section -->
+          <div class="bg-white p-3 rounded-3 border shadow-xs mb-3" *ngIf="isBomMaterialsMode">
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
+              <div>
+                <h6 class="fw-bold text-dark mb-0 text-uppercase tracking-wider" style="font-size: 0.84rem;">
+                  <i class="bi bi-diagram-3-fill text-primary me-1"></i> BOM MATERIAL SPECIFICATIONS &amp; RATINGS
+                </h6>
+                <small class="text-muted" style="font-size: 0.74rem;">
+                  Select a Material Group below to manage its AC/DC types, sizes, and default UOM stored in database table.
+                </small>
+              </div>
+              <button type="button" 
+                      class="btn btn-sm btn-outline-success fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1.5 rounded-2"
+                      (click)="addBomSpecRow()">
+                <i class="bi bi-plus-lg"></i> Add Spec Row
+              </button>
+            </div>
+
+            <!-- Material Group Selector Dropdown -->
+            <div class="mb-3 p-2 bg-light rounded-3 border">
+              <label class="form-label small fw-bold text-dark mb-1">Select Material Group to Edit Specifications:</label>
+              <select class="form-select form-select-sm fw-bold text-primary border-primary shadow-xs"
+                      [(ngModel)]="selectedBomGroup"
+                      (change)="onBomGroupChange()"
+                      name="selectedBomGroup">
+                <option *ngFor="let grp of bomMaterialGroups" [value]="grp">
+                  📦 {{ grp }} ({{ (allBomGroupItems[grp] || []).length }} specifications configured)
+                </option>
+              </select>
+            </div>
+
+            <!-- Specs Table -->
+            <div class="table-responsive border rounded-3">
+              <table class="table table-hover table-sm align-middle mb-0 custom-table">
+                <thead class="table-light text-uppercase fs-8 text-secondary">
+                  <tr>
+                    <th style="width: 40px;" class="text-center">#</th>
+                    <th style="width: 180px;">Category / Type (e.g. AC / DC)</th>
+                    <th>Specification / Rating</th>
+                    <th style="width: 120px;">Default UOM</th>
+                    <th style="width: 110px;" class="text-end">Est. Rate (₹)</th>
+                    <th style="width: 50px;" class="text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of bomGroupSpecRows; let idx = index">
+                    <td class="text-center font-mono text-muted small fw-bold">{{ idx + 1 }}</td>
+                    <td>
+                      <input type="text" 
+                             class="form-control form-control-sm font-medium" 
+                             placeholder="e.g. AC Cable / DC Cable / Mono PERC..."
+                             [(ngModel)]="row.categoryType" 
+                             [name]="'bomCat_' + idx" required>
+                    </td>
+                    <td>
+                      <input type="text" 
+                             class="form-control form-control-sm font-mono fw-bold text-dark" 
+                             placeholder="e.g. 4Sqmm, 6Sqmm, 540W..."
+                             [(ngModel)]="row.specification" 
+                             [name]="'bomSpec_' + idx" required>
+                    </td>
+                    <td>
+                      <select class="form-select form-select-sm" [(ngModel)]="row.defaultUom" [name]="'bomUom_' + idx">
+                        <option value="Meter">Meter</option>
+                        <option value="Nos">Nos</option>
+                        <option value="Sets">Sets</option>
+                        <option value="Kg">Kg</option>
+                        <option value="Pcs">Pcs</option>
+                        <option value="Pair">Pair</option>
+                        <option value="Box">Box</option>
+                        <option value="Coil">Coil</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="number" 
+                             class="form-control form-control-sm text-end font-mono" 
+                             placeholder="0"
+                             [(ngModel)]="row.unitRate" 
+                             [name]="'bomRate_' + idx" min="0">
+                    </td>
+                    <td class="text-center">
+                      <button type="button" 
+                              class="btn btn-sm btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center rounded-2"
+                              style="width: 28px; height: 28px;"
+                              (click)="removeBomSpecRow(idx)" 
+                              title="Remove specification">
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                  <tr *ngIf="bomGroupSpecRows.length === 0">
+                    <td colspan="6" class="text-center py-3 text-muted">
+                      No specifications added for <strong>{{ selectedBomGroup }}</strong>. Click <strong>+ Add Spec Row</strong> to create one.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 2B. Standard Dynamic Descriptions Section (Add / Edit / Delete Options for non-BOM lists) -->
+          <div class="bg-white p-3 rounded-3 border shadow-xs" *ngIf="!isBomMaterialsMode">
             <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
               <div>
                 <h6 class="fw-bold text-dark mb-0 text-uppercase tracking-wider" style="font-size: 0.84rem;">

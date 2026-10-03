@@ -17,6 +17,7 @@ const { VendorMaterialRate } = require('./models/VendorMaterialRate');
 const { Indent, IndentMaterial, WarehouseMaterial, GatePass, GatePassItem, CartItem } = require('./models/Inventory');
 const { MasterList, MasterListItem } = require('./models/MasterList');
 const { SitePlan } = require('./models/SitePlan');
+const { BomMaterialMaster } = require('./models/BomMaterialMaster');
 
 const projectRoutes = require('./routes/projectRoutes');
 const ledgerRoutes = require('./routes/ledgerRoutes');
@@ -29,6 +30,7 @@ const masterListRoutes = require('./routes/masterListRoutes');
 const sitePlanRoutes = require('./routes/sitePlanRoutes');
 const vendorRoutes = require('./routes/vendorRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const bomMaterialRoutes = require('./routes/bomMaterialRoutes');
 const { initReminderScheduler } = require('./services/reminderScheduler');
 const { seedLedgersIfEmpty } = require('./seedLedgers');
 const { seedInitialLeadsIfEmpty } = require('./controllers/salesController');
@@ -37,6 +39,7 @@ const { seedCampaignsIfEmpty } = require('./controllers/campaignController');
 const { seedOfficeIfEmpty } = require('./controllers/officeController');
 const { seedInventoryIfEmpty } = require('./controllers/inventoryController');
 const { seedMasterListsIfEmpty } = require('./controllers/masterListController');
+const { seedBomMaterialsIfEmpty } = require('./controllers/bomMaterialController');
 
 const app = express();
 
@@ -65,6 +68,7 @@ app.use('/api/master-lists', masterListRoutes);
 app.use('/api/site-plans', sitePlanRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/bom-materials', bomMaterialRoutes);
 
 const PORT = process.env.PORT || 2000;
 
@@ -118,7 +122,7 @@ async function seedProjectsIfEmpty() {
 async function startServer() {
     try {
         await Db();
-        await conDb.sync();
+        await conDb.sync({ alter: true });
         console.log('Database models synced successfully with MySQL.');
 
         await seedProjectsIfEmpty();
@@ -129,6 +133,7 @@ async function startServer() {
         await seedOfficeIfEmpty();
         await seedInventoryIfEmpty();
         await seedMasterListsIfEmpty();
+        await seedBomMaterialsIfEmpty();
 
         initReminderScheduler();
 

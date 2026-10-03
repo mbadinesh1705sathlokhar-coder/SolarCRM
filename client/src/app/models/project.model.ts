@@ -1,3 +1,19 @@
+export interface BomItem {
+  id?: string;
+  materialGroup: string;       // e.g. Cables, Panels, MC4 Connector, Lugs, Bucket, Inverter, Structure
+  categoryType?: string;       // e.g. AC Cable, DC Cable, Mono PERC, TOPCon, On Grid, Hybrid, Cu Lug, Al Lug
+  specification: string;       // e.g. 4Sqmm, 6Sqmm, 540W, 580W, 3kW, 5kW
+  uom: string;                 // e.g. Meter, Sets, Nos, Kg, Pcs
+  plannedQty: number;
+  unitRate: number;
+  estimatedTotalCost: number;
+  allocatedExpenseAmount: number;
+  expenseSource?: 'PO' | 'WO' | 'Petty Cash' | 'Accounts' | 'Warehouse' | 'Other' | string;
+  invoiceRef?: string;
+  warehouseUnitsDrawn?: number;
+  remarks?: string;
+}
+
 export interface Project {
   id?: number;
   awardedDate: string;
@@ -31,6 +47,7 @@ export interface Project {
   completedPercentage?: number;
   workInProgressPercentage?: number;
   checkedCount?: number;
+  bomItems?: BomItem[] | string;
   createdAt?: string;
   updatedAt?: string;
 }

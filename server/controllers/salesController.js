@@ -1,11 +1,158 @@
 const { SalesLead } = require('../models/SalesLead');
 const { Op } = require('sequelize');
 
+const sampleLeadsData = [
+    {
+        leadId: 'LEAD-1001',
+        leadDate: '15/09/2026',
+        leadName: 'Anand Kumar',
+        leadContact: '9840192834',
+        leadEmail: 'anand.kumar@gmail.com',
+        leadLocation: 'Anna Nagar, Chennai',
+        leadStatus: 'New',
+        leadHandler: 'Renuka',
+        leadRemarks: 'Requested 5kW On Grid Rooftop Solar quote',
+        siteType: 'Residential',
+        systemType: 'Ongrid',
+        siteCategory: 'Rooftop',
+        saleType: 'B2C',
+        clientType: 'Individual'
+    },
+    {
+        leadId: 'LEAD-1002',
+        leadDate: '18/09/2026',
+        leadName: 'Venkatesh Textiles',
+        leadContact: '9444012987',
+        leadEmail: 'contact@venkateshtextiles.com',
+        leadLocation: 'T Nagar, Chennai',
+        leadStatus: 'Qualify',
+        leadHandler: 'Daya',
+        leadRemarks: 'Site visit completed, 25kW Commercial system proposal sent',
+        siteType: 'Commercial',
+        systemType: 'Ongrid',
+        siteCategory: 'Waree',
+        saleType: 'Direct B2B',
+        clientType: 'Company'
+    },
+    {
+        leadId: 'LEAD-1003',
+        leadDate: '20/09/2026',
+        leadName: 'Dr. Meenakshi Sundaram',
+        leadContact: '9884011223',
+        leadEmail: 'meenakshi.s@gmail.com',
+        leadLocation: 'Adyar, Chennai',
+        leadStatus: 'Site Visit Planned',
+        leadHandler: 'Sharath',
+        leadRemarks: 'Scheduled site survey for 10kW Hybrid system',
+        siteType: 'Residential',
+        systemType: 'Hybrid',
+        siteCategory: 'TATA SPG',
+        saleType: 'B2C',
+        clientType: 'Individual'
+    },
+    {
+        leadId: 'LEAD-1004',
+        leadDate: '22/09/2026',
+        leadName: 'Sri Balaji Apartments Owners Association',
+        leadContact: '9790123456',
+        leadEmail: 'balaji.assoc@gmail.com',
+        leadLocation: 'Velachery, Chennai',
+        leadStatus: 'Offer Letter Submitted',
+        leadHandler: 'K Karthikeyen',
+        leadRemarks: 'Detailed BOQ and 15kW Ongrid commercial proposal submitted',
+        siteType: 'Residential Common',
+        systemType: 'Ongrid',
+        siteCategory: 'Premier',
+        saleType: 'Direct B2B',
+        clientType: 'Association'
+    },
+    {
+        leadId: 'LEAD-1005',
+        leadDate: '25/09/2026',
+        leadName: 'Apex Precision Engineering Ltd',
+        leadContact: '9841098765',
+        leadEmail: 'procurement@apexprecision.in',
+        leadLocation: 'Ambattur Industrial Estate, Chennai',
+        leadStatus: 'Negotiation',
+        leadHandler: 'S Karthikeyen',
+        leadRemarks: '50kW Industrial solar plant contract under final review',
+        siteType: 'Industrial',
+        systemType: 'Ongrid',
+        siteCategory: 'Waree',
+        saleType: 'Direct B2B',
+        clientType: 'Company'
+    },
+    {
+        leadId: 'LEAD-1006',
+        leadDate: '28/09/2026',
+        leadName: 'Greenwood Villa Residency',
+        leadContact: '9940567890',
+        leadEmail: 'greenwood.residency@gmail.com',
+        leadLocation: 'ECR, Chennai',
+        leadStatus: 'Order Won',
+        leadHandler: 'Soundarajan',
+        leadRemarks: 'Order confirmed! Contract signed for 12kW Ongrid installation',
+        siteType: 'Residential',
+        systemType: 'Ongrid',
+        siteCategory: 'TATA SPG',
+        saleType: 'B2C',
+        clientType: 'Individual'
+    },
+    {
+        leadId: 'LEAD-1007',
+        leadDate: '29/09/2026',
+        leadName: 'Kaveri Hospital Annexe',
+        leadContact: '9840011998',
+        leadEmail: 'admin@kaverihospital.org',
+        leadLocation: 'Alwarpet, Chennai',
+        leadStatus: 'Site Visit Completed',
+        leadHandler: 'Renuka',
+        leadRemarks: 'Roof load bearing check completed, 30kW design ready',
+        siteType: 'Commercial',
+        systemType: 'Ongrid',
+        siteCategory: 'TATA SPG',
+        saleType: 'Direct B2B',
+        clientType: 'Institutional'
+    },
+    {
+        leadId: 'LEAD-1008',
+        leadDate: '30/09/2026',
+        leadName: 'Ramesh Krishnan',
+        leadContact: '9710982345',
+        leadEmail: 'ramesh.k@yahoo.com',
+        leadLocation: 'Tambaram, Chennai',
+        leadStatus: 'New',
+        leadHandler: 'Daya',
+        leadRemarks: 'Inquired via phone for 3kW Rooftop solar for home',
+        siteType: 'Residential',
+        systemType: 'Ongrid',
+        siteCategory: 'Other',
+        saleType: 'B2C',
+        clientType: 'Individual'
+    }
+];
+
+async function seedLeadsIfEmpty() {
+    try {
+        const count = await SalesLead.count();
+        if (count === 0) {
+            console.log('Seeding initial Sales Leads and Opportunities into database...');
+            for (const item of sampleLeadsData) {
+                await SalesLead.create(item);
+            }
+            console.log('Successfully seeded initial Sales Leads.');
+        }
+    } catch (err) {
+        console.error('Error auto-seeding sales leads:', err);
+    }
+}
+
 /**
  * Get all sales leads with optional filters
  */
 exports.getAllLeads = async (req, res) => {
     try {
+        await seedLeadsIfEmpty();
         const { status, handler, search } = req.query;
         const whereClause = {};
 
@@ -51,6 +198,7 @@ exports.getAllLeads = async (req, res) => {
  */
 exports.getOpportunities = async (req, res) => {
     try {
+        await seedLeadsIfEmpty();
         const { handler, search } = req.query;
         const whereClause = {
             leadStatus: { [Op.in]: [

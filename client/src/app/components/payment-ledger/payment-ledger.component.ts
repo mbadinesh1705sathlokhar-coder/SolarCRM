@@ -7,6 +7,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { RouterModule } from '@angular/router';
+import { MasterListService } from '../../services/master-list.service';
 import { AuthService } from '../../services/auth.service';
 
 interface FilterCheckOption {
@@ -23,8 +24,17 @@ interface FilterCheckOption {
 })
 export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy {
   private projectService = inject(ProjectService);
+  private masterListService = inject(MasterListService);
   private authService = inject(AuthService);
   private cdr = inject(ChangeDetectorRef);
+
+  closingValueTolerance = 100;
+
+  isFullyPaid(p: Partial<Project>): boolean {
+    const val = Number(p.siteValue) || 0;
+    const rec = Number(p.received) || 0;
+    return (val - rec) <= (this.closingValueTolerance || 100);
+  }
 
   paymentModeOptions: string[] = [
     'Bank Transfer / NEFT',
@@ -99,6 +109,22 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   ngOnInit(): void {
     this.loadProjects();
     this.loadPayments();
+    this.loadClosingTolerance();
+  }
+
+  loadClosingTolerance(): void {
+    this.masterListService.getAllLists().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const norm = (s: string) => (s || '').toLowerCase().replace(/[\s_-]+/g, '');
+          const match = res.data.find(l => norm(l.title) === 'closingvalue');
+          if (match && match.items && match.items.length > 0) {
+            const val = parseFloat(match.items[0]);
+            if (!isNaN(val) && val >= 0) this.closingValueTolerance = val;
+          }
+        }
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -244,9 +270,9 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       );
     }
     if (this.dueFilter === 'HasDue') {
-      list = list.filter(p => (Number(p.due) || 0) > 0);
+      list = list.filter(p => !this.isFullyPaid(p));
     } else if (this.dueFilter === 'Paid') {
-      list = list.filter(p => (Number(p.due) || 0) <= 0);
+      list = list.filter(p => this.isFullyPaid(p));
     }
 
     if (this.orderByFilter !== 'All') {
@@ -415,7 +441,7 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       siteCapacity: '5',
       siteValue: null as number | null,
       siteType: 'Residential',
-      systemType: 'On Gird',
+      systemType: 'On Grid',
       siteCategory: 'Tata SPG Order',
       clientType: 'Individual',
       saleType: 'B2C',
@@ -870,7 +896,7 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       c.siteValue ? Number(c.siteValue).toLocaleString('en-IN') : '0',
       c.received ? Number(c.received).toLocaleString('en-IN') : '0',
       c.due ? Number(c.due).toLocaleString('en-IN') : '0',
-      (Number(c.due) || 0) <= 0 ? 'Fully Paid' : 'Due Recoverable'
+      this.isFullyPaid(c) ? 'Fully Paid' : 'Due Recoverable'
     ]);
 
     autoTable(doc, {

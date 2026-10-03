@@ -51,6 +51,13 @@ export class WarehouseComponent implements OnInit {
   materialOptions: string[] = [...INVENTORY_MATERIALS];
   unitOptions: string[] = ['Nos', 'Meter', 'Set', 'Kg', 'Roll', 'Box', 'Litre'];
 
+  // BOM Material Master Integration
+  bomGroupMap: { [key: string]: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] } = {};
+  bomGroupKeys: string[] = ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware'];
+  selectedBomGroup: string = '';
+  availableBomSpecs: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] = [];
+  selectedBomSpec: string = '';
+
   // Real-time computed status getter for the active modal form
   get currentComputedStatus(): 'In Stock' | 'Low Stock' | 'Out of Stock' {
     return computeStockStatus(
@@ -75,6 +82,7 @@ export class WarehouseComponent implements OnInit {
   }
 
   loadMasterMaterials(): void {
+    // 1. Load legacy / standard materials list
     this.masterListService.getList('Materials').subscribe({
       next: (res) => {
         if (res.success && res.data?.items?.length > 0) {
@@ -83,6 +91,59 @@ export class WarehouseComponent implements OnInit {
         }
       }
     });
+
+    // 2. Load hierarchical BOM Material Groups & Specifications from Database
+    this.masterListService.getBomMaterials().subscribe({
+      next: (res) => {
+        if (res.success && res.grouped) {
+          this.bomGroupMap = res.grouped;
+          this.bomGroupKeys = Object.keys(res.grouped);
+
+          const bomSpecs: string[] = [];
+          Object.keys(res.grouped).forEach(grp => {
+            res.grouped[grp].forEach((item: any) => {
+              if (item.specification) {
+                bomSpecs.push(item.specification);
+                bomSpecs.push(`${grp} - ${item.specification}`);
+              }
+            });
+          });
+          this.materialOptions = Array.from(new Set([...bomSpecs, ...this.materialOptions]));
+          this.cdr.markForCheck();
+        }
+      }
+    });
+  }
+
+  onBomGroupSelect(groupName: string): void {
+    this.selectedBomGroup = groupName;
+    this.selectedBomSpec = '';
+    this.availableBomSpecs = this.bomGroupMap[groupName] || [];
+    if (groupName === 'Cables') {
+      this.materialForm.unit = 'Meter';
+    } else if (groupName === 'MC4 Connector') {
+      this.materialForm.unit = 'Nos';
+    } else if (['Panels', 'Inverters', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware'].includes(groupName)) {
+      this.materialForm.unit = 'Nos';
+    }
+    if (groupName) {
+      this.materialForm.materialName = groupName;
+      this.materialForm.description = groupName;
+    }
+    this.cdr.markForCheck();
+  }
+
+  onBomSpecSelect(specName: string): void {
+    this.selectedBomSpec = specName;
+    const specObj = this.availableBomSpecs.find(s => s.specification === specName);
+    if (specObj) {
+      this.materialForm.materialName = `${this.selectedBomGroup} - ${specObj.specification}`;
+      this.materialForm.unit = specObj.defaultUom || (this.selectedBomGroup === 'Cables' ? 'Meter' : 'Nos');
+      this.materialForm.description = specObj.categoryType && specObj.categoryType !== 'Standard'
+        ? `${this.selectedBomGroup} (${specObj.categoryType} - ${specObj.specification})`
+        : `${this.selectedBomGroup} - ${specObj.specification}`;
+    }
+    this.cdr.markForCheck();
   }
 
   loadMaterials(): void {
@@ -123,6 +184,9 @@ export class WarehouseComponent implements OnInit {
       return;
     }
     this.isEditMode = false;
+    this.selectedBomGroup = '';
+    this.selectedBomSpec = '';
+    this.availableBomSpecs = [];
     this.materialForm = this.getEmptyMaterial();
     this.isModalOpen = true;
   }
@@ -133,12 +197,31 @@ export class WarehouseComponent implements OnInit {
       return;
     }
     this.isEditMode = true;
+    this.selectedBomGroup = '';
+    this.selectedBomSpec = '';
+    this.availableBomSpecs = [];
+
+    // Try reverse matching group if materialName contains 'Group - Spec'
+    const nameParts = (item.materialName || '').split(' - ');
+    if (nameParts.length >= 2 && this.bomGroupKeys.includes(nameParts[0])) {
+      this.selectedBomGroup = nameParts[0];
+      this.availableBomSpecs = this.bomGroupMap[this.selectedBomGroup] || [];
+      const specPart = nameParts.slice(1).join(' - ');
+      const match = this.availableBomSpecs.find(s => s.specification === specPart);
+      if (match) {
+        this.selectedBomSpec = match.specification;
+      }
+    }
+
     this.materialForm = { ...item };
     this.isModalOpen = true;
   }
 
   closeModal(): void {
     this.isModalOpen = false;
+    this.selectedBomGroup = '';
+    this.selectedBomSpec = '';
+    this.availableBomSpecs = [];
     this.materialForm = this.getEmptyMaterial();
   }
 

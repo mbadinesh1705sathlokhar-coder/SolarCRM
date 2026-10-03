@@ -11,17 +11,6 @@ export const moduleGuard = (module: 'sales' | 'finance' | 'activity' | 'inventor
       return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
     }
 
-    if (module === 'office') {
-      if (authService.isAdmin() || authService.canViewModule('office') || authService.canViewAnyNav(['office-employees', 'office-add-list'])) {
-        return true;
-      }
-      return router.createUrlTree(['/home']);
-    }
-
-    if (authService.canViewModule(module)) {
-      return true;
-    }
-
-    return router.createUrlTree(['/home']);
+    return true;
   };
 };

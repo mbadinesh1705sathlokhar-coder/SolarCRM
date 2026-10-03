@@ -161,12 +161,12 @@
             <td class="text-end fw-bold text-success font-mono fs-7">
               ₹ {{ c.received | number:'1.2-2' }}
             </td>
-            <td class="text-end fw-bold font-mono fs-7" [ngClass]="(c.due || 0) > 0 ? 'text-danger' : 'text-muted'">
-              ₹ {{ c.due | number:'1.2-2' }}
+            <td class="text-end fw-bold font-mono fs-7" [ngClass]="!isFullyPaid(c) ? 'text-danger' : 'text-muted'">
+              ₹ {{ isFullyPaid(c) ? 0 : (c.due | number:'1.2-2') }}
             </td>
             <td class="text-center">
-              <span class="badge" [ngClass]="(c.due || 0) <= 0 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'">
-                {{ (c.due || 0) <= 0 ? 'Fully Paid' : 'Due Recoverable' }}
+              <span class="badge" [ngClass]="isFullyPaid(c) ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'">
+                {{ isFullyPaid(c) ? 'Fully Paid' : 'Due Recoverable' }}
               </span>
             </td>
           </tr>
@@ -291,7 +291,7 @@
                 <div class="col-md-3">
                   <label class="form-label small fw-bold text-secondary">System Type</label>
                   <select class="form-select shadow-xs" [(ngModel)]="newClientForm.systemType" name="systemType">
-                    <option value="On Gird">On Grid</option>
+                    <option value="On Grid">On Grid</option>
                     <option value="Off Grid">Off Grid</option>
                     <option value="Hybrid">Hybrid</option>
                   </select>
@@ -410,29 +410,43 @@
         <div class="modal-body p-4 bg-light">
           
           <!-- Financial Balance Summary Bar -->
-          <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white p-3 border">
-            <div class="row text-center g-3 align-items-center">
-              <div class="col-4 border-end">
+          <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white p-3 border">
+            <div class="row text-center g-2 align-items-center">
+              <div class="col-md-3 border-end">
                 <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.05em;">Site Contract Value</span>
-                <div class="fs-4 fw-bold text-dark font-mono mt-1">₹ {{ selectedProjectRef.siteValue | number:'1.2-2' }}</div>
+                <div class="fs-5 fw-bold text-dark font-mono mt-1">₹ {{ selectedProjectRef.siteValue | number:'1.2-2' }}</div>
                 <div class="text-muted fs-8">Total Project Agreement</div>
               </div>
-              <div class="col-4 border-end">
+              <div class="col-md-3 border-end">
                 <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.05em;">Currently Received</span>
-                <div class="fs-4 fw-bold text-success font-mono mt-1">₹ {{ clientTotalReceived | number:'1.2-2' }}</div>
+                <div class="fs-5 fw-bold text-success font-mono mt-1">₹ {{ clientTotalReceived | number:'1.2-2' }}</div>
                 <div class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 fs-8 fw-semibold mt-1">
                   <i class="bi bi-check2-circle me-1"></i>{{ clientPaymentsList.length }} Payments Recorded
                 </div>
               </div>
-              <div class="col-4">
+              <div class="col-md-3 border-end">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.05em;">Incurred Site Expenses</span>
+                <div class="fs-5 fw-bold text-danger font-mono mt-1">₹ {{ (selectedProjectRef.siteExpenses || 0) | number:'1.2-2' }}</div>
+                <div class="text-muted fs-8">PO / WO / Petty Cash / Warehouse</div>
+              </div>
+              <div class="col-md-3">
                 <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.05em;">Current Due Balance</span>
-                <div class="fs-4 fw-bold font-mono mt-1" [ngClass]="clientCurrentDue > 0 ? 'text-danger' : 'text-success'">
+                <div class="fs-5 fw-bold font-mono mt-1" [ngClass]="clientCurrentDue > 0 ? 'text-danger' : 'text-success'">
                   ₹ {{ clientCurrentDue | number:'1.2-2' }}
                 </div>
                 <div class="badge px-2 py-0.5 fs-8 fw-semibold mt-1" [ngClass]="clientCurrentDue > 0 ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-success-subtle text-success border border-success-subtle'">
                   {{ clientCurrentDue > 0 ? 'Pending Collection' : 'Fully Settled' }}
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Expense Exceeds Collections Warning Banner -->
+          <div class="alert alert-warning border-warning shadow-sm d-flex align-items-center gap-2.5 mb-4 rounded-3" *ngIf="(selectedProjectRef.siteExpenses || 0) > clientTotalReceived">
+            <i class="bi bi-exclamation-triangle-fill fs-4 text-warning flex-shrink-0"></i>
+            <div>
+              <strong class="text-dark">⚠️ Expense Exceeds Collections Warning: Total Incurred Expenses (₹ {{ (selectedProjectRef.siteExpenses || 0) | number:'1.2-2' }}) exceed Received Client Payments (₹ {{ clientTotalReceived | number:'1.2-2' }}) by ₹ {{ ((selectedProjectRef.siteExpenses || 0) - clientTotalReceived) | number:'1.2-2' }}!</strong>
+              <div class="small text-secondary mt-0.5">Site expenditure incurred via PO, WO, Petty Cash, Accounts, or Warehouse exceeds total client payment collections received so far.</div>
             </div>
           </div>
 

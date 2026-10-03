@@ -5,7 +5,7 @@ import Chart from 'chart.js/auto';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ProjectService } from '../../services/project.service';
-import { Project, SummaryMetrics, ClientPayment } from '../../models/project.model';
+import { Project, SummaryMetrics, ClientPayment, BomItem } from '../../models/project.model';
 
 import { RouterModule, Router } from '@angular/router';
 import { MasterListService } from '../../services/master-list.service';
@@ -137,12 +137,49 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   masterSiteTypes: string[] = ['Car Port', 'Commercial', 'Floating', 'Ground Mount', 'Industrial', 'Residential', 'Residential Common'];
   saleTypeOptions: string[] = ['B2C', 'Direct B2B', 'Retailer B2B'];
   masterClientTypes: string[] = ['Assosiation', 'Company', 'Govt. Org', 'Individual', 'Institutional'];
-  masterSystemTypes: string[] = ['Hybrid', 'Off Grid', 'On Gird', 'Solar Pump'];
+  masterSystemTypes: string[] = ['On Grid', 'Off Grid', 'Hybrid', 'Solar Pump'];
+  masterSiteCategories: string[] = ['TATA SPG', 'Waaree', 'Premier', 'Other'];
   siteStageOptions: string[] = ['EB Work in Process', 'Handed Over', 'I&C Completed', 'Installation Inprocess', 'Material Procurement', 'Project Awarded', 'Site Commissioned'];
   siteStatusOptions: string[] = ['Not Started', 'Materials Supplied', 'I&C Completed', 'EB Work in Process', 'Site Commissioned', 'Handed Over'];
   invoiceTypeOptions: string[] = ['Material Supply', 'I&C Works', 'CEIG Documentation', 'Supply and I&C work'];
   invoiceStatusOptions: string[] = ['Billed', 'Partly Billed', 'Not Billed'];
   paymentModeOptions: string[] = ['Bank Transfer / NEFT', 'Bank Transfer / IMPS', 'Cheque / DD', 'UPI', 'Bank Deposit'];
+
+  normalizeSystemType(val?: string): string {
+    if (!val || !val.trim()) return 'On Grid';
+    const clean = val.trim();
+    const lower = clean.toLowerCase().replace(/[\s_-]+/g, '');
+    if (lower === 'ongrid' || lower === 'ongird' || lower === 'grid') return 'On Grid';
+    if (lower === 'offgrid' || lower === 'offgird') return 'Off Grid';
+    if (lower === 'hybrid') return 'Hybrid';
+    if (lower === 'solarpump' || lower === 'pump') return 'Solar Pump';
+    return clean;
+  }
+
+  normalizeSiteCategory(val?: string): string {
+    if (!val || !val.trim()) return 'TATA SPG';
+    const clean = val.trim();
+    const lower = clean.toLowerCase();
+    if (lower.includes('tata') || lower.includes('spg')) return 'TATA SPG';
+    if (lower.includes('waree') || lower.includes('waaree')) return 'Waaree';
+    if (lower.includes('premier')) return 'Premier';
+    return clean;
+  }
+
+  closingValueTolerance: number = 100;
+
+  getPaymentStatusInfo(project: Partial<Project>): { label: string; isPaid: boolean; remainingDue: number } {
+    const val = Number(project.siteValue) || 0;
+    const rec = Number(project.received) || 0;
+    const rawDue = val - rec;
+    const tolerance = this.closingValueTolerance || 100;
+
+    if (rawDue <= tolerance) {
+      return { label: 'Fully Paid', isPaid: true, remainingDue: 0 };
+    } else {
+      return { label: 'Due Recoverable', isPaid: false, remainingDue: rawDue };
+    }
+  }
 
   loadMasterListOptions(): void {
     this.masterListService.getAllLists().subscribe({
@@ -161,8 +198,60 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
           this.siteStageOptions = findItems('Site Stage', this.siteStageOptions);
           this.siteStatusOptions = findItems('Site Status', this.siteStatusOptions);
           this.invoiceTypeOptions = findItems('Invoice Type', this.invoiceTypeOptions);
+          
+          const closingItems = findItems('Closing Value', ['100']);
+          if (closingItems && closingItems.length > 0) {
+            const num = parseFloat(closingItems[0]);
+            if (!isNaN(num) && num >= 0) this.closingValueTolerance = num;
+          }
           this.invoiceStatusOptions = findItems('Invoice Status', this.invoiceStatusOptions);
           this.paymentModeOptions = findItems('Payment Mode', this.paymentModeOptions);
+
+          const dbMatGroups = findItems('BOM', findItems('Materials_', []));
+          if (dbMatGroups && dbMatGroups.length > 0) {
+            dbMatGroups.forEach(gName => {
+              const exists = this.materialGroupsList.some(m => m.group.toLowerCase().trim() === gName.toLowerCase().trim());
+              if (!exists) {
+                this.materialGroupsList.push({
+                  group: gName,
+                  defaultUom: 'Nos',
+                  specifications: [`${gName} Standard Spec`]
+                });
+              }
+            });
+          }
+
+          // Dynamic Specifications Mapping from Add List Master Lists
+          const cableSpecs = findItems('Material_Specs_Cables', []);
+          if (cableSpecs.length > 0) {
+            const cablesGrp = this.materialGroupsList.find(m => m.group.toLowerCase() === 'cables');
+            if (cablesGrp) cablesGrp.specifications = Array.from(new Set([...cableSpecs, ...cablesGrp.specifications]));
+          }
+
+          const panelSpecs = findItems('Material_Specs_Panels', []);
+          if (panelSpecs.length > 0) {
+            const panelsGrp = this.materialGroupsList.find(m => m.group.toLowerCase() === 'panels');
+            if (panelsGrp) panelsGrp.specifications = Array.from(new Set([...panelSpecs, ...panelsGrp.specifications]));
+          }
+
+          const invSpecs = findItems('Material_Specs_Inverters', []);
+          if (invSpecs.length > 0) {
+            const invGrp = this.materialGroupsList.find(m => m.group.toLowerCase() === 'inverters');
+            if (invGrp) invGrp.specifications = Array.from(new Set([...invSpecs, ...invGrp.specifications]));
+          }
+
+          const lugSpecs = findItems('Material_Specs_Lugs', []);
+          if (lugSpecs.length > 0) {
+            const lugGrp = this.materialGroupsList.find(m => m.group.toLowerCase() === 'lugs');
+            if (lugGrp) lugGrp.specifications = Array.from(new Set([...lugSpecs, ...lugGrp.specifications]));
+          }
+
+          const mc4Specs = findItems('Material_Specs_MC4', []);
+          if (mc4Specs.length > 0) {
+            const mc4Grp = this.materialGroupsList.find(m => m.group.toLowerCase().includes('mc4'));
+            if (mc4Grp) mc4Grp.specifications = Array.from(new Set([...mc4Specs, ...mc4Grp.specifications]));
+          }
+
           this.cdr.markForCheck();
         }
       }
@@ -200,10 +289,237 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   isModalOpen = false;
   isEditMode = false;
   currentProjectId: number | null = null;
-  modalTab: 'basic' | 'config' | 'finance' | 'milestones' = 'basic';
+  modalTab: 'basic' | 'config' | 'finance' | 'milestones' | 'bom' = 'basic';
 
   // Form Model
   projectForm: Partial<Project> = this.getEmptyProject();
+
+  // --- BOM & COST SHEET STATE & HELPER METHODS ---
+  formBomItems: BomItem[] = [];
+
+  materialGroupsList: { group: string; defaultUom: string; specifications: string[] }[] = [
+    {
+      group: 'Cables',
+      defaultUom: 'Meter',
+      specifications: ['AC - 4Sqmm', 'AC - 6Sqmm', 'AC - 10Sqmm', 'AC - 16Sqmm', 'AC - 25Sqmm', 'DC - XLPO 4Sqmm', 'DC - XLPO 6Sqmm', 'DC - 10Sqmm']
+    },
+    {
+      group: 'Panels',
+      defaultUom: 'Nos',
+      specifications: ['540W Mono PERC', '550W Mono PERC', '580W TOPCon', '335W Polycrystalline', '340W Polycrystalline']
+    },
+    {
+      group: 'Inverters',
+      defaultUom: 'Nos',
+      specifications: ['3kW Ongrid', '5kW Ongrid', '10kW Ongrid', '15kW Ongrid', '20kW Ongrid', '5kW Hybrid', '10kW Hybrid']
+    },
+    {
+      group: 'MC4 Connector',
+      defaultUom: 'Sets',
+      specifications: ['Single Pair (1-in 1-out)', '2-in 1-out Branch Pair', '3-in 1-out Branch Pair', '4-in 1-out Branch Pair']
+    },
+    {
+      group: 'Lugs',
+      defaultUom: 'Nos',
+      specifications: ['Cu Lug - 4Sqmm', 'Cu Lug - 6Sqmm', 'Cu Lug - 10Sqmm', 'Al Lug - 16Sqmm', 'Al Lug - 25Sqmm', 'Al Lug - 35Sqmm', 'Pin Lug - 4Sqmm', 'Ring Lug - 6Sqmm']
+    },
+    {
+      group: 'Bucket',
+      defaultUom: 'Nos',
+      specifications: ['PVC Conduit Accessories Bucket', 'Hardware Fasteners Bucket', 'Earthing Kit Bucket', 'Electrical Consumables Bucket']
+    },
+    {
+      group: 'Structure',
+      defaultUom: 'Kg',
+      specifications: ['HDG Rooftop High Structure', 'Aluminium Rail Profile', 'Ground Mount Column Structure', 'Car Port Canopy Structure']
+    },
+    {
+      group: 'Earthing & Lightning',
+      defaultUom: 'Sets',
+      specifications: ['Copper Bonded Chemical Earthing Rod 50mm', 'ESE Lightning Arrester Kit', 'GI Flat Strip 25x3mm', 'Copper Strip 25x3mm']
+    },
+    {
+      group: 'Fasteners & Hardware',
+      defaultUom: 'Nos',
+      specifications: ['SS304 Allen Bolt M8x25', 'SS304 Hex Bolt M10x30', 'Anchor Fastener M12x100', 'Cable Ties UV 300mm']
+    }
+  ];
+
+  uomOptions: string[] = ['Meter', 'Sets', 'Nos', 'Kg', 'Pcs', 'Pair', 'Box', 'Packet', 'Coil', 'Watts'];
+  expenseSourceOptions: string[] = ['PO', 'WO', 'Petty Cash', 'Accounts', 'Warehouse', 'Other'];
+
+  bomMaterialsMasterList: any[] = [];
+
+  loadBomMaterialsMaster(): void {
+    this.masterListService.getBomMaterials().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.bomMaterialsMasterList = res.data;
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  getAvailableCategoryTypes(groupName: string): string[] {
+    const normGrp = (groupName || '').toLowerCase().trim();
+    const matches = this.bomMaterialsMasterList.filter(b => b.groupName.toLowerCase().trim() === normGrp);
+    if (matches.length > 0) {
+      const types = Array.from(new Set(matches.map(m => m.categoryType || 'Standard')));
+      return types;
+    }
+    if (normGrp === 'cables') return ['AC Cable', 'DC Cable'];
+    if (normGrp === 'panels') return ['Mono PERC', 'TOPCon', 'Polycrystalline'];
+    if (normGrp === 'inverters') return ['On Grid', 'Hybrid'];
+    if (normGrp === 'lugs') return ['Cu Lug', 'Al Lug', 'Pin Lug', 'Ring Lug'];
+    return ['Standard'];
+  }
+
+  getAvailableSpecsForType(groupName: string, categoryType: string): string[] {
+    const normGrp = (groupName || '').toLowerCase().trim();
+    const normType = (categoryType || '').toLowerCase().trim();
+    
+    let matches = this.bomMaterialsMasterList.filter(b => b.groupName.toLowerCase().trim() === normGrp);
+    if (normType && normType !== 'standard') {
+      const filtered = matches.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
+      if (filtered.length > 0) matches = filtered;
+    }
+    
+    if (matches.length > 0) {
+      return Array.from(new Set(matches.map(m => m.specification)));
+    }
+    
+    return this.getAvailableSpecs(groupName);
+  }
+
+  getAvailableSpecs(groupName: string): string[] {
+    const match = this.materialGroupsList.find(m => m.group.toLowerCase().trim() === (groupName || '').toLowerCase().trim());
+    return match ? match.specifications : ['Standard Spec'];
+  }
+
+  onMaterialGroupChange(item: BomItem): void {
+    const grp = item.materialGroup;
+    const types = this.getAvailableCategoryTypes(grp);
+    item.categoryType = types[0] || 'Standard';
+    
+    const specs = this.getAvailableSpecsForType(grp, item.categoryType);
+    item.specification = specs[0] || 'Standard Spec';
+
+    const match = this.materialGroupsList.find(m => m.group.toLowerCase().trim() === (grp || '').toLowerCase().trim());
+    if (match) {
+      item.uom = match.defaultUom;
+    }
+    this.recalculateBomItem(item);
+  }
+
+  onCategoryTypeChange(item: BomItem): void {
+    const specs = this.getAvailableSpecsForType(item.materialGroup, item.categoryType || '');
+    if (specs.length > 0) {
+      item.specification = specs[0];
+    }
+    this.recalculateBomItem(item);
+  }
+
+  recalculateBomItem(item: BomItem): void {
+    const qty = Number(item.plannedQty) || 0;
+    const rate = Number(item.unitRate) || 0;
+    item.estimatedTotalCost = Number((qty * rate).toFixed(2));
+  }
+
+  expandedBomRowIndex: number | null = null;
+
+  toggleBomRowExpand(index: number): void {
+    this.expandedBomRowIndex = this.expandedBomRowIndex === index ? null : index;
+    this.cdr.markForCheck();
+  }
+
+  isBomBudgetExceeded(item: BomItem): boolean {
+    const est = Number(item.estimatedTotalCost) || 0;
+    const act = Number(item.allocatedExpenseAmount) || 0;
+    return est > 0 && act > est;
+  }
+
+  getBomExpenseWarningMessage(item: BomItem): string {
+    const est = Number(item.estimatedTotalCost) || 0;
+    const act = Number(item.allocatedExpenseAmount) || 0;
+    if (est > 0 && act > est) {
+      const diff = act - est;
+      return `⚠️ Checkpoint Warning: Expenses (₹ ${act.toLocaleString('en-IN')}) exceed estimated BOM budget (₹ ${est.toLocaleString('en-IN')}) by ₹ ${diff.toLocaleString('en-IN')}!`;
+    }
+    return '';
+  }
+
+  trackBillRef(item: BomItem): void {
+    if (!item.invoiceRef || !item.invoiceRef.trim()) {
+      this.showToast('Please enter a Bill / Invoice Reference No. to track.', 'error');
+      return;
+    }
+    const bill = item.invoiceRef.trim();
+    const src = item.expenseSource || 'Warehouse';
+    this.showToast(`Tracking Bill ${bill} (${src}): Linked to client expense & PO/WO disbursements. Total allocated: ₹ ${(item.allocatedExpenseAmount || 0).toLocaleString('en-IN')}`, 'success');
+  }
+
+  addBomItem(): void {
+    const defaultGrp = this.materialGroupsList[0];
+    const types = this.getAvailableCategoryTypes(defaultGrp.group);
+    const categoryType = types[0] || 'AC Cable';
+    const specs = this.getAvailableSpecsForType(defaultGrp.group, categoryType);
+
+    const newItem: BomItem = {
+      id: 'bom-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      materialGroup: defaultGrp.group,
+      categoryType: categoryType,
+      specification: specs[0] || '4Sqmm',
+      uom: defaultGrp.defaultUom,
+      plannedQty: 100,
+      unitRate: 50,
+      estimatedTotalCost: 5000,
+      allocatedExpenseAmount: 0,
+      expenseSource: 'PO',
+      invoiceRef: '',
+      remarks: ''
+    };
+    this.formBomItems.push(newItem);
+    this.expandedBomRowIndex = this.formBomItems.length - 1;
+  }
+
+  removeBomItem(index: number): void {
+    if (this.expandedBomRowIndex === index) {
+      this.expandedBomRowIndex = null;
+    }
+    this.formBomItems.splice(index, 1);
+  }
+
+  get totalBomEstimatedCost(): number {
+    return this.formBomItems.reduce((acc, item) => acc + (Number(item.estimatedTotalCost) || 0), 0);
+  }
+
+  get totalBomAllocatedExpenses(): number {
+    return this.formBomItems.reduce((acc, item) => acc + (Number(item.allocatedExpenseAmount) || 0), 0);
+  }
+
+  get bomExpenseBreakdown() {
+    const summary = {
+      PO: 0,
+      WO: 0,
+      PettyCash: 0,
+      Accounts: 0,
+      Warehouse: 0,
+      Other: 0
+    };
+    this.formBomItems.forEach(item => {
+      const amt = Number(item.allocatedExpenseAmount) || 0;
+      const src = item.expenseSource || 'PO';
+      if (src === 'PO') summary.PO += amt;
+      else if (src === 'WO') summary.WO += amt;
+      else if (src === 'Petty Cash') summary.PettyCash += amt;
+      else if (src === 'Accounts') summary.Accounts += amt;
+      else if (src === 'Warehouse') summary.Warehouse += amt;
+      else summary.Other += amt;
+    });
+    return summary;
+  }
 
   // Delete modal
   deleteModalOpen = false;
@@ -236,6 +552,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     });
     this.loadData();
     this.loadMasterListOptions();
+    this.loadBomMaterialsMaster();
     this.loadSalesTeamOptions();
   }
 
@@ -379,7 +696,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       siteCapacity: '',
       siteValue: 0,
       siteType: 'Residential',
-      systemType: 'Ongrid',
+      systemType: 'On Grid',
       siteCategory: 'TATA SPG',
       clientType: 'Individual',
       saleType: 'B2C',
@@ -400,7 +717,13 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     // 0ms instant display from cache if available
     const cached = this.projectService.getCachedProjects();
     if (cached && cached.length > 0) {
-      this.projects = cached.filter(p => (p.siteId || '').toUpperCase() !== 'WAREHOUSE' && !(p.clientName || '').toLowerCase().includes('warehouse'));
+      this.projects = cached
+        .filter(p => (p.siteId || '').toUpperCase() !== 'WAREHOUSE' && !(p.clientName || '').toLowerCase().includes('warehouse'))
+        .map(p => ({
+          ...p,
+          systemType: this.normalizeSystemType(p.systemType),
+          siteCategory: this.normalizeSiteCategory(p.siteCategory)
+        }));
       this.initFilterOptions(this.projects);
       this.applyFilters();
       this.loading = false;
@@ -411,7 +734,13 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
 
     this.projectService.getProjects().subscribe({
       next: (res) => {
-        this.projects = (res.data || []).filter(p => (p.siteId || '').toUpperCase() !== 'WAREHOUSE' && !(p.clientName || '').toLowerCase().includes('warehouse'));
+        this.projects = (res.data || [])
+          .filter(p => (p.siteId || '').toUpperCase() !== 'WAREHOUSE' && !(p.clientName || '').toLowerCase().includes('warehouse'))
+          .map(p => ({
+            ...p,
+            systemType: this.normalizeSystemType(p.systemType),
+            siteCategory: this.normalizeSiteCategory(p.siteCategory)
+          }));
         this.initFilterOptions(this.projects);
         this.applyFilters();
         this.loading = false;
@@ -954,6 +1283,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       }
     });
     this.projectForm.siteId = `SP${maxNum + 1}`;
+    this.formBomItems = [];
     this.modalTab = 'basic';
     this.isModalOpen = true;
     this.cdr.markForCheck();
@@ -976,7 +1306,26 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     }
     this.isEditMode = true;
     this.currentProjectId = project.id || null;
-    this.projectForm = { ...project };
+    this.projectForm = {
+      ...project,
+      systemType: this.normalizeSystemType(project.systemType),
+      siteCategory: this.normalizeSiteCategory(project.siteCategory)
+    };
+    if (this.projectForm.systemType && !this.masterSystemTypes.includes(this.projectForm.systemType)) {
+      this.masterSystemTypes.push(this.projectForm.systemType);
+    }
+    if (this.projectForm.siteCategory && !this.masterSiteCategories.includes(this.projectForm.siteCategory)) {
+      this.masterSiteCategories.push(this.projectForm.siteCategory);
+    }
+    let parsedBom: BomItem[] = [];
+    if (project.bomItems) {
+      if (Array.isArray(project.bomItems)) {
+        parsedBom = [...project.bomItems];
+      } else if (typeof project.bomItems === 'string') {
+        try { parsedBom = JSON.parse(project.bomItems); } catch(e) { parsedBom = []; }
+      }
+    }
+    this.formBomItems = parsedBom;
     this.modalTab = 'basic';
     this.isModalOpen = true;
   }
@@ -1118,16 +1467,11 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     if (this.isEditMode && this.currentProjectId) {
       const existing = this.projects.find(p => p.id === this.currentProjectId);
       if (existing) {
-        // Allow siteValue to be updated by user, but preserve ledger-computed received, expenses, and milestones
+        // Preserve ledger-computed financial totals while allowing user edits to milestones, siteValue, and BOM items
         this.projectForm.received = existing.received;
         this.projectForm.siteExpenses = existing.siteExpenses;
-        this.projectForm.materialsSupply = existing.materialsSupply;
-        this.projectForm.installation = existing.installation;
-        this.projectForm.ebProcess = existing.ebProcess;
-        this.projectForm.documents = existing.documents;
-        this.projectForm.warranty = existing.warranty;
-        this.projectForm.handedOver = existing.handedOver;
       }
+      this.projectForm.bomItems = this.formBomItems;
       this.projectService.updateProject(this.currentProjectId, this.projectForm).subscribe({
         next: (res) => {
           this.showToast('Project updated successfully!', 'success');
@@ -1141,6 +1485,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     } else {
       this.projectForm.received = 0;
       this.projectForm.siteExpenses = 0;
+      this.projectForm.bomItems = this.formBomItems;
       this.projectForm.materialsSupply = false;
       this.projectForm.installation = false;
       this.projectForm.ebProcess = false;
@@ -1334,153 +1679,18 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     this.successMsg = 'Project Master PDF exported successfully!';
   }
 
-  // Export Individual Client PDF Dossier
+  // Export Individual Client PDF Dossier (Includes Financial & Execution Charts)
   exportSingleClientPdf(p: Project): void {
     if (!p) return;
-
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageWidth = 210;
-    const margin = 14;
-
-    // 1. Header Banner
-    doc.setFillColor(15, 118, 110); // Teal brand
-    doc.rect(0, 0, pageWidth, 26, 'F');
-
-    // Accent line (Gold)
-    doc.setFillColor(245, 158, 11);
-    doc.rect(0, 26, pageWidth, 1.5, 'F');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255);
-    doc.text('SOLAR SATHLOKHAR', margin, 11);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(224, 242, 254);
-    doc.text('AWARDED SITE MASTER SPECIFICATION & CLIENT DOSSIER', margin, 17);
-
-    doc.setFontSize(7.5);
-    doc.text(`Site ID: ${p.siteId || 'N/A'}  |  Report Date: ${new Date().toLocaleDateString('en-GB')}`, margin, 22);
-
-    let currentY = 34;
-
-    // 2. Client Overview Box
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(15, 118, 110);
-    doc.text(`${p.clientName || 'Client Profile'} (${p.siteId})`, margin, currentY);
-
-    currentY += 5;
-
-    // Client Details Summary Table
-    const clientOverviewData = [
-      ['Client Name', p.clientName || '-', 'Awarded Date', p.awardedDate ? this.formatDate(p.awardedDate) : '-'],
-      ['Site ID', p.siteId || '-', 'Location', p.location || '-'],
-      ['Contact No', p.contactNo || '-', 'Email ID', p.emailId || '-'],
-      ['Address', p.address || '-', 'Order By / Manager', p.orderBy || '-'],
-      ['Sales Lead By', p.leadBy || '-', 'Client Type', p.clientType || '-']
-    ];
-
-    autoTable(doc, {
-      body: clientOverviewData,
-      startY: currentY,
-      theme: 'plain',
-      styles: { fontSize: 8, cellPadding: 2 },
-      columnStyles: {
-        0: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 35 },
-        1: { textColor: [30, 41, 59], cellWidth: 60 },
-        2: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 35 },
-        3: { textColor: [30, 41, 59], cellWidth: 50 }
-      }
-    });
-
-    currentY = (doc as any).lastAutoTable.finalY + 8;
-
-    // 3. Technical Specifications
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(30, 41, 59);
-    doc.text('Technical & Site System Specifications', margin, currentY);
-
-    currentY += 4;
-
-    const techSpecs = [
-      ['Site Capacity (kW)', `${p.siteCapacity || '0'} kW`, 'Site Type', p.siteType || '-'],
-      ['System Type', p.systemType || '-', 'Site Category', p.siteCategory || '-'],
-      ['Sale Type', p.saleType || '-', 'Work Progress', `${p.completedPercentage || 0}% Completed`]
-    ];
-
-    autoTable(doc, {
-      head: [['Specification Metric', 'Value', 'System Attribute', 'Value']],
-      body: techSpecs,
-      startY: currentY,
-      styles: { fontSize: 8, cellPadding: 2.2 },
-      headStyles: { fillColor: [241, 245, 249], textColor: [15, 118, 110], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 250, 252] }
-    });
-
-    currentY = (doc as any).lastAutoTable.finalY + 8;
-
-    // 4. Financial Portfolio Summary
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(30, 41, 59);
-    doc.text('Financial Portfolio & Contract Summary', margin, currentY);
-
-    currentY += 4;
-
-    const financialsData = [
-      [
-        `₹ ${(p.siteValue || 0).toLocaleString('en-IN')}`,
-        `₹ ${(p.received || 0).toLocaleString('en-IN')}`,
-        `₹ ${(p.due || 0).toLocaleString('en-IN')}`,
-        `₹ ${(p.siteExpenses || 0).toLocaleString('en-IN')}`,
-        `${p.marginPercentage || 0}%`
-      ]
-    ];
-
-    autoTable(doc, {
-      head: [['Site Contract Value', 'Total Received', 'Pending Due', 'Site Expenses', 'Profit Margin %']],
-      body: financialsData,
-      startY: currentY,
-      styles: { fontSize: 8.5, cellPadding: 3, halign: 'center' },
-      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold', halign: 'center' },
-      bodyStyles: { fontStyle: 'bold', textColor: [30, 41, 59] }
-    });
-
-    currentY = (doc as any).lastAutoTable.finalY + 8;
-
-    // 5. Milestones & Handover Status
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(30, 41, 59);
-    doc.text('Milestones & Commissioning Checklist', margin, currentY);
-
-    currentY += 4;
-
-    const milestonesData = [
-      ['Materials Supply Stage', p.materialsSupply ? 'Completed ✓' : 'Pending', p.materialsSupply ? 'Completed' : 'Pending'],
-      ['Installation Stage', p.installation ? 'Completed ✓' : 'Pending', p.installation ? 'Completed' : 'Pending'],
-      ['EB Process / Grid Sync', p.ebProcess ? 'Completed ✓' : 'Pending', p.ebProcess ? 'Completed' : 'Pending'],
-      ['Documentation Package', p.documents ? 'Completed ✓' : 'Pending', p.documents ? 'Completed' : 'Pending'],
-      ['Warranty Status', p.warranty ? 'Active / Handed Over ✓' : 'Not Active', '-'],
-      ['Final Handed Over', p.handedOver ? 'Handed Over to Client ✓' : 'In Progress', '-']
-    ];
-
-    autoTable(doc, {
-      head: [['Project Milestone / Milestone Stage', 'Status', 'Completion / Action Date']],
-      body: milestonesData,
-      startY: currentY,
-      styles: { fontSize: 8, cellPadding: 2.2 },
-      headStyles: { fillColor: [241, 245, 249], textColor: [15, 118, 110], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 250, 252] }
-    });
-
-    // Save PDF file
-    const safeClientName = (p.clientName || 'Client').replace(/[^a-zA-Z0-9_-]/g, '_');
-    doc.save(`Awarded_Site_${p.siteId}_${safeClientName}.pdf`);
-    this.showToast(`PDF generated for ${p.clientName}`, 'success');
+    this.selectedProject = p;
+    this.isDetailsModalOpen = true;
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      this.renderCharts();
+      setTimeout(() => {
+        this.exportProjectDetailsPdf();
+      }, 250);
+    }, 100);
   }
 
   // Client Details Modal & Chart Visualizers
@@ -1617,30 +1827,50 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     });
 
     const finalYMilestones = (doc as any).lastAutoTable.finalY || currentY + 20;
-    currentY = finalYMilestones + 5;
+    currentY = finalYMilestones + 8;
 
-    // 4. Embed Visual Charts if available
-    const financialCanvas = (document.getElementById('financialBarChart') || document.getElementById('financialPieChart')) as HTMLCanvasElement;
+    // 4. Embed Visual Charts if available with automatic page overflow management
+    const barCanvas = document.getElementById('financialBarChart') as HTMLCanvasElement;
+    const pieCanvas = document.getElementById('financialPieChart') as HTMLCanvasElement;
+    const financialCanvas = (this.financialChartMode === 'bar' ? barCanvas : pieCanvas) || barCanvas || pieCanvas;
     const donutCanvas = document.getElementById('progressDonutChart') as HTMLCanvasElement;
 
-    if (financialCanvas && donutCanvas) {
+    const chartWidth = 85;
+    const chartHeight = 52;
+
+    // Check if adding charts would exceed page height (A4 printable height ~ 275mm)
+    if (currentY + chartHeight + 15 > 275) {
+      doc.addPage();
+      currentY = 20; // Start at top margin of new page
+    }
+
+    if ((financialCanvas && financialCanvas.width > 0) || (donutCanvas && donutCanvas.width > 0)) {
       try {
-        const finDataUrl = financialCanvas.toDataURL('image/png');
-        const donutDataUrl = donutCanvas.toDataURL('image/png');
-
-        const chartWidth = 85;
-        const chartHeight = 50;
-
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.setTextColor(51, 65, 85);
-        doc.text('Financial Distribution (INR)', margin + 12, currentY + 2);
-        doc.text('Execution Progress Breakdown', margin + contentWidth / 2 + 12, currentY + 2);
+        doc.setFontSize(9.5);
+        doc.setTextColor(15, 118, 110);
+        doc.text('Visual Financial & Execution Progress Charts', margin, currentY);
+        currentY += 4;
 
-        doc.addImage(finDataUrl, 'PNG', margin, currentY + 4, chartWidth, chartHeight);
-        doc.addImage(donutDataUrl, 'PNG', margin + contentWidth / 2 + 5, currentY + 4, chartWidth, chartHeight);
+        if (financialCanvas && financialCanvas.width > 0 && financialCanvas.height > 0) {
+          const finDataUrl = financialCanvas.toDataURL('image/png');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(51, 65, 85);
+          doc.text(`Financial Distribution (${this.financialChartMode === 'bar' ? 'Bar Graph' : 'Pie Chart'})`, margin, currentY + 2);
+          doc.addImage(finDataUrl, 'PNG', margin, currentY + 4, chartWidth, chartHeight);
+        }
 
-        currentY += chartHeight + 8;
+        if (donutCanvas && donutCanvas.width > 0 && donutCanvas.height > 0) {
+          const donutDataUrl = donutCanvas.toDataURL('image/png');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(51, 65, 85);
+          doc.text('Execution Progress Breakdown (Donut)', margin + contentWidth / 2 + 5, currentY + 2);
+          doc.addImage(donutDataUrl, 'PNG', margin + contentWidth / 2 + 5, currentY + 4, chartWidth, chartHeight);
+        }
+
+        currentY += chartHeight + 10;
       } catch (err) {
         console.warn('Could not export chart canvas to PDF:', err);
       }

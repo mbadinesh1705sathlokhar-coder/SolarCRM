@@ -14,9 +14,18 @@ function formatToDdMmYyyy(isoDateStr) {
 function formatProject(projectInstance) {
     const raw = projectInstance.toJSON ? projectInstance.toJSON() : projectInstance;
     const metrics = computeMetrics(raw);
+    let parsedBom = [];
+    if (raw.bomItems) {
+        if (typeof raw.bomItems === 'string') {
+            try { parsedBom = JSON.parse(raw.bomItems); } catch(e) { parsedBom = []; }
+        } else if (Array.isArray(raw.bomItems)) {
+            parsedBom = raw.bomItems;
+        }
+    }
     return {
         ...raw,
         ...metrics,
+        bomItems: parsedBom,
         formattedAwardedDate: formatToDdMmYyyy(raw.awardedDate)
     };
 }
@@ -134,7 +143,8 @@ exports.createProject = async (req, res) => {
             ebProcess,
             documents,
             warranty,
-            handedOver
+            handedOver,
+            bomItems
         } = req.body;
 
         if (!siteId || !clientName) {
@@ -175,7 +185,8 @@ exports.createProject = async (req, res) => {
             ebProcess: Boolean(ebProcess),
             documents: Boolean(documents),
             warranty: Boolean(warranty),
-            handedOver: Boolean(handedOver)
+            handedOver: Boolean(handedOver),
+            bomItems: bomItems !== undefined ? (typeof bomItems === 'string' ? bomItems : JSON.stringify(bomItems)) : null
         });
 
         return res.status(201).json({
@@ -221,7 +232,8 @@ exports.updateProject = async (req, res) => {
             ebProcess,
             documents,
             warranty,
-            handedOver
+            handedOver,
+            bomItems
         } = req.body;
 
         if (siteId && siteId !== project.siteId) {
@@ -257,7 +269,8 @@ exports.updateProject = async (req, res) => {
             ebProcess: ebProcess !== undefined ? Boolean(ebProcess) : project.ebProcess,
             documents: documents !== undefined ? Boolean(documents) : project.documents,
             warranty: warranty !== undefined ? Boolean(warranty) : project.warranty,
-            handedOver: handedOver !== undefined ? Boolean(handedOver) : project.handedOver
+            handedOver: handedOver !== undefined ? Boolean(handedOver) : project.handedOver,
+            bomItems: bomItems !== undefined ? (typeof bomItems === 'string' ? bomItems : JSON.stringify(bomItems)) : project.bomItems
         });
 
         return res.status(200).json({

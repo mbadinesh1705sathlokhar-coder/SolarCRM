@@ -116,6 +116,24 @@ export class IndentComponent implements OnInit {
         }
       }
     });
+
+    this.masterListService.getBomMaterials().subscribe({
+      next: (res) => {
+        if (res.success && res.grouped) {
+          const bomSpecs: string[] = [];
+          Object.keys(res.grouped).forEach(grp => {
+            res.grouped[grp].forEach((item: any) => {
+              if (item.specification) {
+                bomSpecs.push(`${grp} - ${item.specification}`);
+                bomSpecs.push(item.specification);
+              }
+            });
+          });
+          this.stockMaterialOptions = Array.from(new Set([...bomSpecs, ...this.stockMaterialOptions]));
+          this.cdr.markForCheck();
+        }
+      }
+    });
   }
 
   loadAwardedClients(): void {

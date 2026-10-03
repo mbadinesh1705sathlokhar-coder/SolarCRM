@@ -343,6 +343,12 @@ async function seedMasterListsIfEmpty() {
                     'VIRIDIS ENGINEERING INDIA PRIVATE LIMITED',
                     'VRM STRUCTURES INDIA PRIVATE LIMITED'
                 ]
+            },
+            {
+                title: 'BOM',
+                category: 'Inventory',
+                description: 'Bill of Materials (BOM) Groups & Specifications (Cables, Panels, Inverters, MC4 Connector, Lugs, Bucket, Structure, Earthing & Lightning, Fasteners & Hardware)',
+                items: ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware']
             }
         ];
 
@@ -590,7 +596,45 @@ async function seedMasterListsIfEmpty() {
             await MasterListItem.bulkCreate(itemRows);
         }
 
-        console.log('Successfully seeded 13 Master Configuration Lists!');
+        // Ensure BOM master list exists
+        let bomListExists = await MasterList.findOne({ where: { title: 'BOM' } });
+        if (!bomListExists) {
+            const matListExists = await MasterList.findOne({ where: { title: 'Materials_' } });
+            if (matListExists) {
+                matListExists.title = 'BOM';
+                await matListExists.save();
+            } else {
+                const createdMat = await MasterList.create({
+                    title: 'BOM',
+                    category: 'Inventory',
+                    description: 'Hierarchical Material Groups & Types for BOM Cost Sheet allocation'
+                });
+                const matItems = ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware'];
+                await MasterListItem.bulkCreate(matItems.map((val, idx) => ({
+                    listId: createdMat.id,
+                    itemValue: val,
+                    sortOrder: idx + 1
+                })));
+            }
+        }
+
+        // Ensure Closing Value master list exists
+        let closingValListExists = await MasterList.findOne({ where: { title: 'Closing Value' } });
+        if (!closingValListExists) {
+            const createdClosing = await MasterList.create({
+                title: 'Closing Value',
+                category: 'Finances',
+                description: 'Payment closing tolerance threshold (in ₹) to consider client accounts Fully Paid'
+            });
+            await MasterListItem.bulkCreate([
+                { listId: createdClosing.id, itemValue: '100', sortOrder: 1 },
+                { listId: createdClosing.id, itemValue: '10', sortOrder: 2 },
+                { listId: createdClosing.id, itemValue: '50', sortOrder: 3 },
+                { listId: createdClosing.id, itemValue: '500', sortOrder: 4 }
+            ]);
+        }
+
+        console.log('Successfully checked/seeded Master Configuration Lists!');
     } catch (err) {
         console.error('Error seeding Master Lists:', err);
     }
