@@ -71,7 +71,7 @@ const SalesLead = conDb.define('SalesLead', {
     siteCategory: {
         type: DataTypes.STRING(100),
         allowNull: true,
-        defaultValue: 'Rooftop',
+        defaultValue: 'TATA SPG',
         field: 'site_category'
     },
     saleType: {

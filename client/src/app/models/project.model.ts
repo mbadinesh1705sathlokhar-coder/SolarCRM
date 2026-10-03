@@ -6,11 +6,17 @@ export interface BomItem {
   uom: string;                 // e.g. Meter, Sets, Nos, Kg, Pcs
   plannedQty: number;
   unitRate: number;
-  estimatedTotalCost: number;
+  estimatedTotalCost: number; // Base cost: plannedQty * unitRate
+  gstPercent?: number;        // e.g. 12 for Panels, 18 for others
+  gstAmount?: number;         // (plannedQty * unitRate) * (gstPercent / 100)
+  estAmount?: number;         // Base cost + gstAmount
   allocatedExpenseAmount: number;
   expenseSource?: 'PO' | 'WO' | 'Petty Cash' | 'Accounts' | 'Warehouse' | 'Other' | string;
   invoiceRef?: string;
   warehouseUnitsDrawn?: number;
+  isDispatched?: boolean;     // Checkbox indicating if material is dispatched from warehouse/gate pass
+  dispatchedQty?: number;     // Qty dispatched
+  dispatchDate?: string;      // Date when dispatched
   remarks?: string;
 }
 

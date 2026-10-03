@@ -372,7 +372,7 @@ export class AddListComponent implements OnInit {
           listTitle: 'BOM',
           category: 'Inventory',
           description: 'Material categories and groups for Bill of Materials (BOM) Cost Sheet allocation',
-          defaultOptions: ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware']
+          defaultOptions: ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree']
         },
         {
           key: 'proj-invoice-type',
@@ -531,8 +531,8 @@ export class AddListComponent implements OnInit {
           columnName: 'Bill of Materials (BOM)',
           listTitle: 'BOM',
           category: 'Inventory',
-          description: 'Material Groups (Cables, Panels, Inverters, MC4 Connector, Lugs, Bucket, Structure, Earthing & Lightning, Fasteners & Hardware) for BOM Cost Sheet allocation',
-          defaultOptions: ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware']
+          description: 'Material Groups (Cables, Panels, Inverters, Civil & Miscellaneous, Consumables, Earthing Protection, Module Mounting Structures, Tata SPG Package, Waree) for BOM Cost Sheet allocation',
+          defaultOptions: ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree']
         },
         {
           key: 'inv-materials',
@@ -541,6 +541,14 @@ export class AddListComponent implements OnInit {
           category: 'Inventory',
           description: 'Complete materials, consumables and tools catalog for Indent, Warehouse, Gate Pass and Cart',
           defaultOptions: ['Cable Tray Materials', 'Cables', 'Civil Work Labour', 'Consumables', 'DB Boxes', 'Earthing Materials', 'Expo / Event Expenses', 'Labour/Manpower', 'Lead Acid Batteries', 'Lightning Arrestors', 'Lithium Batteries', 'Material Transport', 'Panles Cleaning Liquid', 'Petrol Cliam', 'Rental Tools', 'Solar CEIG Works', 'Solar I&C Works', 'Solar Inverters', 'Solar Meters', 'Solar MMS', 'Solar Panels', 'TATA SPG Package', 'Walkway / Hand Rails', 'Zero Export Device', 'Tools Asset', 'Safety Certificates']
+        },
+        {
+          key: 'inv-uom-measurements',
+          columnName: 'UOM Measurements',
+          listTitle: 'UOM measurements',
+          category: 'Inventory',
+          description: 'Units of measurement (UOM) for inventory items, BOM specifications, warehouse materials, and procurement (e.g. Nos, Meter, Sets, Kg, Watts, Pcs, etc.)',
+          defaultOptions: ['Nos', 'Meter', 'Sets', 'Kg', 'Watts', 'Pcs', 'Pair', 'Box', 'Packet', 'Coil', 'Trip', 'Lot', 'Sqft', 'Sqmm', 'Rmtr']
         }
       ]
     },
@@ -602,6 +610,7 @@ export class AddListComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           this.lists = res.data;
+          this.syncUomOptions();
         }
         this.loading = false;
         this.cdr.markForCheck();
@@ -814,11 +823,33 @@ export class AddListComponent implements OnInit {
 
   // --- HIERARCHICAL BOM MATERIAL MASTER STATE & METHODS ---
   isBomMaterialsMode = false;
-  bomMaterialGroups: string[] = ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware'];
+  bomMaterialGroups: string[] = [
+    'Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous',
+    'Consumables', 'Earthing Protection', 'Module Mounting Structures',
+    'Tata SPG Package', 'Waree'
+  ];
   selectedBomGroup: string = 'Cables';
-  allBomGroupItems: { [key: string]: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] } = {};
-  bomGroupSpecRows: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] = [];
+  groupGstPercent: number = 18;
+  allBomGroupItems: { [key: string]: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number; gstPercent?: number }[] } = {};
+  bomGroupSpecRows: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number; gstPercent?: number }[] = [];
   loadingBomSpecs = false;
+  uomOptions: string[] = ['Nos', 'Meter', 'Sets', 'Kg', 'Watts', 'Pcs', 'Pair', 'Box', 'Packet', 'Coil', 'Trip', 'Lot', 'Sqft', 'Sqmm', 'Rmtr'];
+
+  syncUomOptions(): void {
+    const norm = (s: string) => (s || '').toLowerCase().replace(/[\s_-]+/g, '');
+    const uomList = this.lists.find(l => norm(l.title) === 'uommeasurements' || norm(l.title) === 'uom');
+    if (uomList && uomList.items && uomList.items.length > 0) {
+      this.uomOptions = uomList.items;
+    }
+  }
+
+  getEffectiveUomOptions(): string[] {
+    const set = new Set(this.uomOptions);
+    this.bomGroupSpecRows.forEach(r => {
+      if (r.defaultUom && r.defaultUom.trim()) set.add(r.defaultUom.trim());
+    });
+    return Array.from(set);
+  }
 
   loadBomMaterialsData(): void {
     this.loadingBomSpecs = true;
@@ -826,6 +857,7 @@ export class AddListComponent implements OnInit {
       next: (res) => {
         if (res.success && res.grouped) {
           this.allBomGroupItems = res.grouped;
+          this.syncBomMaterialGroups();
           this.onBomGroupChange();
         }
         this.loadingBomSpecs = false;
@@ -838,34 +870,108 @@ export class AddListComponent implements OnInit {
     });
   }
 
+  syncBomMaterialGroups(): void {
+    const excludedGroups = new Set([
+      'mc4', 'mc4 connector', 'lugs', 'bucket', 'structure',
+      'earthing & lightning', 'fasteners & hardware', 'transportation & logistics'
+    ]);
+
+    const listGroups = this.formRows
+      .map(r => (r.value || '').trim())
+      .filter(g => g && !excludedGroups.has(g.toLowerCase()));
+
+    const bomList = this.lists.find(l => {
+      const t = (l.title || '').toLowerCase().trim();
+      return t === 'bom' || t === 'material group' || t === 'materials_';
+    });
+    const loadedListItems = (bomList?.items || [])
+      .map(g => (g || '').trim())
+      .filter(g => g && !excludedGroups.has(g.toLowerCase()));
+
+    const dbGroups = Object.keys(this.allBomGroupItems || {})
+      .map(g => (g || '').trim())
+      .filter(g => g && !excludedGroups.has(g.toLowerCase()));
+
+    const defaultGroups = [
+      'Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous',
+      'Consumables', 'Earthing Protection', 'Module Mounting Structures',
+      'Tata SPG Package', 'Waree'
+    ];
+
+    const combined: string[] = [];
+    const seen = new Set<string>();
+
+    const addGroup = (g: string) => {
+      const clean = (g || '').trim();
+      if (!clean) return;
+      const lower = clean.toLowerCase();
+      if (!excludedGroups.has(lower) && !seen.has(lower)) {
+        seen.add(lower);
+        combined.push(clean);
+      }
+    };
+
+    defaultGroups.forEach(addGroup);
+    listGroups.forEach(addGroup);
+    loadedListItems.forEach(addGroup);
+    dbGroups.forEach(addGroup);
+
+    this.bomMaterialGroups = combined;
+    if (!this.selectedBomGroup || !seen.has(this.selectedBomGroup.toLowerCase())) {
+      this.selectedBomGroup = this.bomMaterialGroups[0] || 'Cables';
+    }
+  }
+
   onBomGroupChange(): void {
     const raw = this.allBomGroupItems[this.selectedBomGroup] || [];
+    // Determine group GST%: default Panels to 5%, others to 18% unless configured in raw items
+    if (raw.length > 0 && raw[0].gstPercent !== undefined && raw[0].gstPercent !== null) {
+      this.groupGstPercent = Number(raw[0].gstPercent);
+    } else {
+      this.groupGstPercent = this.selectedBomGroup === 'Panels' ? 5 : 18;
+    }
+
     if (raw.length > 0) {
       this.bomGroupSpecRows = raw.map(it => ({
         id: it.id,
-        categoryType: it.categoryType || (this.selectedBomGroup === 'Cables' ? 'AC Cable' : 'Standard'),
+        categoryType: it.categoryType || (this.selectedBomGroup === 'Cables' ? 'AC Cable' : (this.selectedBomGroup === 'Transportation & Logistics' ? 'Logistics' : 'Standard')),
         specification: it.specification,
-        defaultUom: it.defaultUom || (this.selectedBomGroup === 'Cables' ? 'Meter' : 'Nos'),
-        unitRate: Number(it.unitRate) || 0
+        defaultUom: it.defaultUom || (this.selectedBomGroup === 'Cables' ? 'Meter' : (this.selectedBomGroup === 'Transportation & Logistics' ? 'Trip' : 'Nos')),
+        unitRate: Number(it.unitRate) || 0,
+        gstPercent: it.gstPercent !== undefined && it.gstPercent !== null ? Number(it.gstPercent) : this.groupGstPercent
       }));
     } else {
       this.bomGroupSpecRows = [
         {
-          categoryType: this.selectedBomGroup === 'Cables' ? 'AC Cable' : 'Standard',
+          categoryType: this.selectedBomGroup === 'Cables' ? 'AC Cable' : (this.selectedBomGroup === 'Transportation & Logistics' ? 'Logistics' : 'Standard'),
           specification: '',
-          defaultUom: this.selectedBomGroup === 'Cables' ? 'Meter' : 'Nos',
-          unitRate: 0
+          defaultUom: this.selectedBomGroup === 'Cables' ? 'Meter' : (this.selectedBomGroup === 'Transportation & Logistics' ? 'Trip' : 'Nos'),
+          unitRate: 0,
+          gstPercent: this.groupGstPercent
         }
       ];
     }
   }
 
+  onGroupGstChange(): void {
+    const gst = Number(this.groupGstPercent) || 0;
+    this.bomGroupSpecRows.forEach(r => {
+      r.gstPercent = gst;
+    });
+    if (this.allBomGroupItems[this.selectedBomGroup]) {
+      this.allBomGroupItems[this.selectedBomGroup].forEach(it => {
+        it.gstPercent = gst;
+      });
+    }
+  }
+
   addBomSpecRow(): void {
     this.bomGroupSpecRows.push({
-      categoryType: this.selectedBomGroup === 'Cables' ? 'AC Cable' : 'Standard',
+      categoryType: this.selectedBomGroup === 'Cables' ? 'AC Cable' : (this.selectedBomGroup === 'Transportation & Logistics' ? 'Logistics' : 'Standard'),
       specification: '',
-      defaultUom: this.selectedBomGroup === 'Cables' ? 'Meter' : 'Nos',
-      unitRate: 0
+      defaultUom: this.selectedBomGroup === 'Cables' ? 'Meter' : (this.selectedBomGroup === 'Transportation & Logistics' ? 'Trip' : 'Nos'),
+      unitRate: 0,
+      gstPercent: this.groupGstPercent
     });
   }
 
@@ -922,23 +1028,51 @@ export class AddListComponent implements OnInit {
 
     if (this.isBomMaterialsMode) {
       const cleanSpecs = this.bomGroupSpecRows.filter(r => r.specification && r.specification.trim().length > 0);
-      if (cleanSpecs.length === 0) {
-        this.showToast(`Please enter at least one specification for "${this.selectedBomGroup}".`, 'danger');
-        return;
+      const cleanItems = this.formRows
+        .map(r => r.value.trim())
+        .filter(Boolean);
+
+      // 1. Save specs for currently selected group if any exist
+      if (cleanSpecs.length > 0) {
+        this.masterListService.saveBomMaterialGroupSpecs(this.selectedBomGroup, cleanSpecs, this.groupGstPercent).subscribe({
+          next: (res) => {
+            if (res.success && res.data) {
+              this.allBomGroupItems[this.selectedBomGroup] = res.data;
+            }
+          },
+          error: (err) => console.error('Error saving BOM specs:', err)
+        });
       }
-      this.masterListService.saveBomMaterialGroupSpecs(this.selectedBomGroup, cleanSpecs).subscribe({
-        next: (res) => {
-          if (res.success) {
-            this.showToast(`BOM Specifications for "${this.selectedBomGroup}" saved to Database (${cleanSpecs.length} items)!`, 'success');
+
+      // 2. Also save/update MasterList options (so the user's groups in Screenshot 4 are saved to Database!)
+      if (cleanItems.length > 0) {
+        const payload = {
+          title: this.formTitle.trim(),
+          category: this.formCategory,
+          description: this.formDescription.trim(),
+          items: cleanItems
+        };
+        const op = (this.isEditMode && this.editingId)
+          ? this.masterListService.updateList(this.editingId, payload)
+          : this.masterListService.createList(payload);
+
+        op.subscribe({
+          next: () => {
+            this.showToast(`Saved "${this.formTitle}" with ${cleanItems.length} groups and updated "${this.selectedBomGroup}" specifications!`, 'success');
             this.closeModal();
             this.loadLists();
+          },
+          error: (err) => {
+            this.showToast(err.error?.message || 'Failed to save configuration list.', 'danger');
           }
-        },
-        error: (err) => {
-          this.showToast(err.error?.message || 'Failed to save BOM material specs.', 'danger');
-        }
-      });
-      return;
+        });
+        return;
+      } else {
+        this.showToast(`BOM Specifications for "${this.selectedBomGroup}" updated!`, 'success');
+        this.closeModal();
+        this.loadLists();
+        return;
+      }
     }
 
     const cleanItems = this.formRows

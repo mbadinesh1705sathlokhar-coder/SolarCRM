@@ -123,6 +123,30 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     return found || (this.masterSystemTypes && this.masterSystemTypes[0]) || 'On Grid';
   }
 
+  normalizeSiteCategory(val?: string): string {
+    if (!val || !val.trim()) return this.getDefaultSiteCategory();
+    const clean = val.trim();
+    const lower = clean.toLowerCase();
+    if (lower.includes('tata') || lower.includes('spg')) return 'TATA SPG';
+    if (lower.includes('ware') || lower.includes('waare')) {
+      const matchedWaree = (this.siteCategoryOptions || []).find(o => o.toLowerCase().includes('ware') || o.toLowerCase().includes('waare'));
+      return matchedWaree || 'Waree';
+    }
+    if (lower.includes('premier')) return 'Premier';
+    if (lower.includes('other')) return 'Other';
+    const match = (this.siteCategoryOptions || []).find(o => o.toLowerCase() === lower);
+    if (match) return match;
+    return this.getDefaultSiteCategory();
+  }
+
+  getDefaultSiteCategory(): string {
+    const found = (this.siteCategoryOptions || []).find(t => {
+      const norm = (t || '').toLowerCase();
+      return norm.includes('tata') || norm.includes('spg');
+    });
+    return found || (this.siteCategoryOptions && this.siteCategoryOptions[0]) || 'TATA SPG';
+  }
+
   // Data
   allLeads: SalesLead[] = [];
   loading = false;
@@ -625,7 +649,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     // 0ms instant display from cache if available
     const cached = this.salesService.getCachedLeads();
     if (cached && cached.length > 0) {
-      this.allLeads = cached;
+      this.allLeads = cached.map(l => ({ ...l, siteCategory: this.normalizeSiteCategory(l.siteCategory) }));
       this.loading = false;
       this.updateTableWidth();
     } else {
@@ -636,7 +660,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.salesService.getLeads().subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          this.allLeads = res.data;
+          this.allLeads = res.data.map(l => ({ ...l, siteCategory: this.normalizeSiteCategory(l.siteCategory) }));
         }
         this.loading = false;
         this.updateTableWidth();
@@ -748,6 +772,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.leadForm = this.getEmptyLead();
     this.leadForm.systemType = this.getDefaultSystemType();
+    this.leadForm.siteCategory = this.getDefaultSiteCategory();
     if (this.activeTab === 'opportunity') {
       this.leadForm.leadStatus = 'Qualify';
     }
@@ -835,6 +860,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.leadForm.systemType = this.getDefaultSystemType();
     }
+    this.leadForm.siteCategory = this.normalizeSiteCategory(this.leadForm.siteCategory);
     this.isEditModalOpen = true;
     this.cdr.markForCheck();
   }
@@ -1113,6 +1139,11 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.awardProjectForm.address = lead.leadLocation || '';
     this.awardProjectForm.orderBy = mappedOrderBy;
     this.awardProjectForm.leadBy = lead.leadHandler || this.authService.currentUser()?.name || '';
+    this.awardProjectForm.siteCategory = this.normalizeSiteCategory(lead.siteCategory);
+    this.awardProjectForm.siteType = lead.siteType || 'Residential';
+    this.awardProjectForm.systemType = lead.systemType || this.getDefaultSystemType();
+    this.awardProjectForm.clientType = lead.clientType || 'Individual';
+    this.awardProjectForm.saleType = lead.saleType || 'B2C';
 
     // Fetch existing projects to calculate the next SP ID (e.g., if ends in 418, next creates 419)
     this.projectService.getProjects().subscribe({
@@ -1258,7 +1289,21 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
           if (!this.leadForm.systemType || this.leadForm.systemType === 'Ongrid' || this.leadForm.systemType === 'On Gird') {
             this.leadForm.systemType = this.getDefaultSystemType();
           }
-          this.siteCategoryOptions = findItems('Site_Category', findItems('Site Category', this.siteCategoryOptions));
+          let catItems = findItems('Site_Category', findItems('Site Category', ['TATA SPG', 'Waree', 'Premier', 'Other']));
+          if (!catItems || catItems.length === 0) {
+            catItems = ['TATA SPG', 'Waree', 'Premier', 'Other'];
+          }
+          const tataIdx = catItems.findIndex(c => (c || '').toLowerCase().includes('tata') || (c || '').toLowerCase().includes('spg'));
+          if (tataIdx > -1) {
+            const tataItem = catItems.splice(tataIdx, 1)[0];
+            catItems.unshift(tataItem);
+          } else {
+            catItems.unshift('TATA SPG');
+          }
+          this.siteCategoryOptions = catItems;
+          if (!this.leadForm.siteCategory || !this.siteCategoryOptions.includes(this.leadForm.siteCategory)) {
+            this.leadForm.siteCategory = this.getDefaultSiteCategory();
+          }
           const orderItems = findItems('Order_By', []);
           if (orderItems.length > 0) this.orderByOptions = orderItems;
           const leadHandlerItems = findItems('Leads Name', findItems('Lead Handlers', []));

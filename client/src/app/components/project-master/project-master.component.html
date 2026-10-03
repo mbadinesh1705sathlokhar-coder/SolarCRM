@@ -924,12 +924,32 @@
               <div class="col-12">
                 <div class="p-3 bg-light rounded-3 border d-flex flex-wrap justify-content-between align-items-center gap-3">
                   <div class="d-flex align-items-center gap-3">
+                    <div class="p-2 bg-secondary-subtle text-secondary rounded-3">
+                      <i class="bi bi-tag fs-4"></i>
+                    </div>
+                    <div>
+                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Base Estimated Cost</div>
+                      <div class="fs-5 fw-bold text-dark font-mono">₹ {{ totalBomBaseCost | number:'1.2-2' }}</div>
+                    </div>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="p-2 bg-info-subtle text-info rounded-3">
+                      <i class="bi bi-percent fs-4"></i>
+                    </div>
+                    <div>
+                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Total GST Amount</div>
+                      <div class="fs-5 fw-bold text-info font-mono">₹ {{ totalBomGstAmount | number:'1.2-2' }}</div>
+                    </div>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-3">
                     <div class="p-2 bg-primary-subtle text-primary rounded-3">
                       <i class="bi bi-calculator fs-4"></i>
                     </div>
                     <div>
-                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Total Estimated BOM Cost</div>
-                      <div class="fs-5 fw-bold text-dark font-mono">₹ {{ totalBomEstimatedCost | number:'1.2-2' }}</div>
+                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Total Est. BOM Cost</div>
+                      <div class="fs-5 fw-bold text-primary font-mono">₹ {{ totalBomEstimatedCost | number:'1.2-2' }}</div>
                     </div>
                   </div>
 
@@ -938,7 +958,7 @@
                       <i class="bi bi-receipt fs-4"></i>
                     </div>
                     <div>
-                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Allocated Actual Expenses</div>
+                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Allocated Expenses</div>
                       <div class="fs-5 fw-bold text-danger font-mono">₹ {{ totalBomAllocatedExpenses | number:'1.2-2' }}</div>
                     </div>
                   </div>
@@ -948,16 +968,12 @@
                       <i class="bi bi-piggy-bank fs-4"></i>
                     </div>
                     <div>
-                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Budget Variance / Balance</div>
+                      <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Budget Variance</div>
                       <div class="fs-5 fw-bold font-mono" [class.text-success]="(totalBomEstimatedCost - totalBomAllocatedExpenses) >= 0" [class.text-danger]="(totalBomEstimatedCost - totalBomAllocatedExpenses) < 0">
                         ₹ {{ (totalBomEstimatedCost - totalBomAllocatedExpenses) | number:'1.2-2' }}
                       </div>
                     </div>
                   </div>
-
-                  <button type="button" class="btn btn-sm btn-primary fw-semibold d-inline-flex align-items-center gap-1.5 shadow-sm" (click)="addBomItem()">
-                    <i class="bi bi-plus-circle-fill"></i> Add Material Row
-                  </button>
                 </div>
               </div>
 
@@ -981,36 +997,72 @@
                   <span class="badge bg-warning-subtle text-warning border">Petty Cash: ₹ {{ bomExpenseBreakdown.PettyCash | number:'1.0-0' }}</span>
                   <span class="badge bg-secondary-subtle text-secondary border">Accounts: ₹ {{ bomExpenseBreakdown.Accounts | number:'1.0-0' }}</span>
                   <span class="badge bg-danger-subtle text-danger border">Warehouse: ₹ {{ bomExpenseBreakdown.Warehouse | number:'1.0-0' }}</span>
+                  <span class="badge bg-success-subtle text-success border ms-auto"><i class="bi bi-check-circle me-1"></i>Dispatched: {{ totalBomDispatchedCount }} / {{ formBomItems.length }}</span>
                 </div>
               </div>
 
               <!-- BOM Items Interactive Table -->
               <div class="col-12">
-                <div class="table-responsive border rounded-3">
+                <div #bomTableScroll class="table-responsive border rounded-3" (scroll)="onTableHorizontalScroll(bomTableScroll, bomStickyScroll)">
                   <table class="table table-hover align-middle mb-0 custom-table">
                     <thead class="table-light text-uppercase fs-8 text-secondary">
                       <tr>
-                        <th style="width: 35px;" class="text-center">#</th>
+                        <th style="width: 55px;" class="text-center">S.NO</th>
+                        <th style="min-width: 110px;" class="text-center" title="Dispatched from Warehouse / Gate Pass">Dispatched</th>
                         <th style="min-width: 140px;">Material Group</th>
-                        <th style="min-width: 140px;">Type / Sub-Group</th>
-                        <th style="min-width: 170px;">Specification / Size</th>
-                        <th style="min-width: 90px;">UOM</th>
-                        <th class="text-end" style="min-width: 80px;">QTY</th>
-                        <th class="text-end" style="min-width: 100px;">Unit Rate (₹)</th>
-                        <th class="text-end" style="min-width: 110px;">Est. Cost (₹)</th>
-                        <th class="text-center" style="width: 50px;">Action</th>
+                        <th style="min-width: 130px;">Type / Sub-Group</th>
+                        <th style="min-width: 160px;">Specification / Size</th>
+                        <th style="min-width: 80px;">UOM</th>
+                        <th class="text-end" style="min-width: 100px;">QTY</th>
+                        <th class="text-end" style="min-width: 115px;">Rate (₹)</th>
+                        <th class="text-end" style="min-width: 100px;">Base Cost (₹)</th>
+                        <th class="text-center" style="width: 80px;">GST (%)</th>
+                        <th class="text-end" style="min-width: 95px;">GST Amt (₹)</th>
+                        <th class="text-end" style="min-width: 115px;">Total Cost</th>
+                        <th class="text-center" style="width: 45px;">Action</th>
                       </tr>
                     </thead>
                     <tbody *ngFor="let item of formBomItems; let i = index">
                       <tr class="cursor-pointer" [class.table-active]="expandedBomRowIndex === i">
-                        <!-- # & Row Expand Toggle -->
-                        <td class="text-center" (click)="toggleBomRowExpand(i)" title="Click to view/edit Actual Expenses & Bill Ref">
-                          <i class="bi me-1 text-primary" [ngClass]="expandedBomRowIndex === i ? 'bi-chevron-down-circle-fill' : 'bi-chevron-right-circle'"></i>
+                        <!-- S.NO & Row Expand Toggle -->
+                        <td class="text-center text-nowrap" (click)="toggleBomRowExpand(i)" title="Click to view/edit Actual Expenses & Bill Ref">
+                          <span class="fw-bold text-secondary me-1 font-mono" style="font-size: 0.85rem;">{{ i + 1 }}</span>
+                          <i class="bi text-primary" [ngClass]="expandedBomRowIndex === i ? 'bi-chevron-down-circle-fill' : 'bi-chevron-right-circle'"></i>
+                        </td>
+
+                        <!-- Dispatched Status Badge / Toggle (Full = light green bg, Part = light blue bg, None = checkbox) -->
+                        <td class="text-center" (click)="$event.stopPropagation()">
+                          <!-- Fully Dispatched (Light Green BG: #dcfce7, text: #15803d, border: #86efac) -->
+                          <div *ngIf="getBomDispatchStatus(item) === 'full'" 
+                               (click)="item.isDispatched = !item.isDispatched"
+                               class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs cursor-pointer" 
+                               style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.75rem;" 
+                               title="Fully Dispatched ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }}{{ item.dispatchDate ? ' on ' + item.dispatchDate : '' }}). Click to toggle.">
+                            <i class="bi bi-check2-circle-fill"></i> ✓ Dispatched
+                          </div>
+
+                          <!-- Partially Dispatched (Light Blue BG: #e0f2fe, text: #0369a1, border: #7dd3fc) -->
+                          <div *ngIf="getBomDispatchStatus(item) === 'part'" 
+                               (click)="item.isDispatched = !item.isDispatched"
+                               class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs cursor-pointer" 
+                               style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 0.75rem;" 
+                               title="Partially Dispatched ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }}{{ item.dispatchDate ? ' on ' + item.dispatchDate : '' }}). Click to toggle.">
+                            <i class="bi bi-hourglass-split"></i> Part ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }})
+                          </div>
+
+                          <!-- Not Yet Dispatched: Checkbox -->
+                          <div *ngIf="getBomDispatchStatus(item) === 'none'" class="d-flex align-items-center justify-content-center">
+                            <input type="checkbox" class="form-check-input my-0 cursor-pointer" 
+                                   [(ngModel)]="item.isDispatched" 
+                                   name="disp_{{i}}" 
+                                   title="Click to mark as dispatched">
+                          </div>
                         </td>
 
                         <!-- Group Select -->
                         <td (click)="$event.stopPropagation()">
                           <select class="form-select form-select-sm" [(ngModel)]="item.materialGroup" (change)="onMaterialGroupChange(item)" name="grp_{{i}}">
+                            <option value="">-- Select Group --</option>
                             <option *ngFor="let g of materialGroupsList" [value]="g.group">{{ g.group }}</option>
                           </select>
                         </td>
@@ -1018,6 +1070,7 @@
                         <!-- Category Type Select -->
                         <td (click)="$event.stopPropagation()">
                           <select class="form-select form-select-sm font-semibold text-primary" [(ngModel)]="item.categoryType" (change)="onCategoryTypeChange(item)" name="cat_{{i}}">
+                            <option value="">-- Select Type --</option>
                             <option *ngFor="let t of getAvailableCategoryTypes(item.materialGroup)" [value]="t">{{ t }}</option>
                           </select>
                         </td>
@@ -1027,8 +1080,9 @@
                           <select class="form-select form-select-sm font-semibold text-dark" 
                                   style="min-width: 130px;"
                                   [(ngModel)]="item.specification" 
-                                  (change)="recalculateBomItem(item)"
+                                  (change)="recalculateBomItem(item)" 
                                   name="spec_{{i}}">
+                            <option value="">-- Select Specification --</option>
                             <option *ngFor="let s of getAvailableSpecsForType(item.materialGroup, item.categoryType || '')" [value]="s">
                               {{ s }}
                             </option>
@@ -1040,24 +1094,53 @@
 
                         <!-- UOM Select -->
                         <td (click)="$event.stopPropagation()">
-                          <select class="form-select form-select-sm" style="min-width: 90px;" [(ngModel)]="item.uom" name="uom_{{i}}">
+                          <select class="form-select form-select-sm" style="min-width: 80px;" [(ngModel)]="item.uom" name="uom_{{i}}">
                             <option *ngFor="let u of uomOptions" [value]="u">{{ u }}</option>
                           </select>
                         </td>
 
                         <!-- Planned Qty -->
                         <td (click)="$event.stopPropagation()">
-                          <input type="number" class="form-control form-control-sm text-end font-mono" [(ngModel)]="item.plannedQty" (input)="recalculateBomItem(item)" name="qty_{{i}}" min="0">
+                          <input type="number" 
+                                 class="form-control text-end font-mono fw-bold" 
+                                 style="min-width: 90px; height: 35px; font-size: 0.92rem;" 
+                                 [(ngModel)]="item.plannedQty" 
+                                 (input)="recalculateBomItem(item)" 
+                                 name="qty_{{i}}" 
+                                 min="0">
                         </td>
 
                         <!-- Unit Rate -->
                         <td (click)="$event.stopPropagation()">
-                          <input type="number" class="form-control form-control-sm text-end font-mono" [(ngModel)]="item.unitRate" (input)="recalculateBomItem(item)" name="rate_{{i}}" min="0">
+                          <input type="number" 
+                                 class="form-control text-end font-mono fw-bold" 
+                                 style="min-width: 105px; height: 35px; font-size: 0.92rem;" 
+                                 [(ngModel)]="item.unitRate" 
+                                 (input)="recalculateBomItem(item)" 
+                                 name="rate_{{i}}" 
+                                 min="0">
                         </td>
 
-                        <!-- Est Total Cost -->
-                        <td class="text-end fw-bold font-mono text-dark" (click)="toggleBomRowExpand(i)">
+                        <!-- Base Cost (plannedQty * unitRate) -->
+                        <td class="text-end font-mono text-dark fw-semibold" (click)="toggleBomRowExpand(i)">
                           ₹ {{ item.estimatedTotalCost | number:'1.2-2' }}
+                        </td>
+
+                        <!-- GST (%) (Non-editable badge) -->
+                        <td class="text-center" (click)="$event.stopPropagation()">
+                          <span class="badge bg-light text-dark border px-2 py-1.5 font-mono fw-bold" style="font-size: 0.85rem;" title="Preset GST rate for {{ item.materialGroup }}">
+                            {{ item.gstPercent !== undefined ? item.gstPercent : 18 }}%
+                          </span>
+                        </td>
+
+                        <!-- GST Amount (₹) -->
+                        <td class="text-end font-mono text-info fw-semibold" (click)="toggleBomRowExpand(i)">
+                          ₹ {{ (item.gstAmount || 0) | number:'1.2-2' }}
+                        </td>
+
+                        <!-- Total Cost (Base Cost + GST) -->
+                        <td class="text-end fw-bold font-mono text-dark" (click)="toggleBomRowExpand(i)" style="font-size: 0.95rem;">
+                          ₹ {{ (item.estAmount !== undefined ? item.estAmount : (item.estimatedTotalCost + (item.gstAmount || 0))) | number:'1.2-2' }}
                         </td>
 
                         <!-- Action -->
@@ -1070,15 +1153,20 @@
 
                       <!-- EXPANDABLE SUB-PANEL FOR ACTUAL EXPENSES, SOURCE, BILL REF & CHECKPOINTS -->
                       <tr *ngIf="expandedBomRowIndex === i" class="bg-light">
-                        <td colspan="9" class="p-3 bg-light-subtle border-bottom shadow-inner">
+                        <td colspan="13" class="p-3 bg-light-subtle border-bottom shadow-inner">
                           <div class="card border-primary border-opacity-25 rounded-3 p-3 bg-white shadow-xs">
                             <div class="d-flex align-items-center justify-content-between mb-2 border-bottom pb-2">
                               <span class="fw-bold text-dark d-flex align-items-center gap-1.5" style="font-size: 0.85rem;">
-                                <i class="bi bi-receipt text-primary"></i> Actual Expenses &amp; Warehouse Distribution Tracking for {{ item.materialGroup }} ({{ item.specification }})
+                                <i class="bi bi-receipt text-primary"></i> Actual Expenses &amp; Gate Pass Dispatch Tracking for {{ item.materialGroup }} ({{ item.specification }})
                               </span>
-                              <span class="badge" [ngClass]="isBomBudgetExceeded(item) ? 'bg-danger text-white' : 'bg-success-subtle text-success border'">
-                                {{ isBomBudgetExceeded(item) ? '⚠️ Exceeds BOM Budget' : '✓ Within Budget' }}
-                              </span>
+                              <div class="d-flex align-items-center gap-2">
+                                <span *ngIf="item.isDispatched" class="badge bg-success text-white">
+                                  <i class="bi bi-check2-circle me-1"></i>Dispatched via GP ({{ item.dispatchedQty || item.warehouseUnitsDrawn || 0 }} {{ item.uom }})
+                                </span>
+                                <span class="badge" [ngClass]="isBomBudgetExceeded(item) ? 'bg-danger text-white' : 'bg-success-subtle text-success border'">
+                                  {{ isBomBudgetExceeded(item) ? '⚠️ Exceeds BOM Budget' : '✓ Within Budget' }}
+                                </span>
+                              </div>
                             </div>
 
                             <!-- Budget Warning Checkpoint Alert -->
@@ -1088,33 +1176,50 @@
                             </div>
 
                             <div class="row g-3">
+                              <!-- Dispatched Status Checkbox -->
+                              <div class="col-md-2">
+                                <label class="form-label fs-8 text-secondary mb-1">Gate Pass Dispatch</label>
+                                <div class="d-flex align-items-center gap-2 pt-1">
+                                  <input type="checkbox" class="form-check-input my-0" [(ngModel)]="item.isDispatched" name="exp_disp_{{i}}">
+                                  <span class="small fw-semibold" [class.text-success]="item.isDispatched" [class.text-muted]="!item.isDispatched">
+                                    {{ item.isDispatched ? 'Dispatched' : 'Pending' }}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <!-- Dispatch Date -->
+                              <div class="col-md-2" *ngIf="item.isDispatched">
+                                <label class="form-label fs-8 text-secondary mb-1">Dispatch Date</label>
+                                <input type="text" class="form-control form-control-sm font-mono bg-light" [value]="formatDate(item.dispatchDate)" readonly name="ddate_{{i}}">
+                              </div>
+
+                              <!-- Drawn Units -->
+                              <div class="col-md-2">
+                                <label class="form-label fs-8 text-secondary mb-1">Units Drawn</label>
+                                <input type="number" class="form-control form-control-sm font-mono text-center" [(ngModel)]="item.dispatchedQty" name="wdrawn_{{i}}" min="0" placeholder="e.g. 100">
+                              </div>
+
                               <!-- Actual Expenses (Read-Only auto-loaded from Client Expenses) -->
-                              <div class="col-md-3">
+                              <div class="col-md-2">
                                 <label class="form-label fs-8 text-secondary mb-1">Actual Expenses (₹) <span class="badge bg-light text-muted border font-mono">Auto-Ledger</span></label>
                                 <input type="number" class="form-control form-control-sm text-end text-danger font-mono fw-bold bg-light" [(ngModel)]="item.allocatedExpenseAmount" readonly name="exp_{{i}}" min="0" placeholder="0" title="Auto-loaded from Client Expenses ledger">
                               </div>
 
                               <!-- Expense Source (Read-Only) -->
-                              <div class="col-md-3">
+                              <div class="col-md-2">
                                 <label class="form-label fs-8 text-secondary mb-1">Source <span class="badge bg-light text-muted border font-mono">Auto-Ledger</span></label>
                                 <input type="text" class="form-control form-control-sm fw-semibold bg-light" [value]="item.expenseSource || 'Warehouse'" readonly name="src_{{i}}" title="Auto-loaded from Client Expenses ledger">
                               </div>
 
                               <!-- Bill / Invoice Ref with Tracking Link -->
-                              <div class="col-md-4">
-                                <label class="form-label fs-8 text-secondary mb-1">Bill / Invoice Ref</label>
+                              <div class="col-md-2">
+                                <label class="form-label fs-8 text-secondary mb-1">Bill / GP Ref</label>
                                 <div class="input-group input-group-sm">
-                                  <input type="text" class="form-control font-mono bg-light" placeholder="e.g. INV-9902" [(ngModel)]="item.invoiceRef" readonly name="inv_{{i}}">
-                                  <button type="button" class="btn btn-outline-primary px-2" (click)="trackBillRef(item)" title="Track PO/WO or Warehouse Bill Expenses">
-                                    <i class="bi bi-box-arrow-up-right me-1"></i> Track Bill
+                                  <input type="text" class="form-control font-mono bg-light" placeholder="e.g. GP-12" [(ngModel)]="item.invoiceRef" readonly name="inv_{{i}}">
+                                  <button type="button" class="btn btn-outline-primary px-1.5" (click)="trackBillRef(item)" title="Track PO/WO or Warehouse Bill Expenses">
+                                    <i class="bi bi-box-arrow-up-right"></i>
                                   </button>
                                 </div>
-                              </div>
-
-                              <!-- Warehouse Drawn Units -->
-                              <div class="col-md-2">
-                                <label class="form-label fs-8 text-secondary mb-1">Units Drawn</label>
-                                <input type="number" class="form-control form-control-sm font-mono text-center" [(ngModel)]="item.warehouseUnitsDrawn" name="wdrawn_{{i}}" min="0" placeholder="e.g. 100">
                               </div>
                             </div>
                           </div>
@@ -1124,12 +1229,32 @@
 
                     <tbody *ngIf="formBomItems.length === 0">
                       <tr>
-                        <td colspan="9" class="text-center py-4 text-muted">
+                        <td colspan="13" class="text-center py-4 text-muted">
                           <i class="bi bi-info-circle me-1"></i> No materials added to Bill of Materials yet. Click <strong>Add Material Row</strong> to allocate materials & track client expenses.
                         </td>
                       </tr>
                     </tbody>
                   </table>
+                </div>
+
+                <!-- Sticky Horizontal Scrollbar Pinned at Bottom of Viewport -->
+                <div #bomStickyScroll class="sticky-horizontal-scrollbar" (scroll)="onStickyHorizontalScroll(bomStickyScroll, bomTableScroll)">
+                  <div [style.width.px]="bomTableScroll.scrollWidth" style="height: 1px;"></div>
+                </div>
+
+                <!-- Bottom Add Material Row Button & Action Controls -->
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-2">
+                  <button type="button" class="btn btn-sm btn-primary fw-semibold d-inline-flex align-items-center gap-1.5 shadow-sm px-3 py-1.5 rounded-2" (click)="addBomItem()">
+                    <i class="bi bi-plus-circle-fill"></i> Add Material Row
+                  </button>
+                  <div class="d-flex align-items-center gap-2">
+                    <button type="button" *ngIf="formBomItems.length > 0" class="btn btn-xs btn-outline-danger d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-2" (click)="clearAllBomItems()" title="Clear all BOM items">
+                      <i class="bi bi-trash"></i> Clear All Rows
+                    </button>
+                    <span class="badge bg-light text-dark border font-mono small">
+                      {{ formBomItems.length }} Item(s)
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

@@ -57,7 +57,7 @@ async function syncProjectReceived(siteId) {
     return null;
 }
 
-// Helper to recalculate and sync ProjectMaster siteExpenses & margin
+// Helper to recalculate and sync ProjectMaster siteExpenses & margin & BOM items
 async function syncProjectExpenses(siteId) {
     if (!siteId) return null;
     const cleanSiteId = siteId.replace(/:/g, '').trim();
@@ -65,6 +65,62 @@ async function syncProjectExpenses(siteId) {
     const project = await ProjectMaster.findOne({ where: { siteId: cleanSiteId } });
     if (project) {
         project.siteExpenses = parseFloat(Number(totalExp).toFixed(2));
+
+        // Sync with ProjectMaster.bomItems if present
+        if (project.bomItems) {
+            try {
+                let bomItems = [];
+                if (typeof project.bomItems === 'string') {
+                    bomItems = JSON.parse(project.bomItems);
+                } else if (Array.isArray(project.bomItems)) {
+                    bomItems = [...project.bomItems];
+                }
+
+                if (Array.isArray(bomItems) && bomItems.length > 0) {
+                    const allSiteExpenses = await SiteExpenseLedger.findAll({ where: { siteId: cleanSiteId } });
+
+                    // Reset allocated amounts
+                    bomItems.forEach(b => {
+                        b.allocatedExpenseAmount = 0;
+                    });
+
+                    allSiteExpenses.forEach(exp => {
+                        const purp = (exp.purpose || '').toLowerCase().trim();
+                        const cat = (exp.category || '').toLowerCase().trim();
+                        const amt = parseFloat(exp.amount) || 0;
+                        const pt = (exp.paymentThrough || '').trim();
+
+                        let matched = bomItems.find(b => {
+                            const grp = (b.materialGroup || '').toLowerCase().trim();
+                            const bCat = (b.categoryType || '').toLowerCase().trim();
+                            const spec = (b.specification || '').toLowerCase().trim();
+
+                            if (grp && (purp.includes(grp) || cat.includes(grp))) return true;
+                            if (bCat && purp.includes(bCat)) return true;
+                            if (spec && purp.includes(spec)) return true;
+                            return false;
+                        });
+
+                        if (matched) {
+                            matched.allocatedExpenseAmount = (matched.allocatedExpenseAmount || 0) + amt;
+                            if (pt.toLowerCase().includes('gatepass')) {
+                                matched.isDispatched = true;
+                                if (!matched.expenseSource || matched.expenseSource === 'PO') {
+                                    matched.expenseSource = 'Warehouse';
+                                }
+                            } else if (pt.toUpperCase().includes('PO') || pt.toUpperCase().includes('WO')) {
+                                matched.expenseSource = pt;
+                            }
+                        }
+                    });
+
+                    project.bomItems = JSON.stringify(bomItems);
+                }
+            } catch (err) {
+                console.error('Error syncing BOM items in syncProjectExpenses:', err);
+            }
+        }
+
         await project.save();
         return project;
     }

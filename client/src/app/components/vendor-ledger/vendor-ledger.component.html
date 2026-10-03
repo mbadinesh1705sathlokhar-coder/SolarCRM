@@ -113,6 +113,9 @@
                   <i class="bi bi-building text-info mt-1"></i>
                   <div>
                     <span class="text-dark vendor-name-link fw-bold">{{ v.vendorName }}</span>
+                    <span *ngIf="v.gstNo" class="badge bg-info-subtle text-info border border-info-subtle font-mono ms-2" style="font-size: 0.68rem;" title="GST Identification Number">
+                      <i class="bi bi-card-heading me-1"></i>GST: {{ v.gstNo }}
+                    </span>
                     <!-- Materials viewed under Vendor Name -->
                     <div *ngIf="v.materialsSpec" class="d-flex flex-wrap gap-1 align-items-center mt-1" style="max-width: 320px;">
                       <span *ngFor="let mat of (v.materialsSpec || '').split(',').slice(0, 3)" 
@@ -193,6 +196,9 @@
               <i class="bi bi-shop me-1 text-primary"></i> Vendor Profile
             </span>
             <span class="text-muted small">• ID #{{ selectedVendor.id }}</span>
+            <span *ngIf="selectedVendor.gstNo" class="badge bg-info-subtle text-info border border-info-subtle font-mono small">
+              <i class="bi bi-card-heading me-1"></i>GST: {{ selectedVendor.gstNo }}
+            </span>
             <button type="button" 
                     class="btn btn-xs btn-outline-danger shadow-xs py-0.5 px-2 ms-2 fw-semibold d-inline-flex align-items-center gap-1" 
                     style="font-size: 0.72rem;"
@@ -250,13 +256,19 @@
               <label class="form-label small fw-bold text-dark mb-1">Phone No.</label>
               <input type="text" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="vendorDetailsForm.phoneNo" name="vPhone" placeholder="+91 98400 11223">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
+              <label class="form-label small fw-bold text-dark mb-1">
+                <i class="bi bi-card-heading me-1 text-primary"></i>GST No.
+              </label>
+              <input type="text" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="vendorDetailsForm.gstNo" name="vGst" placeholder="e.g. 33AAAAA0000A1Z5">
+            </div>
+            <div class="col-md-2">
               <label class="form-label small fw-bold text-dark mb-1">Location</label>
               <input type="text" class="form-control form-control-sm shadow-sm" [(ngModel)]="vendorDetailsForm.location" name="vLoc" placeholder="e.g. Ambattur, Chennai">
             </div>
-            <div class="col-md-2">
-              <label class="form-label small fw-bold text-dark mb-1">Credit Days</label>
-              <input type="text" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="vendorDetailsForm.creditDays" name="vCredit" placeholder="e.g. 20 Days">
+            <div class="col-md-1">
+              <label class="form-label small fw-bold text-dark mb-1">Credit</label>
+              <input type="text" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="vendorDetailsForm.creditDays" name="vCredit" placeholder="30 Days">
             </div>
 
             <!-- Description -->
@@ -285,10 +297,61 @@
                              type="checkbox" 
                              [id]="'mat_' + mat" 
                              [(ngModel)]="vendorDetailsForm.materials[mat]" 
+                             (change)="onMaterialCheckboxChange(mat, false)"
                              [name]="'mat_' + mat">
                       <label class="form-check-label small text-dark cursor-pointer text-truncate" [for]="'mat_' + mat" [title]="mat">
                         {{ mat }}
                       </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Subcategories Section for Selected Material Groups (as per BOM) -->
+            <div class="col-12 mt-3" *ngIf="getActiveGroupsWithSubcategories(false).length > 0">
+              <div class="card border-primary border-opacity-25 rounded-3 bg-white shadow-sm overflow-hidden">
+                <div class="card-header bg-primary-subtle py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                  <span class="fw-bold text-primary small d-flex align-items-center gap-1.5">
+                    <i class="bi bi-diagram-3-fill"></i> Material Subcategories &amp; Specifications (as per BOM)
+                  </span>
+                  <span class="badge bg-white text-primary border border-primary-subtle" style="font-size: 0.72rem;">
+                    Tick specific specifications to define custom rates below
+                  </span>
+                </div>
+
+                <div class="card-body p-3">
+                  <div *ngFor="let grp of getActiveGroupsWithSubcategories(false); let last = last" [class.mb-3]="!last" [class.pb-3]="!last" [class.border-bottom]="!last">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <span class="fw-bold text-dark small d-flex align-items-center gap-1.5">
+                        <span class="badge bg-dark text-white font-mono px-2 py-0.5" style="font-size: 0.75rem;">{{ grp }}</span>
+                        <span class="text-muted" style="font-size: 0.8rem;">Select specifications supplied:</span>
+                      </span>
+                      <div class="d-flex gap-1.5">
+                        <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 rounded-pill" style="font-size: 0.72rem;" (click)="toggleAllSubcategories(grp, true, false)">
+                          Select All
+                        </button>
+                        <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 rounded-pill" style="font-size: 0.72rem;" (click)="toggleAllSubcategories(grp, false, false)">
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="row g-2">
+                      <div class="col-6 col-sm-4 col-md-3" *ngFor="let sub of getSubcategories(grp)">
+                        <div class="p-2 border rounded-2 bg-light-subtle d-flex align-items-center gap-2 hover-shadow-xs">
+                          <input class="form-check-input my-0 cursor-pointer" 
+                                 type="checkbox" 
+                                 [id]="'sub_' + grp + '_' + sub" 
+                                 [(ngModel)]="vendorDetailsForm.subcategories[sub]" 
+                                 [name]="'sub_' + grp + '_' + sub">
+                          <label class="form-check-label small text-dark cursor-pointer mb-0 text-truncate" 
+                                 [for]="'sub_' + grp + '_' + sub" 
+                                 [title]="sub">
+                            {{ sub }}
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -868,13 +931,19 @@
                 <label class="form-label small fw-bold text-dark mb-1">Phone No</label>
                 <input type="text" class="form-control font-mono shadow-sm" placeholder="e.g. +91 98400 11223" [(ngModel)]="vendorForm.phoneNo" name="phoneNo">
               </div>
-              <div class="col-md-7">
-                <label class="form-label small fw-bold text-dark mb-1">Location</label>
-                <input type="text" class="form-control shadow-sm" placeholder="e.g. Ambattur, Chennai" [(ngModel)]="vendorForm.location" name="location">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  <i class="bi bi-card-heading me-1 text-primary"></i>GST No.
+                </label>
+                <input type="text" class="form-control font-mono shadow-sm" placeholder="e.g. 33AAAAA0000A1Z5" [(ngModel)]="vendorForm.gstNo" name="gstNo">
               </div>
-              <div class="col-md-5">
+              <div class="col-md-6">
                 <label class="form-label small fw-bold text-dark mb-1">Credit Days</label>
                 <input type="text" class="form-control shadow-sm font-mono" placeholder="e.g. 20 / 30" [(ngModel)]="vendorForm.creditDays" name="creditDays">
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-bold text-dark mb-1">Location</label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. Ambattur, Chennai" [(ngModel)]="vendorForm.location" name="location">
               </div>
 
               <!-- Materials Checkboxes -->
@@ -884,10 +953,45 @@
                   <div class="row g-1">
                     <div class="col-6 col-sm-4" *ngFor="let mat of availableMaterials">
                       <div class="form-check m-0">
-                        <input class="form-check-input" type="checkbox" [id]="'modal_mat_' + mat" [(ngModel)]="vendorModalMaterials[mat]" [name]="'modal_mat_' + mat">
+                        <input class="form-check-input" type="checkbox" [id]="'modal_mat_' + mat" [(ngModel)]="vendorModalMaterials[mat]" (change)="onMaterialCheckboxChange(mat, true)" [name]="'modal_mat_' + mat">
                         <label class="form-check-label small text-truncate" [for]="'modal_mat_' + mat" [title]="mat">
                           {{ mat }}
                         </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Modal Subcategories Section (as per BOM) -->
+              <div class="col-12" *ngIf="getActiveGroupsWithSubcategories(true).length > 0">
+                <div class="card border-primary border-opacity-25 rounded-3 bg-white shadow-xs overflow-hidden">
+                  <div class="card-header bg-primary-subtle py-1.5 px-3 border-bottom d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-primary small" style="font-size: 0.78rem;">
+                      <i class="bi bi-diagram-3-fill me-1"></i> Subcategories &amp; Specifications (as per BOM)
+                    </span>
+                    <span class="badge bg-white text-primary border border-primary-subtle" style="font-size: 0.68rem;">
+                      Tick specifications supplied
+                    </span>
+                  </div>
+                  <div class="card-body p-2" style="max-height: 160px; overflow-y: auto;">
+                    <div *ngFor="let grp of getActiveGroupsWithSubcategories(true); let last = last" [class.mb-2]="!last" [class.pb-2]="!last" [class.border-bottom]="!last">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="badge bg-dark text-white font-mono px-2 py-0.5" style="font-size: 0.7rem;">{{ grp }}</span>
+                        <div class="d-flex gap-1">
+                          <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded-pill" style="font-size: 0.65rem;" (click)="toggleAllSubcategories(grp, true, true)">Select All</button>
+                          <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded-pill" style="font-size: 0.65rem;" (click)="toggleAllSubcategories(grp, false, true)">Clear</button>
+                        </div>
+                      </div>
+                      <div class="row g-1">
+                        <div class="col-6" *ngFor="let sub of getSubcategories(grp)">
+                          <div class="p-1 border rounded bg-light-subtle d-flex align-items-center gap-1.5">
+                            <input class="form-check-input my-0 cursor-pointer" type="checkbox" [id]="'modal_sub_' + grp + '_' + sub" [(ngModel)]="vendorModalSubcategories[sub]" [name]="'modal_sub_' + grp + '_' + sub">
+                            <label class="form-check-label small text-dark cursor-pointer mb-0 text-truncate" [for]="'modal_sub_' + grp + '_' + sub" [title]="sub" style="font-size: 0.75rem;">
+                              {{ sub }}
+                            </label>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

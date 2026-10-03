@@ -35,6 +35,12 @@ const BomMaterialMaster = conDb.define('BomMaterialMaster', {
         defaultValue: 0,
         field: 'unit_rate'
     },
+    gstPercent: {
+        type: DataTypes.DECIMAL(5, 2),
+        allowNull: true,
+        defaultValue: 18.00,
+        field: 'gst_percent'
+    },
     sortOrder: {
         type: DataTypes.INTEGER,
         allowNull: true,

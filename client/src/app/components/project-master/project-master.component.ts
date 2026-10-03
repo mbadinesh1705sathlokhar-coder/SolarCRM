@@ -206,8 +206,9 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
           }
           this.invoiceStatusOptions = findItems('Invoice Status', this.invoiceStatusOptions);
           this.paymentModeOptions = findItems('Payment Mode', this.paymentModeOptions);
+          this.uomOptions = findItems('UOM measurements', findItems('UOM', this.uomOptions));
 
-          const dbMatGroups = findItems('BOM', findItems('Materials_', []));
+          const dbMatGroups = findItems('BOM', findItems('Material Group', findItems('Materials_', [])));
           if (dbMatGroups && dbMatGroups.length > 0) {
             dbMatGroups.forEach(gName => {
               const exists = this.materialGroupsList.some(m => m.group.toLowerCase().trim() === gName.toLowerCase().trim());
@@ -314,34 +315,34 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       specifications: ['3kW Ongrid', '5kW Ongrid', '10kW Ongrid', '15kW Ongrid', '20kW Ongrid', '5kW Hybrid', '10kW Hybrid']
     },
     {
-      group: 'MC4 Connector',
+      group: 'Civil & Miscellaneous',
+      defaultUom: 'Nos',
+      specifications: ['General Civil Work', 'Masonry & Foundation', 'Waterproofing & Sealing', 'Minor Site Modifications']
+    },
+    {
+      group: 'Consumables',
+      defaultUom: 'Nos',
+      specifications: ['PVC Conduit Accessories', 'Chemical Earthing Compound', 'Cable Ties UV Rated', 'Insulation Tapes & Glands']
+    },
+    {
+      group: 'Earthing Protection',
       defaultUom: 'Sets',
-      specifications: ['Single Pair (1-in 1-out)', '2-in 1-out Branch Pair', '3-in 1-out Branch Pair', '4-in 1-out Branch Pair']
+      specifications: ['Copper Bonded Chemical Rod 50mm', 'ESE Lightning Arrester Kit', 'GI Flat Strip 25x3mm', 'Earthing Pit & Chamber']
     },
     {
-      group: 'Lugs',
-      defaultUom: 'Nos',
-      specifications: ['Cu Lug - 4Sqmm', 'Cu Lug - 6Sqmm', 'Cu Lug - 10Sqmm', 'Al Lug - 16Sqmm', 'Al Lug - 25Sqmm', 'Al Lug - 35Sqmm', 'Pin Lug - 4Sqmm', 'Ring Lug - 6Sqmm']
-    },
-    {
-      group: 'Bucket',
-      defaultUom: 'Nos',
-      specifications: ['PVC Conduit Accessories Bucket', 'Hardware Fasteners Bucket', 'Earthing Kit Bucket', 'Electrical Consumables Bucket']
-    },
-    {
-      group: 'Structure',
+      group: 'Module Mounting Structures',
       defaultUom: 'Kg',
-      specifications: ['HDG Rooftop High Structure', 'Aluminium Rail Profile', 'Ground Mount Column Structure', 'Car Port Canopy Structure']
+      specifications: ['HDG Rooftop High Structure', 'Aluminium Rail Profile', 'Elevated Super Structure', 'Car Port Canopy Frame']
     },
     {
-      group: 'Earthing & Lightning',
-      defaultUom: 'Sets',
-      specifications: ['Copper Bonded Chemical Earthing Rod 50mm', 'ESE Lightning Arrester Kit', 'GI Flat Strip 25x3mm', 'Copper Strip 25x3mm']
-    },
-    {
-      group: 'Fasteners & Hardware',
+      group: 'Tata SPG Package',
       defaultUom: 'Nos',
-      specifications: ['SS304 Allen Bolt M8x25', 'SS304 Hex Bolt M10x30', 'Anchor Fastener M12x100', 'Cable Ties UV 300mm']
+      specifications: ['Complete TATA SPG 3kW Kit', 'Complete TATA SPG 5kW Kit', 'Complete TATA SPG 10kW Kit', 'TATA SPG Balance of System']
+    },
+    {
+      group: 'Waree',
+      defaultUom: 'Nos',
+      specifications: ['Waaree Solar Panels Kit', 'Waaree Inverter Package', 'Waaree Complete Plant System']
     }
   ];
 
@@ -398,18 +399,36 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     return match ? match.specifications : ['Standard Spec'];
   }
 
+  getDefaultGstForGroup(groupName: string): number {
+    const norm = (groupName || '').toLowerCase().trim();
+    const match = this.bomMaterialsMasterList.find(b => (b.groupName || '').toLowerCase().trim() === norm);
+    if (match && match.gstPercent !== undefined && match.gstPercent !== null) {
+      return Number(match.gstPercent);
+    }
+    if (norm === 'panels') return 5;
+    return 18;
+  }
+
   onMaterialGroupChange(item: BomItem): void {
     const grp = item.materialGroup;
+    if (!grp) {
+      item.categoryType = '';
+      item.specification = '';
+      item.uom = 'Nos';
+      this.recalculateBomItem(item);
+      return;
+    }
     const types = this.getAvailableCategoryTypes(grp);
     item.categoryType = types[0] || 'Standard';
     
     const specs = this.getAvailableSpecsForType(grp, item.categoryType);
-    item.specification = specs[0] || 'Standard Spec';
+    item.specification = specs[0] || '';
 
     const match = this.materialGroupsList.find(m => m.group.toLowerCase().trim() === (grp || '').toLowerCase().trim());
     if (match) {
       item.uom = match.defaultUom;
     }
+    item.gstPercent = this.getDefaultGstForGroup(grp);
     this.recalculateBomItem(item);
   }
 
@@ -425,6 +444,29 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     const qty = Number(item.plannedQty) || 0;
     const rate = Number(item.unitRate) || 0;
     item.estimatedTotalCost = Number((qty * rate).toFixed(2));
+
+    if (item.gstPercent === undefined || item.gstPercent === null) {
+      item.gstPercent = this.getDefaultGstForGroup(item.materialGroup);
+    }
+    const gstRate = Number(item.gstPercent) || 0;
+    item.gstAmount = Number(((item.estimatedTotalCost * gstRate) / 100).toFixed(2));
+    item.estAmount = Number((item.estimatedTotalCost + item.gstAmount).toFixed(2));
+  }
+
+  getBomDispatchStatus(item: BomItem): 'full' | 'part' | 'none' {
+    const planned = Number(item.plannedQty) || 0;
+    const dispatched = Number(item.dispatchedQty !== undefined ? item.dispatchedQty : item.warehouseUnitsDrawn) || 0;
+    if (dispatched >= planned && planned > 0) return 'full';
+    if (dispatched > 0 && dispatched < planned) return 'part';
+    if (item.isDispatched) {
+      if (dispatched > 0 && dispatched < planned) return 'part';
+      return 'full';
+    }
+    return 'none';
+  }
+
+  getBomDispatchedQty(item: BomItem): number {
+    return Number(item.dispatchedQty !== undefined ? item.dispatchedQty : item.warehouseUnitsDrawn) || 0;
   }
 
   expandedBomRowIndex: number | null = null;
@@ -435,13 +477,13 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   }
 
   isBomBudgetExceeded(item: BomItem): boolean {
-    const est = Number(item.estimatedTotalCost) || 0;
+    const est = Number(item.estAmount || item.estimatedTotalCost) || 0;
     const act = Number(item.allocatedExpenseAmount) || 0;
     return est > 0 && act > est;
   }
 
   getBomExpenseWarningMessage(item: BomItem): string {
-    const est = Number(item.estimatedTotalCost) || 0;
+    const est = Number(item.estAmount || item.estimatedTotalCost) || 0;
     const act = Number(item.allocatedExpenseAmount) || 0;
     if (est > 0 && act > est) {
       const diff = act - est;
@@ -461,27 +503,49 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   }
 
   addBomItem(): void {
-    const defaultGrp = this.materialGroupsList[0];
-    const types = this.getAvailableCategoryTypes(defaultGrp.group);
-    const categoryType = types[0] || 'AC Cable';
-    const specs = this.getAvailableSpecsForType(defaultGrp.group, categoryType);
-
     const newItem: BomItem = {
       id: 'bom-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
-      materialGroup: defaultGrp.group,
-      categoryType: categoryType,
-      specification: specs[0] || '4Sqmm',
-      uom: defaultGrp.defaultUom,
-      plannedQty: 100,
-      unitRate: 50,
-      estimatedTotalCost: 5000,
+      materialGroup: '',
+      categoryType: '',
+      specification: '',
+      uom: 'Nos',
+      plannedQty: 0,
+      unitRate: 0,
+      estimatedTotalCost: 0,
+      gstPercent: 18,
+      gstAmount: 0,
+      estAmount: 0,
       allocatedExpenseAmount: 0,
       expenseSource: 'PO',
       invoiceRef: '',
+      warehouseUnitsDrawn: 0,
+      isDispatched: false,
+      dispatchedQty: 0,
+      dispatchDate: '',
       remarks: ''
     };
     this.formBomItems.push(newItem);
     this.expandedBomRowIndex = this.formBomItems.length - 1;
+  }
+
+  clearAllBomItems(): void {
+    if (confirm('Are you sure you want to clear all materials from the Bill of Materials?')) {
+      this.formBomItems = [];
+      this.expandedBomRowIndex = null;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onTableHorizontalScroll(tableEl: HTMLElement, scrollEl: HTMLElement): void {
+    if (scrollEl && Math.abs(scrollEl.scrollLeft - tableEl.scrollLeft) > 2) {
+      scrollEl.scrollLeft = tableEl.scrollLeft;
+    }
+  }
+
+  onStickyHorizontalScroll(scrollEl: HTMLElement, tableEl: HTMLElement): void {
+    if (tableEl && Math.abs(tableEl.scrollLeft - scrollEl.scrollLeft) > 2) {
+      tableEl.scrollLeft = scrollEl.scrollLeft;
+    }
   }
 
   removeBomItem(index: number): void {
@@ -491,8 +555,24 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     this.formBomItems.splice(index, 1);
   }
 
-  get totalBomEstimatedCost(): number {
+  get totalBomBaseCost(): number {
     return this.formBomItems.reduce((acc, item) => acc + (Number(item.estimatedTotalCost) || 0), 0);
+  }
+
+  get totalBomGstAmount(): number {
+    return this.formBomItems.reduce((acc, item) => acc + (Number(item.gstAmount) || 0), 0);
+  }
+
+  get totalBomEstimatedCost(): number {
+    return this.formBomItems.reduce((acc, item) => acc + (Number(item.estAmount !== undefined ? item.estAmount : (Number(item.estimatedTotalCost) + Number(item.gstAmount || 0))) || 0), 0);
+  }
+
+  get totalBomDispatchedCount(): number {
+    return this.formBomItems.filter(item => Boolean(item.isDispatched)).length;
+  }
+
+  goToAddList(): void {
+    this.router.navigate(['/office/add-list']);
   }
 
   get totalBomAllocatedExpenses(): number {
@@ -1325,6 +1405,9 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
         try { parsedBom = JSON.parse(project.bomItems); } catch(e) { parsedBom = []; }
       }
     }
+    parsedBom.forEach(item => {
+      this.recalculateBomItem(item);
+    });
     this.formBomItems = parsedBom;
     this.modalTab = 'basic';
     this.isModalOpen = true;

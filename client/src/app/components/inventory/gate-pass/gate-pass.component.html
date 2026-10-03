@@ -77,7 +77,7 @@
             <th style="width: 60px;" class="text-center">S.No</th>
             <th style="width: 110px;">Date</th>
             <th style="width: 110px;">Unit</th>
-            <th style="width: 120px;" class="text-end">Total Amount</th>
+            <th *ngIf="canViewPricing()" style="width: 120px;" class="text-end">Total Amount</th>
             <th>Client Name</th>
             <th>SiteEngineer</th>
             <th style="width: 80px;" class="text-center">Actions</th>
@@ -85,13 +85,13 @@
         </thead>
         <tbody>
           <tr *ngIf="loading">
-            <td colspan="7" class="text-center py-4 text-muted">
+            <td [attr.colspan]="canViewPricing() ? 7 : 6" class="text-center py-4 text-muted">
               <div class="spinner-border spinner-border-sm text-warning me-2"></div>
               Loading gate passes...
             </td>
           </tr>
           <tr *ngIf="!loading && filteredGatePasses.length === 0">
-            <td colspan="7" class="text-center py-5 text-muted">
+            <td [attr.colspan]="canViewPricing() ? 7 : 6" class="text-center py-5 text-muted">
               <i class="bi bi-card-checklist fs-2 d-block mb-2 text-secondary"></i>
               No gate passes recorded. Click <strong>Create Gate Pass</strong> to record a dispatch.
             </td>
@@ -118,8 +118,8 @@
                 <span class="badge bg-warning-subtle text-dark border border-warning-subtle font-mono">{{ gp.unit || 'Nos' }}</span>
               </button>
             </td>
-            <!-- Total Amount -->
-            <td class="text-end font-mono fw-bold" style="font-size: 0.84rem;">
+            <!-- Total Amount (Purchase & Admin only) -->
+            <td *ngIf="canViewPricing()" class="text-end font-mono fw-bold" style="font-size: 0.84rem;">
               <span *ngIf="getGatePassTotal(gp) > 0" class="text-success">₹ {{ getGatePassTotal(gp) | number:'1.2-2' }}</span>
               <span *ngIf="getGatePassTotal(gp) === 0" class="text-muted">—</span>
             </td>
@@ -163,6 +163,26 @@
       </div>
       <form (ngSubmit)="saveGatePass()">
         <div class="modal-body p-4 bg-light" style="max-height: 80vh; overflow-y: auto;">
+          <!-- Existing Client Warning Banner -->
+          <div *ngIf="!isEditMode && existingGatePassForClient" class="alert alert-warning border-warning shadow-sm d-flex align-items-center justify-content-between p-3 mb-3 rounded-3">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-exclamation-triangle-fill fs-4 text-warning flex-shrink-0"></i>
+              <div>
+                <strong class="text-dark">⚠️ Gate Pass Already Exists for this Client:</strong>
+                <span class="ms-1 text-dark">
+                  Gate Pass #{{ existingGatePassForClient.id }} (Dated: {{ formatDate(existingGatePassForClient.gatePassDate) }}) is already created for <strong>{{ existingGatePassForClient.clientName }}</strong>.
+                </span>
+                <div class="small text-secondary mt-1">
+                  You can edit the existing Gate Pass to add more materials with distinct dispatch dates, or proceed to create another pass.
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-dark text-nowrap d-flex align-items-center gap-1 shadow-xs"
+                    (click)="openEditModal(existingGatePassForClient)">
+              <i class="bi bi-pencil-square"></i> Edit Existing Pass
+            </button>
+          </div>
+
           <!-- 1. Dispatch Header Details -->
           <div class="bg-white p-3 rounded-3 border mb-3 shadow-xs">
             <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
@@ -258,17 +278,26 @@
               <table class="table table-borderless align-middle mb-0">
                 <thead>
                   <tr class="text-uppercase text-secondary" style="font-size: 0.72rem; font-weight: 700;">
-                    <th style="min-width: 220px;">MATERIAL (FROM STOCK) *</th>
-                    <th style="width: 105px;">UNIT *</th>
-                    <th style="width: 95px;" class="text-center">QUANTITY *</th>
-                    <th style="width: 110px;" class="text-end">RATE (₹)</th>
-                    <th style="min-width: 200px;">VENDOR NAME</th>
-                    <th style="min-width: 145px; width: 145px;" class="text-end">AMOUNT (₹)</th>
+                    <th style="width: 130px;">DATE</th>
+                    <th style="min-width: 200px;">MATERIAL (FROM STOCK) *</th>
+                    <th style="width: 95px;">UNIT *</th>
+                    <th style="width: 85px;" class="text-center">QUANTITY *</th>
+                    <th *ngIf="canViewPricing()" style="width: 100px;" class="text-end">RATE (₹)</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 180px;">VENDOR NAME</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 135px; width: 135px;" class="text-end">AMOUNT (₹)</th>
                     <th style="width: 40px;"></th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let m of dispatchMaterials; let i = index" class="border-bottom-custom">
+                    <!-- DISPATCH DATE (Per material date tracking) -->
+                    <td>
+                      <input type="date" 
+                             class="form-control form-control-sm font-mono shadow-xs rounded-3 text-dark" 
+                             [(ngModel)]="m.dispatchDate" 
+                             [name]="'mat_date_' + i">
+                    </td>
+
                     <!-- MATERIAL (FROM STOCK) -->
                     <td>
                       <select class="form-select form-select-sm shadow-xs rounded-3 fw-semibold text-dark" 
@@ -302,7 +331,7 @@
                     </td>
 
                     <!-- RATE -->
-                    <td>
+                    <td *ngIf="canViewPricing()">
                       <input type="number" 
                              min="0" 
                              step="any" 
@@ -314,7 +343,7 @@
                     </td>
 
                     <!-- VENDOR NAME (From Add List) -->
-                    <td>
+                    <td *ngIf="canViewPricing()">
                       <select class="form-select form-select-sm shadow-xs rounded-3 text-dark" 
                               [(ngModel)]="m.vendorName" 
                               [name]="'mat_vendor_' + i">
@@ -325,7 +354,7 @@
                     </td>
 
                     <!-- AMOUNT (Auto-calculated Quantity * Rate) -->
-                    <td style="min-width: 145px; width: 145px;">
+                    <td *ngIf="canViewPricing()" style="min-width: 135px; width: 135px;">
                       <div class="form-control form-control-sm font-mono text-end fw-bold bg-light text-dark shadow-xs border text-nowrap d-flex align-items-center justify-content-end" style="white-space: nowrap; font-size: 0.82rem; height: 31px;">
                         <span>₹&nbsp;{{ (m.amount || 0) | number:'1.2-2' }}</span>
                       </div>
@@ -346,7 +375,7 @@
               </table>
 
               <!-- Total Amount Summary Card -->
-              <div class="d-flex justify-content-end align-items-center p-2.5 px-3 mt-3 bg-light rounded-3 border">
+              <div *ngIf="canViewPricing()" class="d-flex justify-content-end align-items-center gap-4 p-2.5 px-3 mt-3 bg-light rounded-3 border">
                 <div class="d-flex align-items-center gap-2">
                   <span class="text-secondary small fw-bold text-uppercase">Total Amount:</span>
                   <span class="fs-6 font-mono fw-bolder text-primary">₹ {{ getTotalAmount() | number:'1.2-2' }}</span>
@@ -396,12 +425,20 @@
   <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 850px;">
     <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
       <!-- Modal Header -->
-      <div class="modal-header bg-warning text-dark py-3 px-4 d-flex justify-content-between align-items-center">
-        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+      <div class="modal-header bg-warning text-dark py-2.5 px-4 d-flex justify-content-between align-items-center">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2 text-truncate me-2">
           <i class="bi bi-box-seam"></i>
-          Gate Pass Descriptions: <span class="fw-normal">{{ selectedGatePassForView.clientName }}</span>
+          <span>Gate Pass Descriptions: <span class="fw-normal">{{ selectedGatePassForView.clientName }}</span></span>
         </h6>
-        <button type="button" class="btn-close shadow-none" (click)="closeDescriptionsModal()"></button>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+          <button type="button" 
+                  class="btn btn-sm btn-dark d-inline-flex align-items-center gap-1.5 shadow-sm fw-semibold px-3 py-1 rounded-2" 
+                  (click)="downloadSingleGatePassPdf(selectedGatePassForView)" 
+                  title="Download Gate Pass PDF">
+            <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+          </button>
+          <button type="button" class="btn-close shadow-none" (click)="closeDescriptionsModal()" title="Close"></button>
+        </div>
       </div>
 
       <!-- Modal Body -->
@@ -430,13 +467,22 @@
 
         <!-- Materials Table -->
         <div class="bg-white p-3 rounded-3 border shadow-xs">
-          <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+          <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom flex-wrap gap-2">
             <span class="fw-bold text-uppercase text-secondary small" style="letter-spacing: 0.04em;">
               Dispatched Descriptions & Materials
             </span>
-            <span class="badge bg-light text-dark border font-mono">
-              {{ (selectedGatePassForView.items?.length || (selectedGatePassForView.descriptions ? 1 : 0)) }} Items
-            </span>
+            <div class="d-flex align-items-center gap-2">
+              <button type="button" 
+                      class="btn btn-xs btn-outline-danger d-inline-flex align-items-center gap-1 py-1 px-2.5 rounded-2 font-mono fw-semibold"
+                      style="font-size: 0.78rem;"
+                      (click)="downloadSingleGatePassPdf(selectedGatePassForView)" 
+                      title="Download Gate Pass PDF">
+                <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
+              </button>
+              <span class="badge bg-light text-dark border font-mono">
+                {{ (selectedGatePassForView.items?.length || (selectedGatePassForView.descriptions ? 1 : 0)) }} Items
+              </span>
+            </div>
           </div>
 
           <div class="table-responsive">
@@ -444,12 +490,13 @@
               <thead class="table-light text-uppercase text-secondary">
                 <tr>
                   <th style="width: 40px;" class="text-center">#</th>
+                  <th style="width: 100px;">Date</th>
                   <th>Material / Description</th>
                   <th style="width: 75px;" class="text-center">Unit</th>
                   <th style="width: 75px;" class="text-center">Qty</th>
-                  <th style="width: 95px;" class="text-end">Rate (₹)</th>
-                  <th>Vendor Name</th>
-                  <th style="width: 110px;" class="text-end">Amount (₹)</th>
+                  <th *ngIf="canViewPricing()" style="width: 95px;" class="text-end">Rate (₹)</th>
+                  <th *ngIf="canViewPricing()">Vendor Name</th>
+                  <th *ngIf="canViewPricing()" style="width: 110px;" class="text-end">Amount (₹)</th>
                 </tr>
               </thead>
               <tbody>
@@ -457,17 +504,18 @@
                 <ng-container *ngIf="selectedGatePassForView.items && selectedGatePassForView.items.length > 0">
                   <tr *ngFor="let it of selectedGatePassForView.items; let idx = index">
                     <td class="text-center font-mono text-muted">{{ idx + 1 }}</td>
+                    <td class="font-mono text-nowrap small text-muted">{{ formatDate(it.dispatchDate || selectedGatePassForView.gatePassDate) }}</td>
                     <td class="fw-medium text-dark">{{ it.materialName }}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">{{ it.unit || 'Nos' }}</span></td>
                     <td class="text-center font-mono fw-semibold">{{ it.quantity }}</td>
-                    <td class="text-end font-mono text-nowrap">{{ it.rate ? ('₹ ' + (it.rate | number:'1.2-2')) : '—' }}</td>
-                    <td>
+                    <td *ngIf="canViewPricing()" class="text-end font-mono text-nowrap">{{ it.rate ? ('₹ ' + (it.rate | number:'1.2-2')) : '—' }}</td>
+                    <td *ngIf="canViewPricing()">
                       <span *ngIf="it.vendorName" class="badge bg-light text-secondary border">
                         <i class="bi bi-truck me-1"></i>{{ it.vendorName }}
                       </span>
                       <span *ngIf="!it.vendorName" class="text-muted small">—</span>
                     </td>
-                    <td class="text-end font-mono text-success text-nowrap desc-amount-cell">
+                    <td *ngIf="canViewPricing()" class="text-end font-mono text-success text-nowrap desc-amount-cell">
                       {{ (it.amount !== undefined && it.amount !== null && it.amount > 0) ? ('₹ ' + (it.amount | number:'1.2-2')) : '—' }}
                     </td>
                   </tr>
@@ -477,20 +525,21 @@
                 <ng-container *ngIf="(!selectedGatePassForView.items || selectedGatePassForView.items.length === 0) && selectedGatePassForView.descriptions">
                   <tr>
                     <td class="text-center font-mono text-muted">1</td>
+                    <td class="font-mono text-nowrap small text-muted">{{ formatDate(selectedGatePassForView.gatePassDate) }}</td>
                     <td class="fw-medium text-dark">{{ cleanDescription(selectedGatePassForView.descriptions) }}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">{{ selectedGatePassForView.unit }}</span></td>
                     <td class="text-center font-mono fw-semibold">{{ selectedGatePassForView.quantity }}</td>
-                    <td class="text-end font-mono">—</td>
-                    <td class="text-muted small">—</td>
-                    <td class="text-end font-mono text-success text-nowrap desc-amount-cell">
+                    <td *ngIf="canViewPricing()" class="text-end font-mono">—</td>
+                    <td *ngIf="canViewPricing()" class="text-muted small">—</td>
+                    <td *ngIf="canViewPricing()" class="text-end font-mono text-success text-nowrap desc-amount-cell">
                       {{ getGatePassTotal(selectedGatePassForView) > 0 ? ('₹ ' + (getGatePassTotal(selectedGatePassForView) | number:'1.2-2')) : '—' }}
                     </td>
                   </tr>
                 </ng-container>
               </tbody>
-              <tfoot class="table-light">
+              <tfoot *ngIf="canViewPricing()" class="table-light">
                 <tr>
-                  <th colspan="6" class="text-end text-uppercase fw-bold desc-total-label">Total Amount:</th>
+                  <th colspan="7" class="text-end text-uppercase fw-bold desc-total-label">Total Amount:</th>
                   <th class="text-end font-mono text-primary text-nowrap desc-total-amount">
                     ₹ {{ getGatePassTotal(selectedGatePassForView) | number:'1.2-2' }}
                   </th>
@@ -506,12 +555,20 @@
         <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDescriptionsModal()">
           Close
         </button>
-        <button type="button" 
-                *ngIf="canEdit()"
-                class="btn btn-sm btn-warning text-dark px-3 fw-semibold shadow-sm d-flex align-items-center gap-1"
-                (click)="editFromViewModal(selectedGatePassForView)">
-          <i class="bi bi-pencil-square"></i> Edit Gate Pass
-        </button>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" 
+                  class="btn btn-sm btn-outline-danger px-3 fw-semibold shadow-sm d-flex align-items-center gap-1.5"
+                  (click)="downloadSingleGatePassPdf(selectedGatePassForView)"
+                  title="Download Gate Pass PDF">
+            <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
+          </button>
+          <button type="button" 
+                  *ngIf="canEdit()"
+                  class="btn btn-sm btn-warning text-dark px-3 fw-semibold shadow-sm d-flex align-items-center gap-1"
+                  (click)="editFromViewModal(selectedGatePassForView)">
+            <i class="bi bi-pencil-square"></i> Edit Gate Pass
+          </button>
+        </div>
       </div>
     </div>
   </div>

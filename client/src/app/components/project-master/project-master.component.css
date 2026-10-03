@@ -298,4 +298,38 @@
   cursor: pointer;
 }
 
+/* Sticky horizontal scrollbar pinned at bottom of viewport */
+.sticky-horizontal-scrollbar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 14px;
+  background: #f1f5f9;
+  z-index: 10;
+  border: 1px solid #cbd5e1;
+  border-top: 2px solid #0f766e;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.sticky-horizontal-scrollbar::-webkit-scrollbar {
+  height: 12px;
+}
+
+.sticky-horizontal-scrollbar::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+.sticky-horizontal-scrollbar::-webkit-scrollbar-thumb {
+  background: #0f766e;
+  border-radius: 6px;
+}
+
+.sticky-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #0d9488;
+}
+
 

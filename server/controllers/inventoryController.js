@@ -1,4 +1,7 @@
 const { Indent, IndentMaterial, WarehouseMaterial, GatePass, GatePassItem, CartItem } = require('../models/Inventory');
+const { SiteExpenseLedger } = require('../models/SiteExpenseLedger');
+const { ProjectMaster } = require('../models/ProjectMaster');
+const { Op } = require('sequelize');
 
 // ==========================================
 // 1. INDENT CONTROLLER
@@ -303,12 +306,253 @@ async function getAllGatePasses(req, res) {
     }
 }
 
+// --- Gate Pass Helper Functions ---
+async function findMatchingProject(clientName) {
+    if (!clientName || !clientName.trim()) return null;
+    const clean = clientName.trim();
+
+    // 1. Check for SP code like SP427 or SP-427 or SP 427
+    const spMatch = clean.match(/SP[-\s]?(\d+)/i);
+    if (spMatch) {
+        const siteId = `SP${spMatch[1]}`;
+        const proj = await ProjectMaster.findOne({
+            where: {
+                [Op.or]: [
+                    { siteId: siteId },
+                    { siteId: { [Op.like]: `%${spMatch[1]}%` } },
+                    { clientName: { [Op.like]: `%${clean}%` } }
+                ]
+            }
+        });
+        if (proj) return proj;
+    }
+
+    // 2. Exact or partial match on clientName
+    let proj = await ProjectMaster.findOne({
+        where: { clientName: clean }
+    });
+    if (proj) return proj;
+
+    proj = await ProjectMaster.findOne({
+        where: {
+            [Op.or]: [
+                { clientName: { [Op.like]: `%${clean}%` } },
+                { siteId: clean }
+            ]
+        }
+    });
+    return proj;
+}
+
+async function deductWarehouseStock(items) {
+    if (!Array.isArray(items) || items.length === 0) return;
+    for (const it of items) {
+        const name = (it.materialName || '').trim();
+        const qty = parseFloat(it.quantity) || 0;
+        if (!name || qty <= 0) continue;
+
+        const mat = await WarehouseMaterial.findOne({
+            where: {
+                materialName: { [Op.like]: name }
+            }
+        });
+        if (mat) {
+            const currentStock = parseFloat(mat.inStock) || 0;
+            const newStock = Math.max(0, currentStock - qty);
+            const autoStatus = computeWarehouseStockStatus(mat.materialName, mat.unit, newStock);
+            await mat.update({
+                inStock: newStock,
+                status: autoStatus
+            });
+        }
+    }
+}
+
+async function restoreWarehouseStock(items) {
+    if (!Array.isArray(items) || items.length === 0) return;
+    for (const it of items) {
+        const name = (it.materialName || '').trim();
+        const qty = parseFloat(it.quantity) || 0;
+        if (!name || qty <= 0) continue;
+
+        const mat = await WarehouseMaterial.findOne({
+            where: {
+                materialName: { [Op.like]: name }
+            }
+        });
+        if (mat) {
+            const currentStock = parseFloat(mat.inStock) || 0;
+            const newStock = currentStock + qty;
+            const autoStatus = computeWarehouseStockStatus(mat.materialName, mat.unit, newStock);
+            await mat.update({
+                inStock: newStock,
+                status: autoStatus
+            });
+        }
+    }
+}
+
+async function syncGatePassToExpensesAndBom(gatePass, items) {
+    try {
+        if (!gatePass || !gatePass.clientName) return;
+        const project = await findMatchingProject(gatePass.clientName);
+        if (!project) return;
+
+        const siteId = project.siteId;
+        const gpId = gatePass.id;
+
+        // 1. Remove previous expense entries for this Gate Pass (handles updates cleanly)
+        await SiteExpenseLedger.destroy({
+            where: {
+                siteId: siteId,
+                billVoucher: {
+                    [Op.or]: [
+                        `GP-${gpId}`,
+                        `GP-${gpId}-TRANS`
+                    ]
+                }
+            }
+        });
+
+        // 2. Create expense entry for materials dispatched
+        const validItems = Array.isArray(items) ? items : [];
+        for (const it of validItems) {
+            const qty = parseFloat(it.quantity) || 0;
+            const rate = parseFloat(it.rate) || 0;
+            const amt = it.amount !== undefined && it.amount !== null ? (parseFloat(it.amount) || 0) : (qty * rate);
+
+            await SiteExpenseLedger.create({
+                expenseDate: it.dispatchDate || gatePass.gatePassDate || new Date().toISOString().substring(0, 10),
+                siteId: siteId,
+                clientName: project.clientName,
+                clientSiteName: project.location || project.clientName,
+                mop: 'Warehouse',
+                category: 'Warehouse',
+                paymentThrough: 'GatePass',
+                paidBy: gatePass.siteEngineer || 'Warehouse Dispatch',
+                billVoucher: `GP-${gpId}`,
+                purpose: `Gate Pass: ${it.materialName || 'Material'} (${qty} ${it.unit || 'Nos'})`,
+                amount: amt,
+                remarks: gatePass.remarks || ''
+            });
+        }
+
+        // 3. Create expense entry for transportCost if > 0
+        const transportCost = parseFloat(gatePass.transportCost) || 0;
+        if (transportCost > 0) {
+            await SiteExpenseLedger.create({
+                expenseDate: gatePass.gatePassDate || new Date().toISOString().substring(0, 10),
+                siteId: siteId,
+                clientName: project.clientName,
+                clientSiteName: project.location || project.clientName,
+                mop: 'GatePass',
+                category: 'Warehouse',
+                paymentThrough: 'GatePass',
+                paidBy: gatePass.siteEngineer || 'Warehouse Dispatch',
+                billVoucher: `GP-${gpId}-TRANS`,
+                purpose: `Transport Cost - Gate Pass #${gpId}`,
+                amount: transportCost,
+                remarks: gatePass.remarks || ''
+            });
+        }
+
+        // 4. Recalculate ProjectMaster.siteExpenses from SiteExpenseLedger
+        const totalExp = await SiteExpenseLedger.sum('amount', { where: { siteId: siteId } }) || 0;
+        project.siteExpenses = parseFloat(Number(totalExp).toFixed(2));
+
+        // 5. Update ProjectMaster.bomItems
+        let bomItems = [];
+        if (project.bomItems) {
+            if (typeof project.bomItems === 'string') {
+                try { bomItems = JSON.parse(project.bomItems); } catch(e) { bomItems = []; }
+            } else if (Array.isArray(project.bomItems)) {
+                bomItems = [...project.bomItems];
+            }
+        }
+
+        if (bomItems.length > 0) {
+            validItems.forEach(it => {
+                const matName = (it.materialName || '').toLowerCase().trim();
+                const itQty = parseFloat(it.quantity) || 0;
+                const itAmt = it.amount !== undefined && it.amount !== null ? (parseFloat(it.amount) || 0) : (itQty * (parseFloat(it.rate) || 0));
+
+                let matched = bomItems.find(b => {
+                    const grp = (b.materialGroup || '').toLowerCase().trim();
+                    const cat = (b.categoryType || '').toLowerCase().trim();
+                    const spec = (b.specification || '').toLowerCase().trim();
+                    return matName.includes(grp) || grp.includes(matName) || 
+                           matName.includes(cat) || cat.includes(matName) ||
+                           matName.includes(spec) || spec.includes(matName);
+                });
+
+                if (matched) {
+                    matched.isDispatched = true;
+                    matched.dispatchedQty = (matched.dispatchedQty || 0) + itQty;
+                    matched.dispatchDate = it.dispatchDate || gatePass.gatePassDate;
+                    matched.allocatedExpenseAmount = (matched.allocatedExpenseAmount || 0) + itAmt;
+                    matched.expenseSource = 'Warehouse';
+                    matched.invoiceRef = `GP-${gpId}`;
+                    matched.warehouseUnitsDrawn = (matched.warehouseUnitsDrawn || 0) + itQty;
+                }
+            });
+
+            if (transportCost > 0) {
+                let transItem = bomItems.find(b => (b.materialGroup || '').toLowerCase().includes('transport'));
+                if (transItem) {
+                    transItem.isDispatched = true;
+                    transItem.allocatedExpenseAmount = (transItem.allocatedExpenseAmount || 0) + transportCost;
+                    transItem.expenseSource = 'Warehouse';
+                    transItem.invoiceRef = `GP-${gpId}`;
+                }
+            }
+
+            project.bomItems = JSON.stringify(bomItems);
+        }
+
+        await project.save();
+    } catch (err) {
+        console.error('Error syncing Gate Pass to Expenses & BOM:', err);
+    }
+}
+
+async function removeGatePassExpensesAndRestoreStock(gatePass) {
+    try {
+        if (!gatePass) return;
+        if (Array.isArray(gatePass.items) && gatePass.items.length > 0) {
+            await restoreWarehouseStock(gatePass.items);
+        }
+
+        const gpId = gatePass.id;
+        const project = await findMatchingProject(gatePass.clientName);
+        if (project) {
+            await SiteExpenseLedger.destroy({
+                where: {
+                    siteId: project.siteId,
+                    billVoucher: {
+                        [Op.or]: [
+                            `GP-${gpId}`,
+                            `GP-${gpId}-TRANS`
+                        ]
+                    }
+                }
+            });
+            const totalExp = await SiteExpenseLedger.sum('amount', { where: { siteId: project.siteId } }) || 0;
+            project.siteExpenses = parseFloat(Number(totalExp).toFixed(2));
+            await project.save();
+        }
+    } catch (err) {
+        console.error('Error in removeGatePassExpensesAndRestoreStock:', err);
+    }
+}
+
 async function createGatePass(req, res) {
     try {
-        let { gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items } = req.body;
+        let { gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, transportCost } = req.body;
         if (!clientName || !clientName.trim()) {
             return res.status(400).json({ success: false, message: 'Client name is required.' });
         }
+
+        const parsedTransportCost = transportCost !== undefined ? (parseFloat(transportCost) || 0) : 0;
 
         // Auto-compute descriptions, total quantity, unit, and totalAmount from multiple items if provided
         let calculatedTotalAmount = 0;
@@ -326,6 +570,9 @@ async function createGatePass(req, res) {
             calculatedTotalAmount = parseFloat(req.body.totalAmount) || 0;
         }
 
+        // Add transport cost to total amount
+        calculatedTotalAmount += parsedTransportCost;
+
         if (!descriptions || !descriptions.trim()) {
             return res.status(400).json({ success: false, message: 'Descriptions / Materials are required.' });
         }
@@ -338,7 +585,8 @@ async function createGatePass(req, res) {
             clientName: clientName.trim(),
             siteEngineer: siteEngineer || 'Dinesh Kumar',
             remarks: remarks ? remarks.trim() : '',
-            totalAmount: calculatedTotalAmount
+            totalAmount: calculatedTotalAmount,
+            transportCost: parsedTransportCost
         });
 
         // Insert nested items if provided
@@ -349,6 +597,7 @@ async function createGatePass(req, res) {
                 const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
                 return {
                     gatePassId: created.id,
+                    dispatchDate: m.dispatchDate || gatePassDate || new Date().toISOString().substring(0, 10),
                     materialName: m.materialName || 'Material',
                     quantity: q,
                     unit: m.unit || 'Nos',
@@ -359,6 +608,14 @@ async function createGatePass(req, res) {
             });
             await GatePassItem.bulkCreate(itemRecords);
         }
+
+        // 1. Deduct Warehouse Stock
+        if (Array.isArray(items) && items.length > 0) {
+            await deductWarehouseStock(items);
+        }
+
+        // 2. Synchronize to SiteExpenseLedger & Project BOM
+        await syncGatePassToExpensesAndBom(created, items);
 
         const full = await GatePass.findByPk(created.id, {
             include: [{ model: GatePassItem, as: 'items' }]
@@ -374,11 +631,20 @@ async function createGatePass(req, res) {
 async function updateGatePass(req, res) {
     try {
         const { id } = req.params;
-        let { gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, totalAmount } = req.body;
-        const pass = await GatePass.findByPk(id);
+        let { gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, totalAmount, transportCost } = req.body;
+        const pass = await GatePass.findByPk(id, {
+            include: [{ model: GatePassItem, as: 'items' }]
+        });
         if (!pass) {
             return res.status(404).json({ success: false, message: 'Gate pass not found' });
         }
+
+        // 1. Restore previous stock before applying updates
+        if (pass.items && pass.items.length > 0) {
+            await restoreWarehouseStock(pass.items);
+        }
+
+        const parsedTransportCost = transportCost !== undefined ? (parseFloat(transportCost) || 0) : (pass.transportCost || 0);
 
         // Auto-compute descriptions, total quantity, unit, and totalAmount from multiple items if provided
         let calculatedTotalAmount = totalAmount !== undefined ? parseFloat(totalAmount) || 0 : (pass.totalAmount || 0);
@@ -392,6 +658,7 @@ async function updateGatePass(req, res) {
                 const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
                 return sum + a;
             }, 0);
+            calculatedTotalAmount += parsedTransportCost;
         }
 
         await pass.update({
@@ -402,7 +669,8 @@ async function updateGatePass(req, res) {
             clientName: clientName !== undefined ? clientName.trim() : pass.clientName,
             siteEngineer: siteEngineer !== undefined ? siteEngineer : pass.siteEngineer,
             remarks: remarks !== undefined ? (remarks ? remarks.trim() : '') : pass.remarks,
-            totalAmount: calculatedTotalAmount
+            totalAmount: calculatedTotalAmount,
+            transportCost: parsedTransportCost
         });
 
         // Replace nested items if provided
@@ -415,6 +683,7 @@ async function updateGatePass(req, res) {
                     const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
                     return {
                         gatePassId: id,
+                        dispatchDate: m.dispatchDate || pass.gatePassDate || new Date().toISOString().substring(0, 10),
                         materialName: m.materialName || 'Material',
                         quantity: q,
                         unit: m.unit || 'Nos',
@@ -426,6 +695,14 @@ async function updateGatePass(req, res) {
                 await GatePassItem.bulkCreate(itemRecords);
             }
         }
+
+        // 2. Deduct new stock
+        if (Array.isArray(items) && items.length > 0) {
+            await deductWarehouseStock(items);
+        }
+
+        // 3. Synchronize to SiteExpenseLedger & Project BOM
+        await syncGatePassToExpensesAndBom(pass, items);
 
         const full = await GatePass.findByPk(id, {
             include: [{ model: GatePassItem, as: 'items' }]
@@ -441,10 +718,15 @@ async function updateGatePass(req, res) {
 async function deleteGatePass(req, res) {
     try {
         const { id } = req.params;
-        const pass = await GatePass.findByPk(id);
+        const pass = await GatePass.findByPk(id, {
+            include: [{ model: GatePassItem, as: 'items' }]
+        });
         if (!pass) {
             return res.status(404).json({ success: false, message: 'Gate pass not found' });
         }
+
+        // Restore stock and remove expense entries
+        await removeGatePassExpensesAndRestoreStock(pass);
 
         await pass.destroy();
         res.json({ success: true, message: 'Gate pass deleted' });

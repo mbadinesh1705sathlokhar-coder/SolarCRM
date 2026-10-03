@@ -106,24 +106,26 @@
         <thead class="table-light text-uppercase fs-8 text-secondary border-bottom">
           <tr>
             <th style="width: 50px;" class="text-center">#</th>
-            <th style="width: 120px;" class="text-nowrap">Date</th>
-            <th style="min-width: 220px;">Purpose / Material</th>
-            <th style="width: 160px;">Vendor</th>
-            <th style="width: 140px;">Payment</th>
-            <th style="width: 140px;">Paid By</th>
-            <th class="text-end" style="width: 160px;">Amount</th>
-            <th class="text-center" style="width: 80px;">Actions</th>
+            <th style="width: 110px;" class="text-nowrap">Date</th>
+            <th style="width: 140px;">PO/WO No.</th>
+            <th style="width: 120px;">Invoice No</th>
+            <th style="min-width: 200px;">Purpose / Material</th>
+            <th style="width: 150px;">Vendor</th>
+            <th style="width: 120px;">Payment</th>
+            <th style="width: 130px;">Paid By</th>
+            <th class="text-end" style="width: 140px;">Amount</th>
+            <th class="text-center" style="width: 70px;">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngIf="loading">
-            <td colspan="8" class="text-center py-5">
+            <td colspan="10" class="text-center py-5">
               <div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
               <span class="text-muted">Loading warehouse expenses...</span>
             </td>
           </tr>
           <tr *ngIf="!loading && filteredExpenses.length === 0">
-            <td colspan="8" class="text-center py-5 text-muted">
+            <td colspan="10" class="text-center py-5 text-muted">
               <i class="bi bi-box-seam fs-2 d-block mb-2 text-secondary"></i>
               No warehouse expenses recorded matching search.
               <div class="mt-2" *ngIf="canAdd()">
@@ -142,6 +144,22 @@
             <!-- Date -->
             <td class="fw-semibold text-dark font-mono small text-nowrap">
               {{ e.formattedDate || toDisplayDate(e.expenseDate) }}
+            </td>
+
+            <!-- PO/WO No. (Shows SOLAR/SWH/PO-xxx etc) -->
+            <td class="font-mono small text-nowrap">
+              <span *ngIf="e.referenceNo" class="badge bg-light text-dark border font-mono">
+                <i class="bi bi-file-earmark-text me-1 text-primary"></i>{{ e.referenceNo }}
+              </span>
+              <span *ngIf="!e.referenceNo" class="text-muted small">—</span>
+            </td>
+
+            <!-- Invoice No (Manual entry, empty until user enters) -->
+            <td class="font-mono small text-nowrap">
+              <span *ngIf="e.invoiceNo" class="badge bg-success-subtle text-success border border-success-subtle font-mono">
+                <i class="bi bi-receipt me-1"></i>{{ e.invoiceNo }}
+              </span>
+              <span *ngIf="!e.invoiceNo" class="text-muted small">—</span>
             </td>
 
             <!-- Purpose / Material (Click to edit) -->
@@ -247,7 +265,7 @@
           <div class="modal-body p-4 bg-light">
             <div class="row g-3">
               <!-- Date (dd-mm-yyyy) -->
-              <div class="col-12 col-md-6">
+              <div class="col-12 col-md-4">
                 <label class="form-label small fw-bold text-dark mb-1">
                   Date (dd-mm-yyyy) <span class="text-danger">*</span>
                 </label>
@@ -268,14 +286,55 @@
                 </div>
               </div>
 
-              <!-- Purpose / Material Category -->
+              <!-- PO / WO Number -->
+              <div class="col-12 col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  PO / WO No.
+                </label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-white text-muted"><i class="bi bi-file-earmark-text"></i></span>
+                  <input type="text" class="form-control form-control-sm font-mono" [(ngModel)]="formData.referenceNo" name="referenceNo" placeholder="e.g. SOLAR/SWH/PO-118">
+                </div>
+              </div>
+
+              <!-- Invoice Number (Manual entry, empty by default) -->
+              <div class="col-12 col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  Invoice Number
+                </label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-white text-muted"><i class="bi bi-receipt"></i></span>
+                  <input type="text" class="form-control form-control-sm font-mono" [(ngModel)]="formData.invoiceNo" name="invoiceNo" placeholder="e.g. INV-2026-8842">
+                </div>
+              </div>
+
+              <!-- BOM Material Group -->
               <div class="col-12 col-md-6">
                 <label class="form-label small fw-bold text-dark mb-1">
-                  Purpose / Material Category <span class="text-danger">*</span>
+                  BOM Material Group <span class="text-danger">*</span>
                 </label>
-                <select class="form-select form-select-sm" [(ngModel)]="formData.purpose" name="purpose" required>
-                  <option *ngFor="let p of purposeOptions" [value]="p">{{ p }}</option>
+                <select class="form-select form-select-sm fw-semibold text-dark" [(ngModel)]="formData.selectedBomGroup" (ngModelChange)="onBomGroupChange()" name="selectedBomGroup" required>
+                  <option *ngFor="let g of bomMaterialGroups" [value]="g.group">{{ g.group }}</option>
+                  <option *ngIf="isEditMode && isLegacyPurpose" [value]="formData.selectedBomGroup">{{ formData.selectedBomGroup }} (Current)</option>
                 </select>
+              </div>
+
+              <!-- BOM Subcategory / Specification -->
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  Subcategory / Specification <span class="text-danger">*</span>
+                </label>
+                <select class="form-select form-select-sm" [(ngModel)]="formData.selectedBomSpec" (ngModelChange)="onBomSpecChange()" name="selectedBomSpec" required>
+                  <option *ngFor="let spec of getAvailableSpecs(formData.selectedBomGroup)" [value]="spec">{{ spec }}</option>
+                  <option value="Custom">Custom / Other Specification...</option>
+                </select>
+                <input *ngIf="formData.selectedBomSpec === 'Custom'" 
+                       type="text" 
+                       class="form-control form-control-sm mt-1.5" 
+                       [(ngModel)]="formData.customBomSpec" 
+                       (ngModelChange)="onBomSpecChange()" 
+                       name="customBomSpec" 
+                       placeholder="Enter custom specification...">
               </div>
 
               <!-- Payment Through -->

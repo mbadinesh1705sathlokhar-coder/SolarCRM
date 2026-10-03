@@ -14,7 +14,7 @@ const sampleLeadsData = [
         leadRemarks: 'Requested 5kW On Grid Rooftop Solar quote',
         siteType: 'Residential',
         systemType: 'Ongrid',
-        siteCategory: 'Rooftop',
+        siteCategory: 'TATA SPG',
         saleType: 'B2C',
         clientType: 'Individual'
     },
@@ -315,7 +315,7 @@ exports.createLead = async (req, res) => {
             leadRemarks: leadRemarks ? leadRemarks.trim() : '',
             siteType: siteType || 'Residential',
             systemType: systemType || 'Ongrid',
-            siteCategory: siteCategory || 'Rooftop',
+            siteCategory: siteCategory || 'TATA SPG',
             saleType: saleType || 'B2C',
             clientType: clientType || 'Individual'
         });

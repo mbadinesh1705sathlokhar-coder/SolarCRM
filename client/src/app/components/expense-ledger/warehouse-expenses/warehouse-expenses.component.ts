@@ -6,6 +6,7 @@ import { ProjectService } from '../../../services/project.service';
 import { SiteExpense } from '../../../models/project.model';
 import { OfficeService } from '../../../services/office.service';
 import { AuthService } from '../../../services/auth.service';
+import { MasterListService } from '../../../services/master-list.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -20,6 +21,7 @@ export class WarehouseExpensesComponent implements OnInit {
   private projectService = inject(ProjectService);
   private officeService = inject(OfficeService);
   private authService = inject(AuthService);
+  private masterListService = inject(MasterListService);
   private cdr = inject(ChangeDetectorRef);
 
   expenses: SiteExpense[] = [];
@@ -34,37 +36,72 @@ export class WarehouseExpensesComponent implements OnInit {
   isModalOpen = false;
   isEditMode = false;
   editingId: number | null = null;
+  isLegacyPurpose = false;
 
   formData = {
     dateInput: '', // dd-mm-yyyy
     paymentThrough: 'P.O',
-    purpose: 'Consumables',
+    purpose: 'Inverters - 3kW Ongrid',
+    selectedBomGroup: 'Inverters',
+    selectedBomSpec: '3kW Ongrid',
+    customBomSpec: '',
     paidBy: 'OFFICE',
     vendor: '',
     remarks: '',
     billVoucher: 'Submitted',
+    referenceNo: '',
     invoiceNo: '',
     amount: null as number | null
   };
 
-  paymentThroughOptions = ['P.O', 'Petty Cash', 'Accounts', 'W.O', '(Blanks)'];
-  purposeOptions = [
-    'Consumables',
-    'Solar MMS',
-    'Solar Panels',
-    'Solar Inverters',
-    'Solar Cables',
-    'DB Boxes',
-    'Earthing Materials',
-    'Lightning Arrestors',
-    'Material Transport',
-    'Rental Tools',
-    'Tools Asset',
-    'Walkway / Hand Rails',
-    'Cable Tray Materials',
-    'Cables',
-    'Labour/Manpower',
-    'General Stock'
+  paymentThroughOptions = ['P.O', 'W.O', 'Petty Cash', 'Gatepass', 'Accounts', '(Blanks)'];
+
+  // BOM Material Master Groups & Specifications
+  bomMaterialGroups: { group: string; specifications: string[] }[] = [
+    {
+      group: 'Panels',
+      specifications: ['540W Mono PERC', '550W Mono PERC', '580W TOPCon', '335W Polycrystalline', '340W Polycrystalline']
+    },
+    {
+      group: 'Inverters',
+      specifications: ['3kW Ongrid', '5kW Ongrid', '10kW Ongrid', '15kW Ongrid', '20kW Ongrid', '5kW Hybrid', '10kW Hybrid']
+    },
+    {
+      group: 'Cables',
+      specifications: ['AC Cable - 4Sqmm', 'AC Cable - 6Sqmm', 'AC Cable - 10Sqmm', 'AC Cable - 16Sqmm', 'AC Cable - 25Sqmm', 'DC Cable - XLPO 4Sqmm', 'DC Cable - XLPO 6Sqmm', 'DC Cable - 10Sqmm']
+    },
+    {
+      group: 'Structure',
+      specifications: ['HDG Rooftop High Structure', 'Aluminium Rail Profile', 'Ground Mount Column Structure', 'Car Port Canopy Structure']
+    },
+    {
+      group: 'Earthing & Lightning',
+      specifications: ['Copper Bonded Chemical Earthing Rod 50mm', 'ESE Lightning Arrester Kit', 'GI Flat Strip 25x3mm', 'Copper Strip 25x3mm']
+    },
+    {
+      group: 'MC4 Connector',
+      specifications: ['Single Pair (1-in 1-out)', '2-in 1-out Branch Pair', '3-in 1-out Branch Pair', '4-in 1-out Branch Pair']
+    },
+    {
+      group: 'Lugs',
+      specifications: ['Cu Lug - 4Sqmm', 'Cu Lug - 6Sqmm', 'Cu Lug - 10Sqmm', 'Al Lug - 16Sqmm', 'Al Lug - 25Sqmm', 'Al Lug - 35Sqmm', 'Pin Lug - 4Sqmm', 'Ring Lug - 6Sqmm']
+    },
+    {
+      group: 'Bucket',
+      specifications: ['PVC Conduit Accessories Bucket', 'Hardware Fasteners Bucket', 'Earthing Kit Bucket', 'Electrical Consumables Bucket']
+    },
+    {
+      group: 'Fasteners & Hardware',
+      specifications: ['SS304 Allen Bolt M8x25', 'SS304 Hex Bolt M10x30', 'Anchor Fastener M12x100', 'Cable Ties UV 300mm']
+    },
+    {
+      group: 'Transportation & Logistics',
+      specifications: ['Freight & Site Logistics', 'Local Tempo / Mini Truck', 'Site Shifting & Handling', 'Crane / Unloading Services']
+    },
+    {
+      group: 'Consumables & Miscellaneous',
+      specifications: ['General Consumables', 'DB Boxes', 'Cable Tray Materials', 'Rental Tools', 'Tools Asset', 'Walkway / Hand Rails', 'General Stock']
+    }
   ];
 
   paidByOptions: string[] = ['OFFICE'];
@@ -83,6 +120,58 @@ export class WarehouseExpensesComponent implements OnInit {
     this.loadExpenses();
     this.loadVendorsFromOffice();
     this.loadEmployeesFromOffice();
+    this.loadBomMaterialsFromService();
+  }
+
+  loadBomMaterialsFromService(): void {
+    this.masterListService.getBomMaterials().subscribe({
+      next: (res) => {
+        if (res.success && res.grouped) {
+          Object.keys(res.grouped).forEach(grpName => {
+            const items = res.grouped[grpName];
+            const specs = items.map((it: any) => it.specification || it.categoryType).filter(Boolean);
+            const existing = this.bomMaterialGroups.find(g => g.group.toLowerCase().trim() === grpName.toLowerCase().trim());
+            if (existing) {
+              existing.specifications = Array.from(new Set([...existing.specifications, ...specs]));
+            } else {
+              this.bomMaterialGroups.push({ group: grpName, specifications: specs.length > 0 ? specs : ['General'] });
+            }
+          });
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  getAvailableSpecs(groupName: string): string[] {
+    const grp = this.bomMaterialGroups.find(g => g.group.toLowerCase().trim() === (groupName || '').toLowerCase().trim());
+    return grp ? grp.specifications : ['General'];
+  }
+
+  onBomGroupChange(): void {
+    this.isLegacyPurpose = false;
+    const specs = this.getAvailableSpecs(this.formData.selectedBomGroup);
+    this.formData.selectedBomSpec = specs[0] || 'General';
+    this.formData.customBomSpec = '';
+    this.updatePurposeFromBom();
+  }
+
+  onBomSpecChange(): void {
+    this.isLegacyPurpose = false;
+    this.updatePurposeFromBom();
+  }
+
+  updatePurposeFromBom(): void {
+    if (this.formData.selectedBomSpec === 'Custom') {
+      this.formData.purpose = this.formData.customBomSpec?.trim()
+        ? `${this.formData.selectedBomGroup} - ${this.formData.customBomSpec.trim()}`
+        : this.formData.selectedBomGroup;
+    } else if (this.formData.selectedBomSpec) {
+      this.formData.purpose = `${this.formData.selectedBomGroup} - ${this.formData.selectedBomSpec}`;
+    } else {
+      this.formData.purpose = this.formData.selectedBomGroup;
+    }
   }
 
   canAdd(): boolean {
@@ -149,7 +238,9 @@ export class WarehouseExpensesComponent implements OnInit {
         (e.vendorName || '').toLowerCase().includes(q) ||
         (e.remarks || '').toLowerCase().includes(q) ||
         (e.paymentThrough || '').toLowerCase().includes(q) ||
-        (e.expenseDate || '').toLowerCase().includes(q)
+        (e.expenseDate || '').toLowerCase().includes(q) ||
+        (e.referenceNo || '').toLowerCase().includes(q) ||
+        (e.invoiceNo || '').toLowerCase().includes(q)
       );
     }
     return list;
@@ -177,15 +268,20 @@ export class WarehouseExpensesComponent implements OnInit {
   // --- MODAL ACTIONS ---
   openAddModal(): void {
     this.isEditMode = false;
+    this.isLegacyPurpose = false;
     this.editingId = null;
     this.formData = {
       dateInput: this.getTodayDisplayDate(),
       paymentThrough: 'P.O',
-      purpose: 'Consumables',
+      purpose: 'Inverters - 3kW Ongrid',
+      selectedBomGroup: 'Inverters',
+      selectedBomSpec: '3kW Ongrid',
+      customBomSpec: '',
       paidBy: 'OFFICE',
       vendor: '',
       remarks: 'Material stock received in Central Warehouse',
       billVoucher: 'Submitted',
+      referenceNo: '',
       invoiceNo: '',
       amount: null
     };
@@ -195,15 +291,47 @@ export class WarehouseExpensesComponent implements OnInit {
   openEditModal(e: SiteExpense): void {
     this.isEditMode = true;
     this.editingId = e.id || null;
+
+    const rawPurpose = e.purpose || 'Consumables';
+    let matchedGroup = '';
+    let matchedSpec = '';
+
+    for (const g of this.bomMaterialGroups) {
+      if (rawPurpose.toLowerCase().includes(g.group.toLowerCase())) {
+        matchedGroup = g.group;
+        const foundSpec = g.specifications.find(s => rawPurpose.toLowerCase().includes(s.toLowerCase()));
+        if (foundSpec) matchedSpec = foundSpec;
+        break;
+      }
+    }
+
+    if (!matchedGroup) {
+      // Legacy purpose that doesn't match new BOM schema - PRESERVE INTACT
+      this.isLegacyPurpose = true;
+      matchedGroup = rawPurpose;
+      matchedSpec = 'Custom';
+    } else {
+      this.isLegacyPurpose = false;
+    }
+
+    // Clean invoiceNo: if it contains PO/WO strings, leave invoiceNo empty for manual entry
+    const cleanInvNo = (e.invoiceNo && !e.invoiceNo.startsWith('SOLAR/') && !e.invoiceNo.includes('/PO-') && !e.invoiceNo.includes('/WO-')) 
+      ? e.invoiceNo 
+      : '';
+
     this.formData = {
       dateInput: e.formattedDate || this.toDisplayDate(e.expenseDate),
       paymentThrough: e.paymentThrough || 'P.O',
-      purpose: e.purpose || 'Consumables',
+      purpose: rawPurpose, // 100% preserves existing database data
+      selectedBomGroup: matchedGroup || 'Inverters',
+      selectedBomSpec: matchedSpec || (this.getAvailableSpecs(matchedGroup)[0] || 'General'),
+      customBomSpec: this.isLegacyPurpose ? rawPurpose : '',
       paidBy: e.paidBy || 'OFFICE',
       vendor: e.vendorName || '',
       remarks: e.remarks || '',
       billVoucher: e.billVoucher || 'Submitted',
-      invoiceNo: e.invoiceNo || '',
+      referenceNo: e.referenceNo || '',
+      invoiceNo: cleanInvNo,
       amount: Number(e.amount) || null
     };
     this.isModalOpen = true;
@@ -212,6 +340,7 @@ export class WarehouseExpensesComponent implements OnInit {
   closeModal(): void {
     this.isModalOpen = false;
     this.editingId = null;
+    this.isLegacyPurpose = false;
   }
 
   submitExpense(): void {
@@ -223,6 +352,17 @@ export class WarehouseExpensesComponent implements OnInit {
     const isoDate = this.toIsoDate(this.formData.dateInput);
     const mop = this.deriveMoPFromDate(this.formData.dateInput);
 
+    let finalPurpose = this.formData.purpose;
+    if (!this.isLegacyPurpose && this.formData.selectedBomGroup) {
+      if (this.formData.selectedBomSpec === 'Custom' && this.formData.customBomSpec?.trim()) {
+        finalPurpose = `${this.formData.selectedBomGroup} - ${this.formData.customBomSpec.trim()}`;
+      } else if (this.formData.selectedBomSpec && this.formData.selectedBomSpec !== 'Custom') {
+        finalPurpose = `${this.formData.selectedBomGroup} - ${this.formData.selectedBomSpec}`;
+      } else {
+        finalPurpose = this.formData.selectedBomGroup;
+      }
+    }
+
     const payload: Partial<SiteExpense> = {
       siteId: 'WAREHOUSE',
       clientName: 'Warehouse : Sathlokhar H.O',
@@ -231,12 +371,14 @@ export class WarehouseExpensesComponent implements OnInit {
       mop,
       amount: Number(this.formData.amount),
       paymentThrough: this.formData.paymentThrough,
-      purpose: this.formData.purpose,
+      purpose: finalPurpose,
+      category: this.formData.selectedBomGroup || 'Warehouse',
       paidBy: this.formData.paidBy,
       vendorName: this.formData.vendor || '',
       remarks: this.formData.remarks || '',
       billVoucher: this.formData.billVoucher || 'Submitted',
-      invoiceNo: this.formData.billVoucher === 'Submitted' ? (this.formData.invoiceNo || '') : ''
+      referenceNo: this.formData.referenceNo ? this.formData.referenceNo.trim() : '',
+      invoiceNo: this.formData.invoiceNo ? this.formData.invoiceNo.trim() : ''
     };
 
     if (this.isEditMode && this.editingId) {
@@ -293,7 +435,7 @@ export class WarehouseExpensesComponent implements OnInit {
 
   // --- PDF EXPORT ---
   exportPdf(): void {
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const primaryColor: [number, number, number] = [15, 23, 42];
     const accentColor: [number, number, number] = [37, 99, 235]; // Primary blue
 
@@ -310,6 +452,8 @@ export class WarehouseExpensesComponent implements OnInit {
     const tableRows = this.filteredExpenses.map((e, index) => [
       index + 1,
       this.toDisplayDate(e.expenseDate),
+      e.referenceNo || '—',
+      e.invoiceNo || '—',
       e.purpose || 'Consumables',
       e.vendorName || '—',
       e.paymentThrough || 'P.O',
@@ -319,7 +463,7 @@ export class WarehouseExpensesComponent implements OnInit {
 
     autoTable(doc, {
       startY: 30,
-      head: [['#', 'Date', 'Purpose / Material', 'Vendor', 'Payment', 'Paid By', 'Amount']],
+      head: [['#', 'Date', 'PO/WO No.', 'Invoice No', 'BOM Material / Purpose', 'Vendor', 'Payment', 'Paid By', 'Amount']],
       body: tableRows,
       theme: 'grid',
       headStyles: {
@@ -334,12 +478,14 @@ export class WarehouseExpensesComponent implements OnInit {
       },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 25, halign: 'center' },
-        2: { cellWidth: 45 },
-        3: { cellWidth: 35 },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 25 },
-        6: { cellWidth: 25, halign: 'right', fontStyle: 'bold', textColor: [37, 99, 235] }
+        1: { cellWidth: 22, halign: 'center' },
+        2: { cellWidth: 32 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 42 },
+        5: { cellWidth: 32 },
+        6: { cellWidth: 20 },
+        7: { cellWidth: 22 },
+        8: { cellWidth: 25, halign: 'right', fontStyle: 'bold', textColor: [37, 99, 235] }
       },
       margin: { left: 14, right: 14 }
     });

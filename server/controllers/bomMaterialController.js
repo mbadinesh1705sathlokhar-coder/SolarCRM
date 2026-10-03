@@ -27,38 +27,30 @@ const initialBomMaterialsSeed = [
     { groupName: 'Inverters', categoryType: 'On Grid', specification: '20kW', defaultUom: 'Nos', unitRate: 105000 },
     { groupName: 'Inverters', categoryType: 'Hybrid', specification: '5kW', defaultUom: 'Nos', unitRate: 68000 },
     { groupName: 'Inverters', categoryType: 'Hybrid', specification: '10kW', defaultUom: 'Nos', unitRate: 115000 },
+    // Civil & Miscellaneous
+    { groupName: 'Civil & Miscellaneous', categoryType: 'Civil', specification: 'General Civil Work', defaultUom: 'Nos', unitRate: 5000, gstPercent: 18 },
+    { groupName: 'Civil & Miscellaneous', categoryType: 'Foundation', specification: 'Masonry & Foundation', defaultUom: 'Nos', unitRate: 8000, gstPercent: 18 },
 
-    // MC4 Connector
-    { groupName: 'MC4 Connector', categoryType: 'Single Pair', specification: '1-in 1-out', defaultUom: 'Sets', unitRate: 60 },
-    { groupName: 'MC4 Connector', categoryType: 'Branch Pair', specification: '2-in 1-out', defaultUom: 'Sets', unitRate: 180 },
-    { groupName: 'MC4 Connector', categoryType: 'Branch Pair', specification: '3-in 1-out', defaultUom: 'Sets', unitRate: 250 },
-    { groupName: 'MC4 Connector', categoryType: 'Branch Pair', specification: '4-in 1-out', defaultUom: 'Sets', unitRate: 320 },
+    // Consumables
+    { groupName: 'Consumables', categoryType: 'Conduit', specification: 'PVC Conduit Accessories', defaultUom: 'Nos', unitRate: 1500, gstPercent: 18 },
+    { groupName: 'Consumables', categoryType: 'Earthing', specification: 'Chemical Earthing Compound', defaultUom: 'Nos', unitRate: 1200, gstPercent: 18 },
 
-    // Lugs
-    { groupName: 'Lugs', categoryType: 'Cu Lug', specification: '4Sqmm', defaultUom: 'Nos', unitRate: 8 },
-    { groupName: 'Lugs', categoryType: 'Cu Lug', specification: '6Sqmm', defaultUom: 'Nos', unitRate: 12 },
-    { groupName: 'Lugs', categoryType: 'Cu Lug', specification: '10Sqmm', defaultUom: 'Nos', unitRate: 18 },
-    { groupName: 'Lugs', categoryType: 'Al Lug', specification: '16Sqmm', defaultUom: 'Nos', unitRate: 22 },
-    { groupName: 'Lugs', categoryType: 'Al Lug', specification: '25Sqmm', defaultUom: 'Nos', unitRate: 32 },
-    { groupName: 'Lugs', categoryType: 'Al Lug', specification: '35Sqmm', defaultUom: 'Nos', unitRate: 45 },
-    { groupName: 'Lugs', categoryType: 'Pin Lug', specification: '4Sqmm', defaultUom: 'Nos', unitRate: 10 },
-    { groupName: 'Lugs', categoryType: 'Ring Lug', specification: '6Sqmm', defaultUom: 'Nos', unitRate: 14 },
+    // Earthing Protection
+    { groupName: 'Earthing Protection', categoryType: 'Earthing Rod', specification: 'Copper Bonded Chemical Rod 50mm', defaultUom: 'Sets', unitRate: 3500, gstPercent: 18 },
+    { groupName: 'Earthing Protection', categoryType: 'Lightning Arrester', specification: 'ESE Lightning Arrester Kit', defaultUom: 'Sets', unitRate: 8500, gstPercent: 18 },
 
-    // Bucket
-    { groupName: 'Bucket', categoryType: 'Conduit Accessories', specification: 'PVC Conduit Bucket', defaultUom: 'Nos', unitRate: 1500 },
-    { groupName: 'Bucket', categoryType: 'Fasteners', specification: 'Hardware Fasteners Bucket', defaultUom: 'Nos', unitRate: 2500 },
+    // Module Mounting Structures
+    { groupName: 'Module Mounting Structures', categoryType: 'Rooftop Structure', specification: 'HDG Rooftop High Structure', defaultUom: 'Kg', unitRate: 110, gstPercent: 18 },
+    { groupName: 'Module Mounting Structures', categoryType: 'Rail Profile', specification: 'Aluminium Rail Profile', defaultUom: 'Kg', unitRate: 240, gstPercent: 18 },
 
-    // Structure
-    { groupName: 'Structure', categoryType: 'Rooftop Structure', specification: 'HDG High Structure', defaultUom: 'Kg', unitRate: 110 },
-    { groupName: 'Structure', categoryType: 'Rail Profile', specification: 'Aluminium Rail Profile', defaultUom: 'Kg', unitRate: 240 },
+    // Tata SPG Package
+    { groupName: 'Tata SPG Package', categoryType: '3kW Kit', specification: 'Complete TATA SPG 3kW Kit', defaultUom: 'Nos', unitRate: 180000, gstPercent: 12 },
+    { groupName: 'Tata SPG Package', categoryType: '5kW Kit', specification: 'Complete TATA SPG 5kW Kit', defaultUom: 'Nos', unitRate: 280000, gstPercent: 12 },
+    { groupName: 'Tata SPG Package', categoryType: '10kW Kit', specification: 'Complete TATA SPG 10kW Kit', defaultUom: 'Nos', unitRate: 550000, gstPercent: 12 },
 
-    // Earthing & Lightning
-    { groupName: 'Earthing & Lightning', categoryType: 'Earthing Rod', specification: 'Copper Bonded Rod 50mm', defaultUom: 'Sets', unitRate: 3500 },
-    { groupName: 'Earthing & Lightning', categoryType: 'Lightning Arrester', specification: 'ESE Arrester Kit', defaultUom: 'Sets', unitRate: 8500 },
-
-    // Fasteners & Hardware
-    { groupName: 'Fasteners & Hardware', categoryType: 'Bolt', specification: 'SS304 Allen Bolt M8x25', defaultUom: 'Nos', unitRate: 15 },
-    { groupName: 'Fasteners & Hardware', categoryType: 'Fastener', specification: 'Anchor Fastener M12x100', defaultUom: 'Nos', unitRate: 35 }
+    // Waree
+    { groupName: 'Waree', categoryType: 'Panels', specification: 'Waaree Solar Panels Kit', defaultUom: 'Nos', unitRate: 125000, gstPercent: 12 },
+    { groupName: 'Waree', categoryType: 'Inverter', specification: 'Waaree Inverter Package', defaultUom: 'Nos', unitRate: 45000, gstPercent: 18 }
 ];
 
 async function seedBomMaterialsIfEmpty() {
@@ -99,7 +91,8 @@ async function getAllBomMaterials(req, res) {
                 categoryType: item.categoryType,
                 specification: item.specification,
                 defaultUom: item.defaultUom,
-                unitRate: item.unitRate
+                unitRate: item.unitRate,
+                gstPercent: item.gstPercent !== undefined ? Number(item.gstPercent) : (item.groupName === 'Panels' ? 12 : 18)
             });
         });
 
@@ -117,7 +110,7 @@ async function getAllBomMaterials(req, res) {
 // BULK SAVE / UPDATE for a specific Material Group (from Add List UI)
 async function saveMaterialGroupSpecs(req, res) {
     try {
-        const { groupName, items } = req.body;
+        const { groupName, items, groupGstPercent } = req.body;
         if (!groupName) {
             return res.status(400).json({ success: false, message: 'groupName is required' });
         }
@@ -126,12 +119,14 @@ async function saveMaterialGroupSpecs(req, res) {
         await BomMaterialMaster.destroy({ where: { groupName: groupName.trim() } });
 
         if (Array.isArray(items) && items.length > 0) {
+            const defaultGst = groupGstPercent !== undefined ? Number(groupGstPercent) : (groupName.trim() === 'Panels' ? 12 : 18);
             const rows = items.map((it, idx) => ({
                 groupName: groupName.trim(),
                 categoryType: (it.categoryType || 'Standard').trim(),
                 specification: (it.specification || '').trim(),
                 defaultUom: (it.defaultUom || 'Meter').trim(),
                 unitRate: Number(it.unitRate) || 0,
+                gstPercent: it.gstPercent !== undefined ? Number(it.gstPercent) : defaultGst,
                 sortOrder: idx + 1
             })).filter(r => r.specification.length > 0);
 
@@ -159,17 +154,19 @@ async function saveMaterialGroupSpecs(req, res) {
 // CREATE single item
 async function createBomMaterialItem(req, res) {
     try {
-        const { groupName, categoryType, specification, defaultUom, unitRate } = req.body;
+        const { groupName, categoryType, specification, defaultUom, unitRate, gstPercent } = req.body;
         if (!groupName || !specification) {
             return res.status(400).json({ success: false, message: 'groupName and specification are required' });
         }
 
+        const defaultGst = gstPercent !== undefined ? Number(gstPercent) : (groupName.trim() === 'Panels' ? 12 : 18);
         const created = await BomMaterialMaster.create({
             groupName: groupName.trim(),
             categoryType: (categoryType || 'Standard').trim(),
             specification: specification.trim(),
             defaultUom: (defaultUom || 'Meter').trim(),
-            unitRate: Number(unitRate) || 0
+            unitRate: Number(unitRate) || 0,
+            gstPercent: defaultGst
         });
 
         res.status(201).json({ success: true, data: created });

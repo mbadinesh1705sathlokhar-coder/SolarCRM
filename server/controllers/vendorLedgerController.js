@@ -141,7 +141,7 @@ async function getVendorWithLedger(req, res) {
 // --- CREATE VENDOR ---
 async function createVendor(req, res) {
     try {
-        const { vendorName, salesCoordinator, phoneNo, location, materialsSpec, creditDays, description, materialRates } = req.body;
+        const { vendorName, salesCoordinator, phoneNo, location, gstNo, materialsSpec, creditDays, description, materialRates } = req.body;
         if (!vendorName?.trim()) {
             return res.status(400).json({ success: false, message: 'Vendor Name is required.' });
         }
@@ -156,6 +156,7 @@ async function createVendor(req, res) {
             salesCoordinator: salesCoordinator || 'Renuka',
             phoneNo: phoneNo || '',
             location: location || '',
+            gstNo: gstNo ? gstNo.trim() : null,
             materialsSpec: Array.isArray(materialsSpec) ? materialsSpec.join(', ') : (materialsSpec || ''),
             creditDays: creditDays || '30 Days',
             description: description || '',

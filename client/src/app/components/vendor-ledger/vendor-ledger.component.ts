@@ -56,11 +56,137 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
   projectsList: { siteId: string; clientName: string; displayName: string }[] = [];
   salesCoordinatorOptions: string[] = ['Renuka', 'Daya', 'Sharath', 'Sathish', 'K Karthikeyan'];
 
+  // BOM Material Groups & Subcategories mapping (as per BOM specifications)
+  bomMaterialGroups: { [groupKey: string]: { group: string; subcategories: string[] } } = {
+    'cables': {
+      group: 'Cables',
+      subcategories: [
+        'AC Cable - 4Sqmm',
+        'AC Cable - 6Sqmm',
+        'AC Cable - 10Sqmm',
+        'AC Cable - 16Sqmm',
+        'AC Cable - 25Sqmm',
+        'DC Cable - XLPO 4Sqmm',
+        'DC Cable - XLPO 6Sqmm',
+        'DC Cable - 10Sqmm'
+      ]
+    },
+    'solar panels': {
+      group: 'Solar Panels',
+      subcategories: [
+        '540W Mono PERC',
+        '550W Mono PERC',
+        '580W TOPCon',
+        '335W Polycrystalline',
+        '340W Polycrystalline'
+      ]
+    },
+    'panels': {
+      group: 'Panels',
+      subcategories: [
+        '540W Mono PERC',
+        '550W Mono PERC',
+        '580W TOPCon',
+        '335W Polycrystalline',
+        '340W Polycrystalline'
+      ]
+    },
+    'solar inverters': {
+      group: 'Solar Inverters',
+      subcategories: [
+        '3kW Ongrid',
+        '5kW Ongrid',
+        '10kW Ongrid',
+        '15kW Ongrid',
+        '20kW Ongrid',
+        '5kW Hybrid',
+        '10kW Hybrid'
+      ]
+    },
+    'inverters': {
+      group: 'Inverters',
+      subcategories: [
+        '3kW Ongrid',
+        '5kW Ongrid',
+        '10kW Ongrid',
+        '15kW Ongrid',
+        '20kW Ongrid',
+        '5kW Hybrid',
+        '10kW Hybrid'
+      ]
+    },
+    'earthing materials': {
+      group: 'Earthing Materials',
+      subcategories: [
+        'Copper Bonded Chemical Earthing Rod 50mm',
+        'ESE Lightning Arrester Kit',
+        'GI Flat Strip 25x3mm',
+        'Copper Strip 25x3mm'
+      ]
+    },
+    'solar mms': {
+      group: 'Solar MMS',
+      subcategories: [
+        'HDG Rooftop High Structure',
+        'Aluminium Rail Profile',
+        'Ground Mount Column Structure',
+        'Car Port Canopy Structure'
+      ]
+    },
+    'structure': {
+      group: 'Structure',
+      subcategories: [
+        'HDG Rooftop High Structure',
+        'Aluminium Rail Profile',
+        'Ground Mount Column Structure',
+        'Car Port Canopy Structure'
+      ]
+    },
+    'lightning arrestors': {
+      group: 'Lightning Arrestors',
+      subcategories: [
+        'ESE Lightning Arrester Kit',
+        'Conventional Copper Spike LA',
+        'Lightning Strike Counter'
+      ]
+    },
+    'db boxes': {
+      group: 'DB Boxes',
+      subcategories: [
+        '1-in 1-out ACDB',
+        '2-in 2-out ACDB',
+        '1-in 1-out DCDB',
+        '2-in 2-out DCDB',
+        'Integrated AC/DC DB'
+      ]
+    },
+    'consumables': {
+      group: 'Consumables',
+      subcategories: [
+        'SS304 Allen Bolt M8x25',
+        'SS304 Hex Bolt M10x30',
+        'Anchor Fastener M12x100',
+        'Cable Ties UV 300mm',
+        'MC4 Connector Single Pair'
+      ]
+    },
+    'material transport': {
+      group: 'Material Transport',
+      subcategories: [
+        'Freight & Site Logistics',
+        'Local Tempo / Mini Truck',
+        'Site Shifting & Handling',
+        'Crane / Unloading Services'
+      ]
+    }
+  };
+
   // Add / Edit Vendor Modal (for all vendors list view)
   isVendorModalOpen = false;
   isEditVendorModal = false;
   vendorForm = this.getEmptyVendor();
   vendorModalMaterials: { [mat: string]: boolean } = {};
+  vendorModalSubcategories: { [sub: string]: boolean } = {};
   vendorModalMaterialRates: { [mat: string]: number | null } = {};
 
   // Delete Vendor Modal
@@ -73,18 +199,22 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     salesCoordinator: string;
     phoneNo: string;
     location: string;
+    gstNo: string;
     creditDays: string;
     description: string;
     materials: { [mat: string]: boolean };
+    subcategories: { [sub: string]: boolean };
     materialRates: { [mat: string]: number | null };
   } = {
     vendorName: '',
     salesCoordinator: 'Renuka',
     phoneNo: '',
     location: '',
+    gstNo: '',
     creditDays: '30 Days',
     description: '',
     materials: {},
+    subcategories: {},
     materialRates: {}
   };
   savingVendorDetails = false;
@@ -183,6 +313,28 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
         }
       }
     });
+
+    // Also sync dynamic BOM Materials from database
+    this.masterListService.getBomMaterials().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          for (const item of res.data) {
+            const rawGrp = (item.groupName || '').toLowerCase().trim();
+            if (!rawGrp) continue;
+            const key = this.findGroupKey(rawGrp) || rawGrp;
+            if (!this.bomMaterialGroups[key]) {
+              this.bomMaterialGroups[key] = { group: item.groupName, subcategories: [] };
+            }
+            const specLabel = item.specification ? item.specification.trim() : '';
+            if (specLabel && !this.bomMaterialGroups[key].subcategories.includes(specLabel)) {
+              this.bomMaterialGroups[key].subcategories.push(specLabel);
+            }
+          }
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
   }
 
   loadProjects(): void {
@@ -208,6 +360,7 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       (v.salesCoordinator || '').toLowerCase().includes(term) ||
       (v.phoneNo || '').toLowerCase().includes(term) ||
       (v.location || '').toLowerCase().includes(term) ||
+      (v.gstNo || '').toLowerCase().includes(term) ||
       (v.materialsSpec || '').toLowerCase().includes(term) ||
       (v.creditDays || '').toLowerCase().includes(term) ||
       (v.description || '').toLowerCase().includes(term)
@@ -235,16 +388,72 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     });
   }
 
+  findGroupKey(mat: string): string {
+    const raw = (mat || '').toLowerCase().trim();
+    if (this.bomMaterialGroups[raw]) return raw;
+    if (raw.includes('cable tray')) return '';
+    if (raw.includes('cable')) return 'cables';
+    if (raw.includes('panel')) return 'solar panels';
+    if (raw.includes('inverter')) return 'solar inverters';
+    if (raw.includes('earthing')) return 'earthing materials';
+    if (raw.includes('mms') || raw.includes('structure')) return 'solar mms';
+    if (raw.includes('arrestor')) return 'lightning arrestors';
+    if (raw.includes('db box')) return 'db boxes';
+    if (raw.includes('consumable')) return 'consumables';
+    if (raw.includes('transport')) return 'material transport';
+    return '';
+  }
+
+  hasSubcategories(mat: string): boolean {
+    const key = this.findGroupKey(mat);
+    return !!(key && this.bomMaterialGroups[key]?.subcategories?.length > 0);
+  }
+
+  getSubcategories(mat: string): string[] {
+    const key = this.findGroupKey(mat);
+    return (key && this.bomMaterialGroups[key]?.subcategories) || [];
+  }
+
+  getActiveGroupsWithSubcategories(isModal: boolean = false): string[] {
+    const matSource = isModal ? this.vendorModalMaterials : this.vendorDetailsForm.materials;
+    return this.availableMaterials.filter(mat => Boolean(matSource[mat]) && this.hasSubcategories(mat));
+  }
+
+  onMaterialCheckboxChange(mat: string, isModal: boolean = false): void {
+    const isChecked = isModal ? this.vendorModalMaterials[mat] : this.vendorDetailsForm.materials[mat];
+    const subs = this.getSubcategories(mat);
+    const subTarget = isModal ? this.vendorModalSubcategories : this.vendorDetailsForm.subcategories;
+
+    if (!isChecked) {
+      for (const s of subs) {
+        subTarget[s] = false;
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleAllSubcategories(mat: string, selectAll: boolean, isModal: boolean = false): void {
+    const subs = this.getSubcategories(mat);
+    const subTarget = isModal ? this.vendorModalSubcategories : this.vendorDetailsForm.subcategories;
+    for (const s of subs) {
+      subTarget[s] = selectAll;
+    }
+    this.cdr.markForCheck();
+  }
+
+  getSelectedSubcategoriesForGroup(mat: string, isModal: boolean = false): string[] {
+    const subs = this.getSubcategories(mat);
+    const subTarget = isModal ? this.vendorModalSubcategories : this.vendorDetailsForm.subcategories;
+    return subs.filter(s => Boolean(subTarget[s]));
+  }
+
   initVendorDetailsForm(vendor: OfficeVendor & { description?: string; materialRates?: any }): void {
     const matMap: { [mat: string]: boolean } = {};
+    const subMap: { [sub: string]: boolean } = {};
     const existing = (vendor.materialsSpec || '')
       .split(',')
       .map(m => m.trim().toLowerCase())
       .filter(Boolean);
-
-    for (const mat of this.availableMaterials) {
-      matMap[mat] = existing.includes(mat.toLowerCase());
-    }
 
     let ratesMap: { [mat: string]: number | null } = {};
     if (vendor.materialRates) {
@@ -259,32 +468,86 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       }
     }
 
+    for (const mat of this.availableMaterials) {
+      const matLower = mat.toLowerCase().trim();
+      let isMatChecked = existing.includes(matLower) || existing.some(e => e.startsWith(matLower + ':') || e.startsWith(matLower + ' -'));
+
+      const subs = this.getSubcategories(mat);
+      for (const sub of subs) {
+        const subLower = sub.toLowerCase().trim();
+        const fullComboLower = `${matLower}: ${subLower}`;
+        const isSubChecked = existing.some(e => e === subLower || e === fullComboLower || e.includes(subLower)) ||
+                             ratesMap[sub] !== undefined || ratesMap[`${mat}: ${sub}`] !== undefined;
+        if (isSubChecked) {
+          subMap[sub] = true;
+          isMatChecked = true;
+        } else {
+          subMap[sub] = false;
+        }
+
+        if (ratesMap[sub] !== undefined && ratesMap[`${mat}: ${sub}`] === undefined) {
+          ratesMap[`${mat}: ${sub}`] = ratesMap[sub];
+        }
+      }
+      matMap[mat] = isMatChecked;
+    }
+
     this.vendorDetailsForm = {
       vendorName: vendor.vendorName || '',
       salesCoordinator: vendor.salesCoordinator || 'Renuka',
       phoneNo: vendor.phoneNo || '',
       location: vendor.location || '',
+      gstNo: vendor.gstNo || '',
       creditDays: vendor.creditDays || '30 Days',
       description: vendor.description || '',
       materials: matMap,
+      subcategories: subMap,
       materialRates: ratesMap
     };
   }
 
   getSelectedMaterialsList(): string[] {
     if (!this.vendorDetailsForm || !this.vendorDetailsForm.materials) return [];
-    const keys = Object.keys(this.vendorDetailsForm.materials).filter(m => !!this.vendorDetailsForm.materials[m]);
-    const ordered = this.availableMaterials.filter(m => keys.includes(m));
-    const extra = keys.filter(m => !this.availableMaterials.includes(m));
-    return [...ordered, ...extra];
+    const list: string[] = [];
+    const activeMats = Object.keys(this.vendorDetailsForm.materials).filter(m => Boolean(this.vendorDetailsForm.materials[m]));
+
+    for (const mat of activeMats) {
+      if (this.hasSubcategories(mat)) {
+        const subs = this.getSelectedSubcategoriesForGroup(mat, false);
+        if (subs.length > 0) {
+          for (const s of subs) {
+            list.push(`${mat}: ${s}`);
+          }
+        } else {
+          list.push(mat);
+        }
+      } else {
+        list.push(mat);
+      }
+    }
+    return list;
   }
 
   getModalSelectedMaterialsList(): string[] {
     if (!this.vendorModalMaterials) return [];
-    const keys = Object.keys(this.vendorModalMaterials).filter(m => !!this.vendorModalMaterials[m]);
-    const ordered = this.availableMaterials.filter(m => keys.includes(m));
-    const extra = keys.filter(m => !this.availableMaterials.includes(m));
-    return [...ordered, ...extra];
+    const list: string[] = [];
+    const activeMats = Object.keys(this.vendorModalMaterials).filter(m => Boolean(this.vendorModalMaterials[m]));
+
+    for (const mat of activeMats) {
+      if (this.hasSubcategories(mat)) {
+        const subs = this.getSelectedSubcategoriesForGroup(mat, true);
+        if (subs.length > 0) {
+          for (const s of subs) {
+            list.push(`${mat}: ${s}`);
+          }
+        } else {
+          list.push(mat);
+        }
+      } else {
+        list.push(mat);
+      }
+    }
+    return list;
   }
 
   loadVendorLedger(id: number): void {
@@ -479,12 +742,19 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
 
     // Clean and validate rates as double numbers for all selected materials
     const cleanRates: { [mat: string]: number } = {};
-    for (const mat of selectedMats) {
-      const val = this.vendorDetailsForm.materialRates[mat];
+    for (const item of selectedMats) {
+      const val = this.vendorDetailsForm.materialRates[item] !== undefined
+        ? this.vendorDetailsForm.materialRates[item]
+        : this.vendorDetailsForm.materialRates[item.split(': ')[1] || item];
       if (val !== null && val !== undefined && !isNaN(Number(val))) {
-        cleanRates[mat] = parseFloat(Number(val).toFixed(2));
+        const num = parseFloat(Number(val).toFixed(2));
+        cleanRates[item] = num;
+        if (item.includes(': ')) {
+          const sub = item.split(': ')[1].trim();
+          cleanRates[sub] = num;
+        }
       } else {
-        cleanRates[mat] = 0.0;
+        cleanRates[item] = 0.0;
       }
     }
 
@@ -494,6 +764,7 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       salesCoordinator: this.vendorDetailsForm.salesCoordinator,
       phoneNo: this.vendorDetailsForm.phoneNo,
       location: this.vendorDetailsForm.location,
+      gstNo: this.vendorDetailsForm.gstNo?.trim() || '',
       creditDays: this.vendorDetailsForm.creditDays,
       description: this.vendorDetailsForm.description,
       materialsSpec: selectedMats.join(', '),
@@ -527,33 +798,64 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     this.isEditVendorModal = false;
     this.vendorForm = this.getEmptyVendor();
     this.vendorModalMaterials = {};
+    this.vendorModalSubcategories = {};
     this.vendorModalMaterialRates = {};
     for (const m of this.availableMaterials) {
       this.vendorModalMaterials[m] = false;
+      const subs = this.getSubcategories(m);
+      for (const s of subs) {
+        this.vendorModalSubcategories[s] = false;
+      }
     }
     this.isVendorModalOpen = true;
   }
 
   openEditVendorModal(v: OfficeVendor & { description?: string }): void {
     this.isEditVendorModal = true;
-    this.vendorForm = { ...v };
+    this.vendorForm = { ...v, gstNo: v.gstNo || '' };
     this.vendorModalMaterials = {};
+    this.vendorModalSubcategories = {};
     this.vendorModalMaterialRates = {};
-    const existing = (v.materialsSpec || '').split(',').map(m => m.trim().toLowerCase());
-    for (const m of this.availableMaterials) {
-      this.vendorModalMaterials[m] = existing.includes(m.toLowerCase());
-    }
+
+    let ratesMap: { [mat: string]: number | null } = {};
     if (v.materialRates) {
       if (typeof v.materialRates === 'string') {
         try {
-          this.vendorModalMaterialRates = JSON.parse(v.materialRates);
+          ratesMap = JSON.parse(v.materialRates);
         } catch (e) {
-          this.vendorModalMaterialRates = {};
+          ratesMap = {};
         }
       } else if (typeof v.materialRates === 'object') {
-        this.vendorModalMaterialRates = { ...v.materialRates };
+        ratesMap = { ...v.materialRates };
       }
     }
+
+    const existing = (v.materialsSpec || '').split(',').map(m => m.trim().toLowerCase()).filter(Boolean);
+    for (const m of this.availableMaterials) {
+      const matLower = m.toLowerCase().trim();
+      let isMatChecked = existing.includes(matLower) || existing.some(e => e.startsWith(matLower + ':') || e.startsWith(matLower + ' -'));
+
+      const subs = this.getSubcategories(m);
+      for (const sub of subs) {
+        const subLower = sub.toLowerCase().trim();
+        const fullComboLower = `${matLower}: ${subLower}`;
+        const isSubChecked = existing.some(e => e === subLower || e === fullComboLower || e.includes(subLower)) ||
+                             ratesMap[sub] !== undefined || ratesMap[`${m}: ${sub}`] !== undefined;
+        if (isSubChecked) {
+          this.vendorModalSubcategories[sub] = true;
+          isMatChecked = true;
+        } else {
+          this.vendorModalSubcategories[sub] = false;
+        }
+
+        if (ratesMap[sub] !== undefined && ratesMap[`${m}: ${sub}`] === undefined) {
+          ratesMap[`${m}: ${sub}`] = ratesMap[sub];
+        }
+      }
+      this.vendorModalMaterials[m] = isMatChecked;
+    }
+
+    this.vendorModalMaterialRates = ratesMap;
     this.isVendorModalOpen = true;
   }
 
@@ -570,9 +872,16 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     const mats = this.getModalSelectedMaterialsList();
     const cleanRates: { [mat: string]: number } = {};
     for (const mat of mats) {
-      const val = this.vendorModalMaterialRates[mat];
+      const val = this.vendorModalMaterialRates[mat] !== undefined
+        ? this.vendorModalMaterialRates[mat]
+        : this.vendorModalMaterialRates[mat.split(': ')[1] || mat];
       if (val !== null && val !== undefined && !isNaN(Number(val))) {
-        cleanRates[mat] = parseFloat(Number(val).toFixed(2));
+        const num = parseFloat(Number(val).toFixed(2));
+        cleanRates[mat] = num;
+        if (mat.includes(': ')) {
+          const sub = mat.split(': ')[1].trim();
+          cleanRates[sub] = num;
+        }
       } else {
         cleanRates[mat] = 0.0;
       }
@@ -580,6 +889,7 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
 
     const payload = {
       ...this.vendorForm,
+      gstNo: this.vendorForm.gstNo ? this.vendorForm.gstNo.trim() : '',
       materialsSpec: mats.join(', '),
       materialRates: cleanRates
     };
@@ -905,6 +1215,7 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       salesCoordinator: 'Renuka',
       phoneNo: '',
       location: '',
+      gstNo: '',
       materialsSpec: '',
       creditDays: '30 Days',
       description: ''
@@ -1041,8 +1352,9 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
         const vendorProfileOverview = [
           ['Vendor Name', vInfo.vendorName || '-', 'Coordinator', vInfo.salesCoordinator || '-'],
           ['Phone No', vInfo.phoneNo || '-', 'Location', vInfo.location || '-'],
-          ['Credit Days', vInfo.creditDays || '30 Days', 'Materials', vInfo.materialsSpec || '-'],
-          ['Notes / Description', vInfo.description || '-', 'Report Date', new Date().toLocaleDateString('en-GB')]
+          ['GST No.', vInfo.gstNo || '-', 'Credit Days', vInfo.creditDays || '30 Days'],
+          ['Materials', vInfo.materialsSpec || '-', 'Report Date', new Date().toLocaleDateString('en-GB')],
+          ['Notes / Description', vInfo.description || '-', '', '']
         ];
 
         autoTable(doc, {

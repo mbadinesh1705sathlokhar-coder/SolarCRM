@@ -24,6 +24,23 @@ export class AuthService {
     return role === 'admin' || user.includes('mbadinesh1705') || user.includes('admin') || user.includes('dinesh');
   });
 
+  readonly isPurchase = computed(() => {
+    const u = this.currentUserSignal();
+    if (!u) return false;
+    const resp = (u?.responsibility || '').toLowerCase().trim();
+    const desig = (u?.designation || '').toLowerCase().trim();
+    const role = (u?.role || '').toLowerCase().trim();
+    return resp.includes('purchase') || desig.includes('purchase') || role.includes('purchase');
+  });
+
+  readonly isPurchaseOrAdmin = computed(() => {
+    return this.isAdmin() || this.isPurchase();
+  });
+
+  canViewPricing(): boolean {
+    return this.isPurchaseOrAdmin();
+  }
+
   readonly canManageAccess = computed(() => {
     const u = this.currentUserSignal();
     if (!u) return false;

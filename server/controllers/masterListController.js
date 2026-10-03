@@ -347,8 +347,14 @@ async function seedMasterListsIfEmpty() {
             {
                 title: 'BOM',
                 category: 'Inventory',
-                description: 'Bill of Materials (BOM) Groups & Specifications (Cables, Panels, Inverters, MC4 Connector, Lugs, Bucket, Structure, Earthing & Lightning, Fasteners & Hardware)',
-                items: ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware']
+                description: 'Bill of Materials (BOM) Groups & Specifications (Cables, Panels, Inverters, Civil & Miscellaneous, Consumables, Earthing Protection, Module Mounting Structures, Tata SPG Package, Waree)',
+                items: ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree']
+            },
+            {
+                title: 'UOM measurements',
+                category: 'Inventory',
+                description: 'Units of measurement (UOM) for inventory items, BOM specifications, warehouse materials, and procurement (e.g. Nos, Meter, Sets, Kg, Watts, Pcs, etc.)',
+                items: ['Nos', 'Meter', 'Sets', 'Kg', 'Watts', 'Pcs', 'Pair', 'Box', 'Packet', 'Coil', 'Trip', 'Lot', 'Sqft', 'Sqmm', 'Rmtr']
             }
         ];
 

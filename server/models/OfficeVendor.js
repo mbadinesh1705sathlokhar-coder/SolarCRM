@@ -27,6 +27,11 @@ const OfficeVendor = conDb.define('OfficeVendor', {
         allowNull: true,
         field: 'location'
     },
+    gstNo: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'gst_no'
+    },
     materialsSpec: {
         type: DataTypes.TEXT,
         allowNull: true,

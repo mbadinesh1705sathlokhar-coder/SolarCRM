@@ -37,6 +37,10 @@ export class GatePassComponent implements OnInit {
     return this.authService.canDelete('inventory');
   }
 
+  canViewPricing(): boolean {
+    return this.authService.canViewPricing();
+  }
+
   gatePasses: GatePass[] = [];
   loading = false;
   searchTerm = '';
@@ -246,6 +250,24 @@ export class GatePassComponent implements OnInit {
     );
   }
 
+  get existingGatePassForClient(): GatePass | undefined {
+    const client = (this.passForm.clientName || '').trim().toLowerCase();
+    if (!client) return undefined;
+    const currentId = this.passForm.id;
+    const spMatch = client.match(/sp[-\s]?(\d+)/i);
+
+    return this.gatePasses.find(gp => {
+      if (currentId && gp.id === currentId) return false;
+      const gpClient = (gp.clientName || '').trim().toLowerCase();
+      if (gpClient === client) return true;
+      if (spMatch) {
+        const gpSpMatch = gpClient.match(/sp[-\s]?(\d+)/i);
+        if (gpSpMatch && gpSpMatch[1] === spMatch[1]) return true;
+      }
+      return false;
+    });
+  }
+
   openAddModal(): void {
     if (!this.canAdd()) {
       this.showToast('You do not have permission to create gate passes.', 'danger');
@@ -253,8 +275,10 @@ export class GatePassComponent implements OnInit {
     }
     this.isEditMode = false;
     this.passForm = this.getEmptyGatePass();
+    const today = new Date().toISOString().substring(0, 10);
     this.dispatchMaterials = [
       {
+        dispatchDate: today,
         materialName: this.stockMaterialOptions[0] || 'Cable Tray Materials',
         unit: 'Nos',
         quantity: 1,
@@ -273,6 +297,7 @@ export class GatePassComponent implements OnInit {
     }
     this.isEditMode = true;
     this.passForm = { ...gp };
+    const defaultDate = gp.gatePassDate || new Date().toISOString().substring(0, 10);
     if (gp.items && gp.items.length > 0) {
       this.dispatchMaterials = gp.items.map(m => {
         const q = parseFloat(m.quantity as any) || 0;
@@ -280,6 +305,7 @@ export class GatePassComponent implements OnInit {
         const a = m.amount !== undefined && m.amount !== null ? (parseFloat(m.amount as any) || 0) : Math.round(q * r * 100) / 100;
         return {
           ...m,
+          dispatchDate: m.dispatchDate || defaultDate,
           unit: m.unit || 'Nos',
           quantity: q,
           rate: r,
@@ -289,6 +315,7 @@ export class GatePassComponent implements OnInit {
       });
     } else if (gp.descriptions) {
       this.dispatchMaterials = [{
+        dispatchDate: defaultDate,
         materialName: gp.descriptions,
         unit: gp.unit || 'Nos',
         quantity: gp.quantity || 1,
@@ -299,6 +326,7 @@ export class GatePassComponent implements OnInit {
     } else {
       this.dispatchMaterials = [
         {
+          dispatchDate: defaultDate,
           materialName: this.stockMaterialOptions[0] || 'Cable Tray Materials',
           unit: 'Nos',
           quantity: 1,
@@ -336,7 +364,9 @@ export class GatePassComponent implements OnInit {
   }
 
   addMaterialRow(): void {
+    const defaultDate = this.passForm.gatePassDate || new Date().toISOString().substring(0, 10);
     this.dispatchMaterials.push({
+      dispatchDate: defaultDate,
       materialName: this.stockMaterialOptions[0] || 'Cable Tray Materials',
       unit: 'Nos',
       quantity: 1,
@@ -356,7 +386,7 @@ export class GatePassComponent implements OnInit {
     m.amount = Math.round(q * r * 100) / 100;
   }
 
-  getTotalAmount(): number {
+  getMaterialsTotal(): number {
     return this.dispatchMaterials.reduce((sum, m) => {
       const q = parseFloat(m.quantity as any) || 0;
       const r = parseFloat(m.rate as any) || 0;
@@ -365,19 +395,24 @@ export class GatePassComponent implements OnInit {
     }, 0);
   }
 
+  getTotalAmount(): number {
+    return this.getMaterialsTotal();
+  }
+
   getGatePassTotal(gp: GatePass): number {
     if (gp.totalAmount !== undefined && gp.totalAmount !== null && Number(gp.totalAmount) > 0) {
       return Number(gp.totalAmount);
     }
+    let sum = 0;
     if (gp.items && gp.items.length > 0) {
-      return gp.items.reduce((sum, it) => {
+      sum = gp.items.reduce((s, it) => {
         const q = parseFloat(it.quantity as any) || 0;
         const r = parseFloat(it.rate as any) || 0;
         const a = it.amount !== undefined && it.amount !== null ? (parseFloat(it.amount as any) || 0) : (q * r);
-        return sum + a;
+        return s + a;
       }, 0);
     }
-    return 0;
+    return Math.round(sum * 100) / 100;
   }
 
   saveGatePass(): void {
@@ -389,6 +424,16 @@ export class GatePassComponent implements OnInit {
     if (this.isEditMode ? !this.canEdit() : !this.canAdd()) {
       this.showToast('You do not have permission to perform this action.', 'danger');
       return;
+    }
+
+    if (!this.isEditMode && this.existingGatePassForClient) {
+      const proceed = confirm(
+        `A Gate Pass already exists for ${this.passForm.clientName} (Pass #${this.existingGatePassForClient.id}).\n\nClick Cancel to switch and edit the existing pass instead, or OK to create a separate new pass.`
+      );
+      if (!proceed) {
+        this.openEditModal(this.existingGatePassForClient);
+        return;
+      }
     }
 
     const validMaterials = this.dispatchMaterials.filter(m => !!m.materialName?.trim());
@@ -412,6 +457,7 @@ export class GatePassComponent implements OnInit {
       quantity,
       unit,
       totalAmount,
+      transportCost: 0,
       items: validMaterials
     };
 
@@ -487,7 +533,8 @@ export class GatePassComponent implements OnInit {
       quantity: 1,
       clientName: '',
       siteEngineer: 'Dinesh Kumar',
-      remarks: ''
+      remarks: '',
+      transportCost: 0
     };
   }
 
@@ -528,31 +575,47 @@ export class GatePassComponent implements OnInit {
     doc.setTextColor(100, 116, 139);
     doc.text(`Total Passes: ${list.length} | Generated on: ${new Date().toLocaleString()}`, 14, 19);
 
-    const headers = [
-      ['S.No', 'Date', 'Client / Destination', 'Site Engineer', 'Dispatched Materials', 'Qty & Unit', 'Total Amount', 'Remarks']
-    ];
+    const showPrice = this.canViewPricing();
+    const headers = showPrice
+      ? [['S.No', 'Date', 'Client / Destination', 'Site Engineer', 'Dispatched Materials', 'Qty & Unit', 'Total Amount', 'Remarks']]
+      : [['S.No', 'Date', 'Client / Destination', 'Site Engineer', 'Dispatched Materials', 'Qty & Unit', 'Remarks']];
 
     const body = list.map((gp, idx) => {
       let matDetails = gp.descriptions || '';
       if (gp.items && gp.items.length > 0) {
         matDetails = gp.items.map(it => {
           let line = `${it.materialName} (${it.quantity} ${it.unit})`;
-          if (it.rate) line += ` @ Rs.${it.rate}`;
-          if (it.vendorName) line += ` [Vendor: ${it.vendorName}]`;
+          if (it.dispatchDate) line += ` [${this.formatDate(it.dispatchDate)}]`;
+          if (showPrice) {
+            if (it.rate) line += ` @ Rs.${it.rate}`;
+            if (it.vendorName) line += ` [Vendor: ${it.vendorName}]`;
+          }
           return line;
         }).join('\n');
       }
       const totalAmt = this.getGatePassTotal(gp);
-      return [
-        idx + 1,
-        this.formatDate(gp.gatePassDate),
-        gp.clientName || '',
-        gp.siteEngineer || '',
-        matDetails,
-        `${gp.quantity || 1} ${gp.unit || 'Nos'}`,
-        totalAmt > 0 ? `Rs. ${totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—',
-        gp.remarks || '—'
-      ];
+      if (showPrice) {
+        return [
+          idx + 1,
+          this.formatDate(gp.gatePassDate),
+          gp.clientName || '',
+          gp.siteEngineer || '',
+          matDetails,
+          `${gp.quantity || 1} ${gp.unit || 'Nos'}`,
+          totalAmt > 0 ? `Rs. ${totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—',
+          gp.remarks || '—'
+        ];
+      } else {
+        return [
+          idx + 1,
+          this.formatDate(gp.gatePassDate),
+          gp.clientName || '',
+          gp.siteEngineer || '',
+          matDetails,
+          `${gp.quantity || 1} ${gp.unit || 'Nos'}`,
+          gp.remarks || '—'
+        ];
+      }
     });
 
     autoTable(doc, {
@@ -566,5 +629,177 @@ export class GatePassComponent implements OnInit {
 
     doc.save(`Gate_Passes_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Gate Pass PDF exported successfully!', 'success');
+  }
+
+  downloadSingleGatePassPdf(gp: GatePass | null): void {
+    if (!gp) return;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = 210;
+    const margin = 14;
+
+    // 1. Header Banner
+    doc.setFillColor(217, 119, 6); // Amber brand tone matching Gate Pass UI
+    doc.rect(0, 0, pageWidth, 26, 'F');
+    doc.setFillColor(15, 118, 110); // Teal Accent line
+    doc.rect(0, 26, pageWidth, 1.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(255, 255, 255);
+    doc.text('SOLAR SATHLOKHAR', margin, 11);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(254, 243, 199);
+    doc.text('MATERIAL GATE PASS & DISPATCH VOUCHER', margin, 17);
+
+    doc.setFontSize(7.5);
+    const passRef = gp.id ? `GP-${gp.id}` : 'GP-DISPATCH';
+    doc.text(`Ref: ${passRef}   |   Date: ${this.formatDate(gp.gatePassDate)}   |   Generated: ${new Date().toLocaleString('en-IN')}`, margin, 22);
+
+    let currentY = 34;
+
+    // 2. Overview Meta Card
+    const overviewData = [
+      ['Client / Site Name:', gp.clientName || '—', 'Dispatch Date:', this.formatDate(gp.gatePassDate)],
+      ['Site Engineer:', gp.siteEngineer || '—', 'Total Materials:', `${gp.items?.length || (gp.descriptions ? 1 : 0)} Item(s)`],
+      ['Remarks / Dispatch:', gp.remarks || 'Site Material Dispatch', '', '']
+    ];
+
+    autoTable(doc, {
+      body: overviewData,
+      startY: currentY,
+      theme: 'plain',
+      styles: { fontSize: 8.5, cellPadding: 2.2 },
+      columnStyles: {
+        0: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 38 },
+        1: { fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 70 },
+        2: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 32 },
+        3: { textColor: [30, 41, 59], cellWidth: 42 }
+      }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 6;
+
+    // 3. Table Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(217, 119, 6);
+    doc.text('DISPATCHED DESCRIPTIONS & MATERIALS', margin, currentY);
+
+    currentY += 3;
+
+    const showPrice = this.canViewPricing();
+    const tableHeaders = showPrice
+      ? [['#', 'Date', 'Material / Description', 'Unit', 'Qty', 'Rate (Rs.)', 'Vendor Name', 'Amount (Rs.)']]
+      : [['#', 'Date', 'Material / Description', 'Unit', 'Qty']];
+
+    const tableBody: any[] = [];
+    if (gp.items && gp.items.length > 0) {
+      gp.items.forEach((it, idx) => {
+        if (showPrice) {
+          tableBody.push([
+            idx + 1,
+            this.formatDate(it.dispatchDate || gp.gatePassDate),
+            it.materialName || '—',
+            it.unit || 'Nos',
+            it.quantity || 0,
+            it.rate ? `Rs. ${Number(it.rate).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—',
+            it.vendorName || '—',
+            (it.amount !== undefined && it.amount !== null && it.amount > 0)
+              ? `Rs. ${Number(it.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+              : '—'
+          ]);
+        } else {
+          tableBody.push([
+            idx + 1,
+            this.formatDate(it.dispatchDate || gp.gatePassDate),
+            it.materialName || '—',
+            it.unit || 'Nos',
+            it.quantity || 0
+          ]);
+        }
+      });
+    } else {
+      if (showPrice) {
+        tableBody.push([
+          1,
+          this.formatDate(gp.gatePassDate),
+          this.cleanDescription(gp.descriptions) || '—',
+          gp.unit || 'Nos',
+          gp.quantity || 1,
+          '—',
+          '—',
+          this.getGatePassTotal(gp) > 0 ? `Rs. ${this.getGatePassTotal(gp).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'
+        ]);
+      } else {
+        tableBody.push([
+          1,
+          this.formatDate(gp.gatePassDate),
+          this.cleanDescription(gp.descriptions) || '—',
+          gp.unit || 'Nos',
+          gp.quantity || 1
+        ]);
+      }
+    }
+
+    const tableFooters: any[] = [];
+    if (showPrice) {
+      const totalAmount = this.getGatePassTotal(gp);
+      tableFooters.push([
+        { content: 'Total Dispatch Value:', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
+        { content: `Rs. ${Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fontSize: 9, textColor: [22, 101, 52] } }
+      ]);
+    }
+
+    autoTable(doc, {
+      head: tableHeaders,
+      body: tableBody,
+      foot: tableFooters.length > 0 ? tableFooters : undefined,
+      startY: currentY,
+      styles: { fontSize: 8, cellPadding: 2.2, overflow: 'linebreak' },
+      headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
+      footStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42] },
+      alternateRowStyles: { fillColor: [254, 252, 232] },
+      columnStyles: showPrice ? {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { cellWidth: 22 },
+        2: { fontStyle: 'bold', cellWidth: 48 },
+        3: { halign: 'center', cellWidth: 14 },
+        4: { halign: 'center', cellWidth: 14 },
+        5: { halign: 'right', cellWidth: 24 },
+        6: { cellWidth: 28 },
+        7: { halign: 'right', cellWidth: 22 }
+      } : {
+        0: { halign: 'center', cellWidth: 14 },
+        1: { cellWidth: 32 },
+        2: { fontStyle: 'bold', cellWidth: 90 },
+        3: { halign: 'center', cellWidth: 24 },
+        4: { halign: 'center', cellWidth: 22 }
+      }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 18;
+    if (currentY + 25 > 280) {
+      doc.addPage();
+      currentY = 25;
+    }
+
+    // 4. Authorization Signatures
+    doc.setDrawColor(203, 213, 225);
+    doc.line(margin, currentY, margin + 45, currentY);
+    doc.line(margin + 65, currentY, margin + 115, currentY);
+    doc.line(margin + 135, currentY, margin + 180, currentY);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Prepared / Dispatched By', margin, currentY + 4);
+    doc.text('Vehicle / Transport Handover', margin + 65, currentY + 4);
+    doc.text('Received By (Site Engineer)', margin + 135, currentY + 4);
+
+    const safeClient = (gp.clientName || 'GatePass').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+    doc.save(`Gate_Pass_${safeClient}_${new Date().toISOString().substring(0, 10)}.pdf`);
+    this.showToast(`Gate Pass PDF for ${gp.clientName} generated successfully!`, 'success');
   }
 }

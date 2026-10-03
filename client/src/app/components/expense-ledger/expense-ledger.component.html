@@ -398,23 +398,47 @@
                   <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
                     Payment Through <span class="text-danger">*</span>
                   </label>
-                  <select class="form-select form-select-sm" [(ngModel)]="formData.paymentThrough" name="paymentThrough" required>
+                  <select class="form-select form-select-sm fw-medium text-dark" [(ngModel)]="formData.paymentThrough" name="paymentThrough" required>
                     <option *ngFor="let pt of paymentThroughOptions" [value]="pt">{{ pt }}</option>
                   </select>
                 </div>
 
-                <!-- Purpose Dropdown -->
-                <div class="col-6 col-md-3 col-lg-3">
+                <!-- BOM Material Group Dropdown -->
+                <div class="col-6 col-md-3 col-lg-2">
                   <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
-                    Purpose <span class="text-danger">*</span>
+                    BOM Material <span class="text-danger">*</span>
                   </label>
-                  <select class="form-select form-select-sm" [(ngModel)]="formData.purpose" name="purpose" required>
-                    <option *ngFor="let p of purposeOptions" [value]="p">{{ p }}</option>
+                  <select class="form-select form-select-sm fw-semibold text-dark" [(ngModel)]="formData.selectedBomGroup" (ngModelChange)="onBomGroupChange()" name="selectedBomGroup" required>
+                    <optgroup *ngIf="projectBomOptions.length > 0" label="★ Project Planned BOM">
+                      <option *ngFor="let pbo of projectBomOptions" [value]="pbo.group">{{ pbo.group }} (Planned)</option>
+                    </optgroup>
+                    <optgroup label="BOM Master Materials">
+                      <option *ngFor="let g of bomMaterialGroups" [value]="g.group">{{ g.group }}</option>
+                    </optgroup>
+                    <option *ngIf="isEditingPastRecord && isLegacyPurpose" [value]="formData.selectedBomGroup">{{ formData.selectedBomGroup }} (Current)</option>
                   </select>
                 </div>
 
+                <!-- BOM Subcategory / Specification Dropdown -->
+                <div class="col-6 col-md-3 col-lg-2">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    Subcategory / Spec <span class="text-danger">*</span>
+                  </label>
+                  <select class="form-select form-select-sm" [(ngModel)]="formData.selectedBomSpec" (ngModelChange)="onBomSpecChange()" name="selectedBomSpec" required>
+                    <option *ngFor="let spec of getAvailableSpecs(formData.selectedBomGroup)" [value]="spec">{{ spec }}</option>
+                    <option value="Custom">Custom / Other...</option>
+                  </select>
+                  <input *ngIf="formData.selectedBomSpec === 'Custom'" 
+                         type="text" 
+                         class="form-control form-control-sm mt-1" 
+                         [(ngModel)]="formData.customBomSpec" 
+                         (ngModelChange)="onBomSpecChange()" 
+                         name="customBomSpec" 
+                         placeholder="Enter custom specification...">
+                </div>
+
                 <!-- Paid By Dropdown -->
-                <div class="col-6 col-md-3 col-lg-3">
+                <div class="col-6 col-md-3 col-lg-2">
                   <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
                     Paid By <span class="text-danger">*</span>
                   </label>
@@ -565,8 +589,12 @@
                         'bg-warning-subtle text-warning-emphasis border border-warning-subtle': e.paymentThrough === 'Petty Cash',
                         'bg-success-subtle text-success border border-success-subtle': e.paymentThrough === 'Accounts',
                         'bg-primary-subtle text-primary border border-primary-subtle': e.paymentThrough === 'W.O',
+                        'bg-warning-subtle text-dark border border-warning': e.paymentThrough === 'Gatepass' || e.paymentThrough === 'GatePass',
                         'bg-secondary-subtle text-secondary border border-secondary-subtle': !e.paymentThrough || e.paymentThrough === '(Blanks)'
-                      }">{{ e.paymentThrough || '(Blanks)' }}</span>
+                      }">
+                        <i *ngIf="e.paymentThrough === 'Gatepass' || e.paymentThrough === 'GatePass'" class="bi bi-pass-fill me-1 text-warning"></i>
+                        {{ e.paymentThrough || '(Blanks)' }}
+                      </span>
                     </td>
                     <!-- Expense Amount: Prominently placed in Column 5 -->
                     <td class="text-end fw-bold text-danger font-mono fs-7">

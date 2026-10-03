@@ -46,6 +46,7 @@ export interface OfficeVendor {
   salesCoordinator: string;
   phoneNo: string;
   location: string;
+  gstNo?: string;
   materialsSpec: string;
   creditDays: string;
   description?: string;

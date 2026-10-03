@@ -185,6 +185,12 @@ const GatePass = conDb.define('GatePass', {
         allowNull: false,
         defaultValue: 0,
         field: 'total_amount'
+    },
+    transportCost: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        defaultValue: 0,
+        field: 'transport_cost'
     }
 }, {
     tableName: 'inventory_gate_passes',
@@ -208,6 +214,11 @@ const GatePassItem = conDb.define('GatePassItem', {
             key: 'id'
         },
         onDelete: 'CASCADE'
+    },
+    dispatchDate: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: 'dispatch_date'
     },
     materialName: {
         type: DataTypes.STRING(255),

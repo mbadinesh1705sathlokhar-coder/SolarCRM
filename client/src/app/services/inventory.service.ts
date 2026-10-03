@@ -170,6 +170,7 @@ export function getStockThresholdDescription(materialName?: string, unit?: strin
 export interface GatePassItem {
   id?: number;
   gatePassId?: number;
+  dispatchDate?: string;
   materialName: string;
   unit: string;
   quantity: number;
@@ -188,6 +189,7 @@ export interface GatePass {
   siteEngineer: string;
   remarks?: string;
   totalAmount?: number;
+  transportCost?: number;
   items?: GatePassItem[];
   createdAt?: string;
   updatedAt?: string;

@@ -9,6 +9,7 @@ import autoTable from 'jspdf-autotable';
 import { RouterModule } from '@angular/router';
 import { OfficeService } from '../../services/office.service';
 import { AuthService } from '../../services/auth.service';
+import { MasterListService } from '../../services/master-list.service';
 
 @Component({
   selector: 'app-expense-ledger',
@@ -21,6 +22,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   private projectService = inject(ProjectService);
   private officeService = inject(OfficeService);
   private authService = inject(AuthService);
+  private masterListService = inject(MasterListService);
   private cdr = inject(ChangeDetectorRef);
 
   @ViewChild('topScrollWrapper') topScrollWrapper?: ElementRef<HTMLDivElement>;
@@ -97,14 +99,18 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   isEditingPastRecord = false;
   editingExpenseId: number | null = null;
   editingOriginalAmount: number = 0;
+  isLegacyPurpose = false;
 
   formData = {
     dateInput: '', // dd-mm-yyyy
     siteId: '',
     clientName: '',
     clientSiteName: '',
-    paymentThrough: 'Petty Cash',
-    purpose: 'Consumables',
+    paymentThrough: 'P.O',
+    purpose: 'Inverters - 3kW Ongrid',
+    selectedBomGroup: 'Inverters',
+    selectedBomSpec: '3kW Ongrid',
+    customBomSpec: '',
     paidBy: 'OFFICE',
     vendor: '',
     remarks: '',
@@ -126,38 +132,63 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   alertMessage: { text: string; type: 'success' | 'danger' } | null = null;
 
   // Select dropdown option arrays matching user's real project requirements
-  paymentThroughOptions = ['Petty Cash', 'P.O', 'Accounts', 'W.O', '(Blanks)'];
+  paymentThroughOptions = ['P.O', 'W.O', 'Petty Cash', 'Gatepass', 'Accounts', '(Blanks)'];
+
+  // Project BOM Items dynamically loaded when opening a specific client
+  projectBomOptions: { value: string; label: string; group: string; spec: string }[] = [];
+
+  // BOM Material Master Groups & Specifications
+  bomMaterialGroups: { group: string; specifications: string[] }[] = [
+    {
+      group: 'Panels',
+      specifications: ['540W Mono PERC', '550W Mono PERC', '580W TOPCon', '335W Polycrystalline', '340W Polycrystalline']
+    },
+    {
+      group: 'Inverters',
+      specifications: ['3kW Ongrid', '5kW Ongrid', '10kW Ongrid', '15kW Ongrid', '20kW Ongrid', '5kW Hybrid', '10kW Hybrid']
+    },
+    {
+      group: 'Cables',
+      specifications: ['AC Cable - 4Sqmm', 'AC Cable - 6Sqmm', 'AC Cable - 10Sqmm', 'AC Cable - 16Sqmm', 'AC Cable - 25Sqmm', 'DC Cable - XLPO 4Sqmm', 'DC Cable - XLPO 6Sqmm', 'DC Cable - 10Sqmm']
+    },
+    {
+      group: 'Structure',
+      specifications: ['HDG Rooftop High Structure', 'Aluminium Rail Profile', 'Ground Mount Column Structure', 'Car Port Canopy Structure']
+    },
+    {
+      group: 'Earthing & Lightning',
+      specifications: ['Copper Bonded Chemical Earthing Rod 50mm', 'ESE Lightning Arrester Kit', 'GI Flat Strip 25x3mm', 'Copper Strip 25x3mm']
+    },
+    {
+      group: 'MC4 Connector',
+      specifications: ['Single Pair (1-in 1-out)', '2-in 1-out Branch Pair', '3-in 1-out Branch Pair', '4-in 1-out Branch Pair']
+    },
+    {
+      group: 'Lugs',
+      specifications: ['Cu Lug - 4Sqmm', 'Cu Lug - 6Sqmm', 'Cu Lug - 10Sqmm', 'Al Lug - 16Sqmm', 'Al Lug - 25Sqmm', 'Al Lug - 35Sqmm', 'Pin Lug - 4Sqmm', 'Ring Lug - 6Sqmm']
+    },
+    {
+      group: 'Bucket',
+      specifications: ['PVC Conduit Accessories Bucket', 'Hardware Fasteners Bucket', 'Earthing Kit Bucket', 'Electrical Consumables Bucket']
+    },
+    {
+      group: 'Fasteners & Hardware',
+      specifications: ['SS304 Allen Bolt M8x25', 'SS304 Hex Bolt M10x30', 'Anchor Fastener M12x100', 'Cable Ties UV 300mm']
+    },
+    {
+      group: 'Transportation & Logistics',
+      specifications: ['Freight & Site Logistics', 'Local Tempo / Mini Truck', 'Site Shifting & Handling', 'Crane / Unloading Services']
+    },
+    {
+      group: 'Consumables & Miscellaneous',
+      specifications: ['Consumables', 'DB Boxes', 'Cable Tray Materials', 'Civil Work Labour', 'Labour/Manpower', 'Rental Tools', 'Tools Asset', 'Walkway / Hand Rails', 'General Stock']
+    }
+  ];
 
   // Vendor options dynamically fetched from Account -> Office -> Vendor List
   vendorOptions: string[] = [];
 
-  purposeOptions = [
-    'Consumables',
-    'Solar MMS',
-    'Solar Panels',
-    'Solar Inverters',
-    'Solar I&C Works',
-    'TATA SPG Package',
-    'Solar Cables',
-    'DB Boxes',
-    'Earthing Materials',
-    'Lightning Arrestors',
-    'Civil Work Labour',
-    'Material Transport',
-    'Panel Cleaning Liquid',
-    'Rental Tools',
-    'Safety Certificates',
-    'Solar CEIG Works',
-    'Solar Meters',
-    'Tools Asset',
-    'Walkway / Hand Rails',
-    'Zero Export Device',
-    'Cable Tray Materials',
-    'Cables',
-    'Expo / Event Expenses',
-    'Labour/Manpower',
-    '(Blanks)'
-  ];
+  purposeOptions: string[] = [];
 
   // Employee options dynamically fetched from Account -> Office -> Employees
   paidByOptions: string[] = ['OFFICE'];
@@ -195,10 +226,92 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     });
   }
 
+  loadBomMaterialsFromService(): void {
+    this.masterListService.getBomMaterials().subscribe({
+      next: (res) => {
+        if (res.success && res.grouped) {
+          Object.keys(res.grouped).forEach(grpName => {
+            const items = res.grouped[grpName];
+            const specs = items.map((it: any) => it.specification || it.categoryType).filter(Boolean);
+            const existing = this.bomMaterialGroups.find(g => g.group.toLowerCase().trim() === grpName.toLowerCase().trim());
+            if (existing) {
+              existing.specifications = Array.from(new Set([...existing.specifications, ...specs]));
+            } else {
+              this.bomMaterialGroups.push({ group: grpName, specifications: specs.length > 0 ? specs : ['General'] });
+            }
+          });
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  extractProjectBomOptions(project: Project | null): void {
+    this.projectBomOptions = [];
+    if (!project || !project.bomItems) return;
+    try {
+      let items: any[] = [];
+      if (Array.isArray(project.bomItems)) {
+        items = project.bomItems;
+      } else if (typeof project.bomItems === 'string') {
+        items = JSON.parse(project.bomItems);
+      }
+      if (Array.isArray(items) && items.length > 0) {
+        this.projectBomOptions = items.map(b => ({
+          value: `${b.materialGroup || 'Material'} - ${b.specification || b.categoryType || 'Standard'}`,
+          label: `📋 ${b.materialGroup || 'Material'}: ${b.specification || b.categoryType || 'Standard'} (${b.plannedQty || ''} ${b.uom || ''})`,
+          group: b.materialGroup || 'Material',
+          spec: b.specification || b.categoryType || 'Standard'
+        }));
+      }
+    } catch {
+      this.projectBomOptions = [];
+    }
+  }
+
+  getAvailableSpecs(groupName: string): string[] {
+    const grp = this.bomMaterialGroups.find(g => g.group.toLowerCase().trim() === (groupName || '').toLowerCase().trim());
+    return grp ? grp.specifications : ['General'];
+  }
+
+  onBomGroupChange(): void {
+    this.isLegacyPurpose = false;
+    const specs = this.getAvailableSpecs(this.formData.selectedBomGroup);
+    this.formData.selectedBomSpec = specs[0] || 'General';
+    this.formData.customBomSpec = '';
+    this.updatePurposeFromBom();
+  }
+
+  onBomSpecChange(): void {
+    this.isLegacyPurpose = false;
+    this.updatePurposeFromBom();
+  }
+
+  selectProjectBomItem(pb: { value: string; group: string; spec: string }): void {
+    this.formData.selectedBomGroup = pb.group;
+    this.formData.selectedBomSpec = pb.spec;
+    this.formData.customBomSpec = '';
+    this.isLegacyPurpose = false;
+    this.updatePurposeFromBom();
+  }
+
+  updatePurposeFromBom(): void {
+    if (this.formData.selectedBomSpec === 'Custom') {
+      this.formData.purpose = this.formData.customBomSpec?.trim()
+        ? `${this.formData.selectedBomGroup} - ${this.formData.customBomSpec.trim()}`
+        : this.formData.selectedBomGroup;
+    } else if (this.formData.selectedBomSpec) {
+      this.formData.purpose = `${this.formData.selectedBomGroup} - ${this.formData.selectedBomSpec}`;
+    } else {
+      this.formData.purpose = this.formData.selectedBomGroup;
+    }
+  }
+
   isPoWo(paymentThrough?: string): boolean {
     if (!paymentThrough) return false;
     const clean = paymentThrough.trim().toUpperCase().replace(/[\s.]/g, '');
-    return clean === 'PO' || clean === 'WO';
+    return clean === 'PO' || clean === 'WO' || clean.includes('GATEPASS');
   }
 
   ngOnInit(): void {
@@ -206,6 +319,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     this.loadExpenses();
     this.loadVendorsFromOffice();
     this.loadEmployeesFromOffice();
+    this.loadBomMaterialsFromService();
   }
 
   ngAfterViewInit(): void {
@@ -661,8 +775,14 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     this.editingExpenseId = null;
     this.editingOriginalAmount = 0;
 
-    const isWh = this.selectedProjectRef.siteId.toUpperCase() === 'WAREHOUSE';
+    this.extractProjectBomOptions(this.selectedProjectRef);
 
+    const isWh = this.selectedProjectRef.siteId.toUpperCase() === 'WAREHOUSE';
+    const defaultGroup = this.projectBomOptions.length > 0 ? this.projectBomOptions[0].group : 'Inverters';
+    const defaultSpec = this.projectBomOptions.length > 0 ? this.projectBomOptions[0].spec : (this.getAvailableSpecs(defaultGroup)[0] || '3kW Ongrid');
+    const defaultPurpose = `${defaultGroup} - ${defaultSpec}`;
+
+    this.isLegacyPurpose = false;
     this.formData = {
       dateInput: this.getTodayDisplayDate(),
       siteId: this.selectedProjectRef.siteId,
@@ -670,8 +790,11 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       clientSiteName: isWh
         ? 'Warehouse : Sathlokhar H.O'
         : `${this.selectedProjectRef.siteId} : ${this.selectedProjectRef.siteCapacity || '5'}KW, ${this.selectedProjectRef.clientName}, ${this.selectedProjectRef.location || 'Chennai'}`,
-      paymentThrough: isWh ? 'P.O' : 'Petty Cash',
-      purpose: isWh ? 'Solar Panels' : 'Consumables',
+      paymentThrough: isWh ? 'P.O' : 'P.O',
+      purpose: defaultPurpose,
+      selectedBomGroup: defaultGroup,
+      selectedBomSpec: defaultSpec,
+      customBomSpec: '',
       paidBy: 'OFFICE',
       vendor: '',
       remarks: isWh ? 'Materials received in warehouse' : '',
@@ -698,6 +821,8 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     this.editingExpenseId = e.id || null;
     this.editingOriginalAmount = Number(e.amount) || 0;
 
+    this.extractProjectBomOptions(this.selectedProjectRef);
+
     const displayDate = e.formattedDate || this.toDisplayDate(e.expenseDate);
 
     if (e.vendorName && !this.vendorOptions.includes(e.vendorName)) {
@@ -707,13 +832,45 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       this.paidByOptions = [e.paidBy, ...this.paidByOptions];
     }
 
+    const rawPurpose = e.purpose || 'Consumables';
+    let matchedGroup = '';
+    let matchedSpec = '';
+
+    // First check projectBomOptions
+    const projMatch = this.projectBomOptions.find(p => rawPurpose.toLowerCase().includes(p.spec.toLowerCase()) || rawPurpose.toLowerCase() === p.value.toLowerCase());
+    if (projMatch) {
+      matchedGroup = projMatch.group;
+      matchedSpec = projMatch.spec;
+    } else {
+      for (const g of this.bomMaterialGroups) {
+        if (rawPurpose.toLowerCase().includes(g.group.toLowerCase())) {
+          matchedGroup = g.group;
+          const foundSpec = g.specifications.find(s => rawPurpose.toLowerCase().includes(s.toLowerCase()));
+          if (foundSpec) matchedSpec = foundSpec;
+          break;
+        }
+      }
+    }
+
+    if (!matchedGroup) {
+      // Legacy purpose - keep data intact without altering existing records
+      this.isLegacyPurpose = true;
+      matchedGroup = rawPurpose;
+      matchedSpec = 'Custom';
+    } else {
+      this.isLegacyPurpose = false;
+    }
+
     this.formData = {
       dateInput: displayDate,
       siteId: this.selectedProjectRef.siteId,
       clientName: this.selectedProjectRef.clientName,
       clientSiteName: e.clientSiteName || `${this.selectedProjectRef.siteId} : ${this.selectedProjectRef.clientName}`,
-      paymentThrough: e.paymentThrough || 'Petty Cash',
-      purpose: e.purpose || 'Consumables',
+      paymentThrough: e.paymentThrough || 'P.O',
+      purpose: rawPurpose,
+      selectedBomGroup: matchedGroup || 'Inverters',
+      selectedBomSpec: matchedSpec || (this.getAvailableSpecs(matchedGroup)[0] || 'General'),
+      customBomSpec: this.isLegacyPurpose ? rawPurpose : '',
       paidBy: e.paidBy || 'OFFICE',
       vendor: e.vendorName || '',
       remarks: e.remarks || '',
@@ -739,6 +896,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     this.isEditingPastRecord = false;
     this.editingExpenseId = null;
     this.editingOriginalAmount = 0;
+    this.isLegacyPurpose = false;
   }
 
   closeClientModal(): void {
@@ -814,6 +972,17 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       }
     }
 
+    let finalPurpose = this.formData.purpose;
+    if (!this.isLegacyPurpose && this.formData.selectedBomGroup) {
+      if (this.formData.selectedBomSpec === 'Custom' && this.formData.customBomSpec?.trim()) {
+        finalPurpose = `${this.formData.selectedBomGroup} - ${this.formData.customBomSpec.trim()}`;
+      } else if (this.formData.selectedBomSpec && this.formData.selectedBomSpec !== 'Custom') {
+        finalPurpose = `${this.formData.selectedBomGroup} - ${this.formData.selectedBomSpec}`;
+      } else {
+        finalPurpose = this.formData.selectedBomGroup;
+      }
+    }
+
     const payload: Partial<SiteExpense> = {
       siteId: this.selectedProjectRef.siteId,
       clientName: this.selectedProjectRef.clientName,
@@ -822,7 +991,8 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       mop,
       amount: Number(this.formData.amount),
       paymentThrough: this.formData.paymentThrough,
-      purpose: this.formData.purpose,
+      purpose: finalPurpose,
+      category: this.formData.selectedBomGroup || 'Materials Supply',
       paidBy: this.formData.paidBy,
       vendorName: this.formData.vendor || '',
       remarks: this.formData.remarks || '',
