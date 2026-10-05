@@ -63,8 +63,13 @@ export class IndentComponent implements OnInit {
   engineers: string[] = ['Soundarajan', 'Sathish', 'V Sharath', 'K Karthikeyen', 'S Karthikeyen', 'Rahul', 'Vairamani'];
   clientOptions: string[] = [];
   stockMaterialOptions: string[] = [...INVENTORY_MATERIALS];
-  unitOptions: string[] = ['Nos', 'Meter', 'Set', 'Kg', 'Roll', 'Box'];
+  unitOptions: string[] = ['Nos', 'Meter', 'Set', 'Kg', 'Roll', 'Box', 'Packet'];
   materialStatuses: string[] = ['Ready to issue', 'Requested Vendor', 'Pending'];
+
+  // BOM Material Master & Project BOM state
+  bomMaterialsMasterList: any[] = [];
+  bomGroupMap: { [key: string]: any[] } = {};
+  bomGroupKeys: string[] = [];
 
   // Searchable Client Dropdown State
   clientDropdownOpen = false;
@@ -123,39 +128,206 @@ export class IndentComponent implements OnInit {
       }
     });
 
+    this.loadBomMaterialsMaster();
+  }
+
+  loadBomMaterialsMaster(): void {
     this.masterListService.getBomMaterials().subscribe({
       next: (res) => {
-        if (res.success && res.grouped) {
-          const bomSpecs: string[] = [];
-          Object.keys(res.grouped).forEach(grp => {
-            res.grouped[grp].forEach((item: any) => {
-              if (item.specification) {
-                bomSpecs.push(`${grp} - ${item.specification}`);
-                bomSpecs.push(item.specification);
-              }
-            });
-          });
-          this.stockMaterialOptions = Array.from(new Set([...bomSpecs, ...this.stockMaterialOptions]));
+        if (res.success && res.data) {
+          this.bomMaterialsMasterList = res.data;
+          this.bomGroupMap = res.grouped || {};
+          this.bomGroupKeys = Object.keys(this.bomGroupMap);
           this.cdr.markForCheck();
         }
-      }
+      },
+      error: () => {}
     });
+  }
+
+  getSelectedProject(): any | null {
+    if (!this.indentForm.clientName) return null;
+    const norm = (this.indentForm.clientName || '').toLowerCase().trim();
+    return this.projectsList.find(p => 
+      (p.clientName || '').toLowerCase().trim() === norm ||
+      (p.siteId || '').toLowerCase().trim() === norm ||
+      norm.includes((p.siteId || '').toLowerCase().trim()) ||
+      norm.includes((p.clientName || '').toLowerCase().trim())
+    ) || null;
+  }
+
+  parseBomItems(bomItems: any): any[] {
+    if (!bomItems) return [];
+    if (Array.isArray(bomItems)) return bomItems;
+    if (typeof bomItems === 'string') {
+      try { return JSON.parse(bomItems); } catch(e) { return []; }
+    }
+    return [];
+  }
+
+  hasProjectBomItems(): boolean {
+    const proj = this.getSelectedProject();
+    if (!proj || !proj.bomItems) return false;
+    const items = this.parseBomItems(proj.bomItems);
+    return items.length > 0;
+  }
+
+  populateFromProjectBom(): void {
+    const proj = this.getSelectedProject();
+    if (!proj || !proj.bomItems) return;
+    const items = this.parseBomItems(proj.bomItems);
+    if (items.length === 0) return;
+
+    this.requestedMaterials = items.map(b => {
+      const grp = b.materialGroup || '';
+      const cat = b.categoryType || 'Standard';
+      const spec = b.specification || '';
+      const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+      const plannedQty = parseFloat(b.plannedQty) || 1;
+      const dispQty = parseFloat(b.dispatchedQty) || 0;
+      const remainingQty = Math.max(1, plannedQty - dispQty);
+      return {
+        materialName: autoName,
+        materialGroup: grp,
+        categoryType: cat,
+        specification: spec,
+        quantity: remainingQty,
+        unit: b.uom || (grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos'),
+        status: 'Ready to issue',
+        poWo: true
+      };
+    });
+    this.showToast(`Loaded ${items.length} materials from Project BOM.`, 'info');
+    this.cdr.markForCheck();
+  }
+
+  getAvailableMaterialGroups(): string[] {
+    const proj = this.getSelectedProject();
+    const projGroups: string[] = [];
+    if (proj && proj.bomItems) {
+      const items = this.parseBomItems(proj.bomItems);
+      items.forEach(i => {
+        if (i.materialGroup && !projGroups.includes(i.materialGroup)) {
+          projGroups.push(i.materialGroup);
+        }
+      });
+    }
+    const masterGroups = this.bomGroupKeys.length > 0
+      ? this.bomGroupKeys
+      : ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree'];
+    return Array.from(new Set([...projGroups, ...masterGroups]));
+  }
+
+  getAvailableCategoryTypes(groupName?: string): string[] {
+    const normGrp = (groupName || '').toLowerCase().trim();
+    if (!normGrp) return ['Standard'];
+
+    const proj = this.getSelectedProject();
+    if (proj && proj.bomItems) {
+      const items = this.parseBomItems(proj.bomItems).filter(b => (b.materialGroup || '').toLowerCase().trim() === normGrp);
+      const projTypes = items.map(b => b.categoryType).filter(Boolean);
+      if (projTypes.length > 0) {
+        return Array.from(new Set(projTypes));
+      }
+    }
+
+    const matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    if (matches.length > 0) {
+      const types = Array.from(new Set(matches.map(m => m.categoryType || 'Standard')));
+      return types.length > 0 ? types : ['Standard'];
+    }
+    if (normGrp === 'cables') return ['AC Cable', 'DC Cable'];
+    if (normGrp === 'panels') return ['Mono PERC', 'TOPCon', 'Polycrystalline'];
+    if (normGrp === 'inverters') return ['On Grid', 'Hybrid'];
+    return ['Standard'];
+  }
+
+  getAvailableSpecs(groupName?: string, categoryType?: string): string[] {
+    const normGrp = (groupName || '').toLowerCase().trim();
+    const normType = (categoryType || '').toLowerCase().trim();
+    if (!normGrp) return [];
+
+    const proj = this.getSelectedProject();
+    if (proj && proj.bomItems) {
+      let items = this.parseBomItems(proj.bomItems).filter(b => (b.materialGroup || '').toLowerCase().trim() === normGrp);
+      if (normType && normType !== 'standard') {
+        const filtered = items.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
+        if (filtered.length > 0) items = filtered;
+      }
+      const specs = items.map(b => b.specification).filter(Boolean);
+      if (specs.length > 0) {
+        return Array.from(new Set(specs));
+      }
+    }
+
+    let matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    if (normType && normType !== 'standard') {
+      const filtered = matches.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
+      if (filtered.length > 0) matches = filtered;
+    }
+    if (matches.length > 0) {
+      return Array.from(new Set(matches.map(m => m.specification).filter(Boolean)));
+    }
+    return [];
+  }
+
+  onMaterialGroupChange(m: IndentMaterial): void {
+    const grp = m.materialGroup || '';
+    const types = this.getAvailableCategoryTypes(grp);
+    m.categoryType = types[0] || 'Standard';
+    const specs = this.getAvailableSpecs(grp, m.categoryType);
+    m.specification = specs[0] || '';
+    this.updateMaterialRowFromSpec(m);
+  }
+
+  onCategoryTypeChange(m: IndentMaterial): void {
+    const specs = this.getAvailableSpecs(m.materialGroup, m.categoryType);
+    m.specification = specs[0] || '';
+    this.updateMaterialRowFromSpec(m);
+  }
+
+  onSpecificationChange(m: IndentMaterial): void {
+    this.updateMaterialRowFromSpec(m);
+  }
+
+  updateMaterialRowFromSpec(m: IndentMaterial): void {
+    const grp = (m.materialGroup || '').trim();
+    const cat = (m.categoryType || '').trim();
+    const spec = (m.specification || '').trim();
+
+    const proj = this.getSelectedProject();
+    if (proj && proj.bomItems) {
+      const items = this.parseBomItems(proj.bomItems);
+      const match = items.find(b => 
+        (b.materialGroup || '').toLowerCase().trim() === grp.toLowerCase() &&
+        (b.specification || '').toLowerCase().trim() === spec.toLowerCase()
+      );
+      if (match && match.uom) {
+        m.unit = match.uom;
+      }
+    }
+
+    if (!m.unit || m.unit === 'Nos') {
+      const masterMatch = this.bomMaterialsMasterList.find(b => 
+        (b.groupName || '').toLowerCase().trim() === grp.toLowerCase() &&
+        (b.specification || '').toLowerCase().trim() === spec.toLowerCase()
+      );
+      if (masterMatch && masterMatch.defaultUom) {
+        m.unit = masterMatch.defaultUom;
+      } else if (grp.toLowerCase() === 'cables') {
+        m.unit = 'Meter';
+      }
+    }
+
+    m.materialName = [grp, cat && cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp || 'Solar Component';
+    this.cdr.markForCheck();
   }
 
   get availableMaterialOptions(): string[] {
     if (this.indentForm.clientName) {
-      const selectedProj = this.projectsList.find(p => 
-        (p.clientName || '').toLowerCase().trim() === this.indentForm.clientName?.toLowerCase().trim() ||
-        (p.siteId || '').toLowerCase().trim() === this.indentForm.clientName?.toLowerCase().trim()
-      );
+      const selectedProj = this.getSelectedProject();
       if (selectedProj && selectedProj.bomItems) {
-        let itemsArr: any[] = [];
-        if (typeof selectedProj.bomItems === 'string') {
-          try { itemsArr = JSON.parse(selectedProj.bomItems); } catch(e) {}
-        } else if (Array.isArray(selectedProj.bomItems)) {
-          itemsArr = selectedProj.bomItems;
-        }
-
+        const itemsArr = this.parseBomItems(selectedProj.bomItems);
         if (itemsArr.length > 0) {
           const bomOpts = itemsArr.map(b => {
             const grp = b.materialGroup || '';
@@ -277,15 +449,26 @@ export class IndentComponent implements OnInit {
     this.indentForm.indentNo = `IND-${nextNum}`;
 
     // Initialize with 1 default material row matching Screenshot 1
-    this.requestedMaterials = [
-      {
-        materialName: 'ACDB DCDB 5KW',
-        quantity: 1,
-        unit: 'Nos',
-        status: 'Ready to issue',
-        poWo: true
-      }
-    ];
+    const groups = this.getAvailableMaterialGroups();
+    const grp = groups[0] || 'Cables';
+    const types = this.getAvailableCategoryTypes(grp);
+    const cat = types[0] || 'Standard';
+    const specs = this.getAvailableSpecs(grp, cat);
+    const spec = specs[0] || '';
+    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+
+    const row: IndentMaterial = {
+      materialName: autoName,
+      materialGroup: grp,
+      categoryType: cat,
+      specification: spec,
+      quantity: 1,
+      unit: grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos',
+      status: 'Ready to issue',
+      poWo: true
+    };
+    this.updateMaterialRowFromSpec(row);
+    this.requestedMaterials = [row];
 
     this.isModalOpen = true;
   }
@@ -297,7 +480,44 @@ export class IndentComponent implements OnInit {
     }
     this.isEditMode = true;
     this.indentForm = { ...indent };
-    this.requestedMaterials = (indent.materials || []).map(m => ({ ...m }));
+    this.requestedMaterials = (indent.materials || []).map(m => {
+      let grp = m.materialGroup || '';
+      let cat = m.categoryType || '';
+      let spec = m.specification || '';
+
+      if (!grp && m.materialName) {
+        const parts = m.materialName.split(' - ').map(s => s.trim());
+        if (parts.length >= 3) {
+          grp = parts[0];
+          cat = parts[1];
+          spec = parts.slice(2).join(' - ');
+        } else if (parts.length === 2) {
+          grp = parts[0];
+          cat = 'Standard';
+          spec = parts[1];
+        } else {
+          const masterMatch = this.bomMaterialsMasterList.find(b => 
+            (b.specification || '').toLowerCase().trim() === m.materialName.toLowerCase().trim()
+          );
+          if (masterMatch) {
+            grp = masterMatch.groupName;
+            cat = masterMatch.categoryType || 'Standard';
+            spec = masterMatch.specification;
+          } else {
+            grp = m.materialName;
+            cat = 'Standard';
+            spec = m.materialName;
+          }
+        }
+      }
+
+      return {
+        ...m,
+        materialGroup: grp,
+        categoryType: cat || 'Standard',
+        specification: spec || m.materialName
+      };
+    });
     if (this.requestedMaterials.length === 0) {
       this.addMaterialRow();
     }
@@ -312,13 +532,26 @@ export class IndentComponent implements OnInit {
   }
 
   addMaterialRow(): void {
-    this.requestedMaterials.push({
-      materialName: this.stockMaterialOptions[0] || 'ACDB DCDB 5KW',
+    const groups = this.getAvailableMaterialGroups();
+    const grp = groups[0] || 'Cables';
+    const types = this.getAvailableCategoryTypes(grp);
+    const cat = types[0] || 'Standard';
+    const specs = this.getAvailableSpecs(grp, cat);
+    const spec = specs[0] || '';
+    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+
+    const row: IndentMaterial = {
+      materialName: autoName,
+      materialGroup: grp,
+      categoryType: cat,
+      specification: spec,
       quantity: 1,
-      unit: 'Nos',
+      unit: grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos',
       status: 'Ready to issue',
       poWo: false
-    });
+    };
+    this.updateMaterialRowFromSpec(row);
+    this.requestedMaterials.push(row);
   }
 
   removeMaterialRow(index: number): void {
@@ -336,9 +569,11 @@ export class IndentComponent implements OnInit {
       return;
     }
 
+    this.requestedMaterials.forEach(m => this.updateMaterialRowFromSpec(m));
+
     const payload: Partial<Indent> = {
       ...this.indentForm,
-      materials: this.requestedMaterials.filter(m => !!m.materialName?.trim())
+      materials: this.requestedMaterials.filter(m => !!(m.materialName?.trim() || m.specification?.trim()))
     };
 
     if (this.isEditMode && this.indentForm.id) {

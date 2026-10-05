@@ -129,19 +129,35 @@
                 <td class="font-mono text-nowrap" style="font-size: 0.81rem;">
                   {{ formatDate(item.orderDate) }}
                 </td>
-
                 <!-- Material: Clickable to edit! -->
                 <td>
                   <a *ngIf="canEdit()" href="javascript:void(0)" 
-                     class="fw-bold text-dark text-decoration-none hover-link d-block"
-                     (click)="openEditModal(item)"
+                     class="text-decoration-none hover-link d-inline-flex align-items-center flex-wrap"
+                     style="gap: 5px;"
+                     (click)="openEditModal(item)" 
                      title="Click to edit material details">
-                    {{ item.material }}
+                    <span *ngIf="item.materialGroup" class="badge bg-light text-dark border px-2 py-0.5 rounded-1 shadow-xs" style="font-size: 0.74rem; font-weight: 600;">
+                      {{ item.materialGroup }}
+                    </span>
+                    <span *ngIf="item.categoryType && item.categoryType !== 'Standard'" class="badge bg-primary-subtle text-primary border px-2 py-0.5 rounded-1 shadow-xs" style="font-size: 0.74rem; font-weight: 600;">
+                      {{ item.categoryType }}
+                    </span>
+                    <span class="fw-semibold text-dark" style="font-size: 0.81rem; margin-left: 2px;">
+                      {{ item.specification || item.material }}
+                    </span>
                   </a>
-                  <span *ngIf="!canEdit()" class="fw-bold text-dark d-block">
-                    {{ item.material }}
-                  </span>
-                  <div *ngIf="item.clientLocation" class="text-muted small" style="font-size: 0.73rem;">
+                  <div *ngIf="!canEdit()" class="d-inline-flex align-items-center flex-wrap" style="gap: 5px;">
+                    <span *ngIf="item.materialGroup" class="badge bg-light text-dark border px-2 py-0.5 rounded-1 shadow-xs" style="font-size: 0.74rem; font-weight: 600;">
+                      {{ item.materialGroup }}
+                    </span>
+                    <span *ngIf="item.categoryType && item.categoryType !== 'Standard'" class="badge bg-primary-subtle text-primary border px-2 py-0.5 rounded-1 shadow-xs" style="font-size: 0.74rem; font-weight: 600;">
+                      {{ item.categoryType }}
+                    </span>
+                    <span class="fw-semibold text-dark" style="font-size: 0.81rem; margin-left: 2px;">
+                      {{ item.specification || item.material }}
+                    </span>
+                  </div>
+                  <div *ngIf="item.clientLocation" class="text-muted small mt-1" style="font-size: 0.73rem;">
                     <i class="bi bi-geo-alt me-1 text-danger"></i>{{ item.clientLocation }}
                   </div>
                 </td>
@@ -205,7 +221,7 @@
 <!-- MODAL: ADD / EDIT MATERIAL IN CART (Screenshot 2)        -->
 <!-- ======================================================== -->
 <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" [ngClass]="isEditMode ? 'modal-lg' : 'modal-lg'">
+  <div class="modal-dialog modal-dialog-centered" [ngClass]="isEditMode ? 'modal-lg' : 'modal-xl'" [style.max-width]="isEditMode ? '850px' : '1240px'" style="width: 95%;">
     <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
       <!-- Modal Header -->
       <div class="modal-header bg-white py-3 px-4 border-bottom">
@@ -222,29 +238,115 @@
           <!-- MODE 1: EDIT SINGLE ITEM                            -->
           <!-- =================================================== -->
           <div *ngIf="isEditMode" class="row g-3">
-            <!-- Row 1: Order Date & Material -->
+            <!-- Row 1: Order Date & Client/Site Location -->
             <div class="col-md-6">
               <label class="form-label small fw-bold text-dark mb-1">Order Date <span class="text-danger">*</span></label>
               <input type="date" class="form-control font-mono shadow-sm" [(ngModel)]="cartForm.orderDate" name="editOrderDate" required>
             </div>
             <div class="col-md-6">
-              <label class="form-label small fw-bold text-dark mb-1">Material <span class="text-danger">*</span></label>
-              <select class="form-select shadow-sm" [(ngModel)]="cartForm.material" name="editMaterial" required>
-                <option value="" disabled selected>Select Material</option>
-                <option *ngFor="let m of availableMaterialOptions" [value]="m">{{ m }}</option>
-                <option *ngIf="cartForm.material && !materialOptions.includes(cartForm.material)" [value]="cartForm.material">{{ cartForm.material }}</option>
+              <label class="form-label small fw-bold text-dark mb-1">Client / Site Location</label>
+              <div class="position-relative">
+                <div class="input-group shadow-sm">
+                  <input type="text"
+                         class="form-control font-mono"
+                         placeholder="Type to search client name..."
+                         [(ngModel)]="cartForm.clientLocation"
+                         name="editClientLocation"
+                         (focus)="openEditClientDropdown()"
+                         (blur)="closeEditClientDropdown()"
+                         (input)="onMaterialGroupChange(cartForm)"
+                         autocomplete="off">
+                  <button *ngIf="cartForm.clientLocation" 
+                          type="button" 
+                          class="btn btn-outline-secondary bg-white border-start-0 border-end-0 text-muted px-2"
+                          (mousedown)="clearEditClientSelection()"
+                          title="Clear client">
+                    <i class="bi bi-x"></i>
+                  </button>
+                  <button class="btn btn-outline-secondary bg-white border-start-0 text-muted px-2" 
+                          type="button" 
+                          (mousedown)="toggleEditClientDropdown($event)"
+                          title="Toggle client list">
+                    <i class="bi bi-chevron-down" style="font-size: 0.72rem;"></i>
+                  </button>
+                </div>
+
+                <!-- Floating Searchable Options Dropdown -->
+                <div *ngIf="editClientDropdownOpen" class="searchable-client-dropdown">
+                  <div class="p-2 bg-light border-bottom text-muted small d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">
+                      <i class="bi bi-search me-1"></i>
+                      {{ filteredEditClientOptions.length }} clients
+                    </span>
+                    <span class="fs-8 text-secondary">Click to select</span>
+                  </div>
+
+                  <div class="searchable-client-item d-flex align-items-center justify-content-between text-wrap"
+                       [class.active]="!cartForm.clientLocation"
+                       (mousedown)="selectEditClient('')">
+                    <span class="text-secondary fst-italic">-- General / Warehouse (No specific site) --</span>
+                    <i *ngIf="!cartForm.clientLocation" class="bi bi-check-lg text-primary fw-bold ms-2"></i>
+                  </div>
+
+                  <div *ngFor="let client of filteredEditClientOptions"
+                       class="searchable-client-item d-flex align-items-center justify-content-between text-wrap"
+                       [class.active]="cartForm.clientLocation === client"
+                       (mousedown)="selectEditClient(client)">
+                    <span class="font-mono text-dark fw-medium">{{ client }}</span>
+                    <i *ngIf="cartForm.clientLocation === client" class="bi bi-check-lg text-primary fw-bold ms-2"></i>
+                  </div>
+
+                  <div *ngIf="filteredEditClientOptions.length === 0" class="p-3 text-center text-muted small">
+                    <i class="bi bi-info-circle me-1"></i> No matching clients found for "{{ cartForm.clientLocation }}".
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 2: BOM 3-Tier Hierarchy (Material Group, Category/Type, Specification/Rating) -->
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark mb-1">Material Group <span class="text-danger">*</span></label>
+              <select class="form-select shadow-sm fw-bold text-dark" 
+                      [(ngModel)]="cartForm.materialGroup" 
+                      (change)="onMaterialGroupChange(cartForm)" 
+                      name="editMaterialGroup" 
+                      required>
+                <option value="">-- Select Group --</option>
+                <option *ngFor="let g of getAvailableMaterialGroups(cartForm.clientLocation)" [value]="g">{{ g }}</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark mb-1">Category / Type (e.g. AC / DC)</label>
+              <select class="form-select shadow-sm text-primary fw-semibold" 
+                      [(ngModel)]="cartForm.categoryType" 
+                      (change)="onCategoryTypeChange(cartForm)" 
+                      name="editCategoryType">
+                <option *ngFor="let t of getAvailableCategoryTypes(cartForm.materialGroup, cartForm.clientLocation)" [value]="t">{{ t }}</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-dark mb-1">Specification / Rating <span class="text-danger">*</span></label>
+              <select class="form-select shadow-sm fw-bold text-dark" 
+                      [(ngModel)]="cartForm.specification" 
+                      (change)="onSpecificationChange(cartForm)" 
+                      name="editSpecification" 
+                      required>
+                <option value="">-- Select Specification --</option>
+                <option *ngFor="let s of getAvailableSpecs(cartForm.materialGroup, cartForm.categoryType, cartForm.clientLocation)" [value]="s">{{ s }}</option>
+                <option *ngIf="cartForm.specification && !getAvailableSpecs(cartForm.materialGroup, cartForm.categoryType, cartForm.clientLocation).includes(cartForm.specification)" [value]="cartForm.specification">{{ cartForm.specification }}</option>
               </select>
             </div>
 
-            <!-- Row 2: Quantity, Unit, Total Amount, Vendor Name (from Vendor List) -->
+            <!-- Row 3: Quantity, Unit, Total Amount, Vendor Name (from Vendor List) -->
             <div class="col-md-3">
               <label class="form-label small fw-bold text-dark mb-1">Quantity <span class="text-danger">*</span></label>
-              <input type="number" step="any" min="0.01" class="form-control font-mono shadow-sm" placeholder="e.g. 1" [(ngModel)]="cartForm.quantity" name="editQuantity" required>
+              <input type="number" step="any" min="0.01" class="form-control font-mono shadow-sm" placeholder="e.g. 1" [(ngModel)]="cartForm.quantity" (ngModelChange)="updateCartRowFromSpec(cartForm)" name="editQuantity" required>
             </div>
             <div class="col-md-3">
               <label class="form-label small fw-bold text-dark mb-1">Unit <span class="text-danger">*</span></label>
               <select class="form-select shadow-sm" [(ngModel)]="cartForm.unit" name="editUnit" required>
                 <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
+                <option *ngIf="cartForm.unit && !unitOptions.includes(cartForm.unit)" [value]="cartForm.unit">{{ cartForm.unit }}</option>
               </select>
             </div>
             <div class="col-md-3">
@@ -259,7 +361,7 @@
               </select>
             </div>
 
-            <!-- Row 3: Procurement Status -->
+            <!-- Row 4: Procurement Status -->
             <div class="col-12">
               <label class="form-label small fw-bold text-dark mb-1">Procurement Status <span class="text-danger">*</span></label>
               <select class="form-select shadow-sm" [(ngModel)]="cartForm.procurementStatus" name="editProcurementStatus" required>
@@ -275,18 +377,77 @@
             <!-- 1. Order Common Details -->
             <div class="bg-light p-3 rounded-3 border mb-3">
               <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <label class="form-label small fw-bold text-dark mb-1">Order Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="cartHeader.orderDate" name="headerOrderDate" required>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold text-dark mb-1">Client / Site Location</label>
+                  <div class="position-relative">
+                    <div class="input-group input-group-sm shadow-sm">
+                      <input type="text"
+                             class="form-control form-control-sm font-mono"
+                             placeholder="Type client or SP id..."
+                             [(ngModel)]="cartHeader.clientLocation"
+                             name="headerClientLocation"
+                             (focus)="openHeaderClientDropdown()"
+                             (blur)="closeHeaderClientDropdown()"
+                             (input)="onHeaderClientChange()"
+                             autocomplete="off">
+                      <button *ngIf="cartHeader.clientLocation" 
+                              type="button" 
+                              class="btn btn-outline-secondary bg-white border-start-0 border-end-0 text-muted px-2"
+                              (mousedown)="clearHeaderClientSelection()"
+                              title="Clear client">
+                        <i class="bi bi-x"></i>
+                      </button>
+                      <button class="btn btn-outline-secondary bg-white border-start-0 text-muted px-2" 
+                              type="button" 
+                              (mousedown)="toggleHeaderClientDropdown($event)"
+                              title="Toggle client list">
+                        <i class="bi bi-chevron-down" style="font-size: 0.72rem;"></i>
+                      </button>
+                    </div>
+
+                    <!-- Floating Searchable Options Dropdown -->
+                    <div *ngIf="headerClientDropdownOpen" class="searchable-client-dropdown">
+                      <div class="p-2 bg-light border-bottom text-muted small d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold">
+                          <i class="bi bi-search me-1"></i>
+                          {{ filteredHeaderClientOptions.length }} clients
+                        </span>
+                        <span class="fs-8 text-secondary">Click to select</span>
+                      </div>
+
+                      <div class="searchable-client-item d-flex align-items-center justify-content-between text-wrap"
+                           [class.active]="!cartHeader.clientLocation"
+                           (mousedown)="selectHeaderClient('')">
+                        <span class="text-secondary fst-italic">-- General / Warehouse --</span>
+                        <i *ngIf="!cartHeader.clientLocation" class="bi bi-check-lg text-primary fw-bold ms-2"></i>
+                      </div>
+
+                      <div *ngFor="let client of filteredHeaderClientOptions"
+                           class="searchable-client-item d-flex align-items-center justify-content-between text-wrap"
+                           [class.active]="cartHeader.clientLocation === client"
+                           (mousedown)="selectHeaderClient(client)">
+                        <span class="font-mono text-dark fw-medium">{{ client }}</span>
+                        <i *ngIf="cartHeader.clientLocation === client" class="bi bi-check-lg text-primary fw-bold ms-2"></i>
+                      </div>
+
+                      <div *ngIf="filteredHeaderClientOptions.length === 0" class="p-3 text-center text-muted small">
+                        <i class="bi bi-info-circle me-1"></i> No matching clients found for "{{ cartHeader.clientLocation }}".
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-3">
                   <label class="form-label small fw-bold text-dark mb-1">Vendor Name</label>
                   <select class="form-select form-select-sm shadow-sm" [(ngModel)]="cartHeader.vendorName" name="headerVendorName">
                     <option value="">Select Vendor (From Vendor List)</option>
                     <option *ngFor="let v of vendorOptions" [value]="v">{{ v }}</option>
                   </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <label class="form-label small fw-bold text-dark mb-1">Procurement Status <span class="text-danger">*</span></label>
                   <select class="form-select form-select-sm shadow-sm" [(ngModel)]="cartHeader.procurementStatus" name="headerProcurementStatus" required>
                     <option *ngFor="let st of statusOptions" [value]="st">{{ st }}</option>
@@ -295,19 +456,26 @@
               </div>
             </div>
 
-            <!-- 2. Materials Section Header with + Add Material Button -->
+            <!-- 2. Materials Section Header with Load Project BOM & + Add Material Button -->
             <div class="d-flex align-items-center justify-content-between mb-2">
               <div>
                 <span class="fw-bold text-dark text-uppercase small" style="letter-spacing: 0.03em;">
                   Materials ({{ cartRows.length }})
                 </span>
-                <span class="text-muted small ms-2 d-none d-md-inline">Add materials, quantities, and units for this procurement order</span>
+                <span class="text-muted small ms-2 d-none d-md-inline">Select materials, specifications, quantities, and units for this procurement order</span>
               </div>
-              <button type="button" 
-                      class="btn btn-sm btn-success btn-add-mat text-white fw-bold px-3 py-1 shadow-xs d-flex align-items-center gap-1.5"
-                      (click)="addCartRow()">
-                <i class="bi bi-plus-circle-fill"></i> Add Material
-              </button>
+              <div class="d-flex align-items-center gap-2">
+                <button *ngIf="hasProjectBomItems(cartHeader.clientLocation)" type="button" 
+                        class="btn btn-sm btn-outline-primary fw-bold px-2.5 py-1 shadow-xs d-flex align-items-center gap-1"
+                        (click)="populateFromProjectBom()" title="Load materials from this project's Bill of Materials">
+                  <i class="bi bi-box-seam"></i> Load Project BOM
+                </button>
+                <button type="button" 
+                        class="btn btn-sm btn-success btn-add-mat text-white fw-bold px-3 py-1 shadow-xs d-flex align-items-center gap-1.5"
+                        (click)="addCartRow()">
+                  <i class="bi bi-plus-circle-fill"></i> Add Material
+                </button>
+              </div>
             </div>
 
             <!-- 3. Repeating Items Table -->
@@ -316,11 +484,13 @@
                 <thead class="table-light">
                   <tr class="text-secondary small fw-bold text-uppercase" style="font-size: 0.72rem;">
                     <th style="width: 36px;" class="text-center">#</th>
-                    <th>Material <span class="text-danger">*</span></th>
-                    <th style="width: 100px;" class="text-center">Quantity <span class="text-danger">*</span></th>
-                    <th style="width: 100px;">Unit <span class="text-danger">*</span></th>
-                    <th style="width: 130px;" class="text-end">Total Amount (₹)</th>
-                    <th style="width: 45px;" class="text-center">Action</th>
+                    <th style="min-width: 150px;">MATERIAL GROUP <span class="text-danger">*</span></th>
+                    <th style="min-width: 140px;">CATEGORY / TYPE</th>
+                    <th style="min-width: 180px;">SPECIFICATION / RATING <span class="text-danger">*</span></th>
+                    <th style="width: 95px;" class="text-center">QUANTITY <span class="text-danger">*</span></th>
+                    <th style="width: 95px;">UNIT <span class="text-danger">*</span></th>
+                    <th style="width: 130px;" class="text-end">TOTAL AMOUNT (₹)</th>
+                    <th style="width: 45px;" class="text-center">ACTION</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -330,15 +500,38 @@
                       {{ i + 1 }}
                     </td>
 
-                    <!-- Material -->
+                    <!-- Material Group -->
                     <td>
-                      <select class="form-select form-select-sm shadow-xs" 
-                              [(ngModel)]="row.material" 
-                              [name]="'row_mat_' + i"
+                      <select class="form-select form-select-sm shadow-xs fw-bold text-dark" 
+                              [(ngModel)]="row.materialGroup" 
+                              (change)="onMaterialGroupChange(row)"
+                              [name]="'row_grp_' + i"
                               required>
-                        <option value="" disabled selected>Select Material</option>
-                        <option *ngFor="let m of availableMaterialOptions" [value]="m">{{ m }}</option>
-                        <option *ngIf="row.material && !materialOptions.includes(row.material)" [value]="row.material">{{ row.material }}</option>
+                        <option value="">-- Group --</option>
+                        <option *ngFor="let grp of getAvailableMaterialGroups(row.clientLocation || cartHeader.clientLocation)" [value]="grp">{{ grp }}</option>
+                      </select>
+                    </td>
+
+                    <!-- Category / Type -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs text-primary fw-semibold" 
+                              [(ngModel)]="row.categoryType" 
+                              (change)="onCategoryTypeChange(row)"
+                              [name]="'row_cat_' + i">
+                        <option *ngFor="let t of getAvailableCategoryTypes(row.materialGroup, row.clientLocation || cartHeader.clientLocation)" [value]="t">{{ t }}</option>
+                      </select>
+                    </td>
+
+                    <!-- Specification / Rating -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs fw-bold text-dark" 
+                              [(ngModel)]="row.specification" 
+                              (change)="onSpecificationChange(row)"
+                              [name]="'row_spec_' + i"
+                              required>
+                        <option value="">-- Select Spec --</option>
+                        <option *ngFor="let s of getAvailableSpecs(row.materialGroup, row.categoryType, row.clientLocation || cartHeader.clientLocation)" [value]="s">{{ s }}</option>
+                        <option *ngIf="row.specification && !getAvailableSpecs(row.materialGroup, row.categoryType, row.clientLocation || cartHeader.clientLocation).includes(row.specification)" [value]="row.specification">{{ row.specification }}</option>
                       </select>
                     </td>
 
@@ -347,20 +540,22 @@
                       <input type="number" 
                              step="any" 
                              min="0.01" 
-                             class="form-control form-control-sm font-mono text-center shadow-xs" 
+                             class="form-control form-control-sm font-mono text-center shadow-xs fw-bold" 
                              placeholder="Qty" 
                              [(ngModel)]="row.quantity" 
+                             (ngModelChange)="updateCartRowFromSpec(row)"
                              [name]="'row_qty_' + i"
                              required>
                     </td>
 
                     <!-- Unit -->
                     <td>
-                      <select class="form-select form-select-sm shadow-xs" 
+                      <select class="form-select form-select-sm shadow-xs text-secondary" 
                               [(ngModel)]="row.unit" 
                               [name]="'row_unit_' + i"
                               required>
                         <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
+                        <option *ngIf="row.unit && !unitOptions.includes(row.unit)" [value]="row.unit">{{ row.unit }}</option>
                       </select>
                     </td>
 
@@ -369,7 +564,7 @@
                       <input type="number" 
                              step="any" 
                              min="0" 
-                             class="form-control form-control-sm font-mono text-end shadow-xs" 
+                             class="form-control form-control-sm font-mono text-end shadow-xs fw-bold" 
                              placeholder="₹ 0.00" 
                              [(ngModel)]="row.totalAmount" 
                              [name]="'row_amount_' + i">
@@ -391,7 +586,7 @@
                 <!-- Summary row in table -->
                 <tfoot class="table-light border-top">
                   <tr class="fw-bold small">
-                    <td colspan="2" class="text-end text-uppercase text-secondary">Total:</td>
+                    <td colspan="4" class="text-end text-uppercase text-secondary">Total:</td>
                     <td class="text-center font-mono text-primary">{{ grandTotalQuantity | number:'1.0-2' }}</td>
                     <td></td>
                     <td class="text-end font-mono text-success fw-bold">₹ {{ grandTotalAmount | number:'1.2-2' }}</td>

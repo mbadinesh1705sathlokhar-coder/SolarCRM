@@ -192,10 +192,81 @@ async function deleteBomMaterialItem(req, res) {
     }
 }
 
+// SYNC MATERIAL GROUPS & DEFAULT UOM (from Material Group modal)
+async function syncMaterialGroupsWithUom(req, res) {
+    try {
+        const { groups } = req.body;
+        if (!Array.isArray(groups)) {
+            return res.status(400).json({ success: false, message: 'groups must be an array' });
+        }
+
+        for (const item of groups) {
+            const grp = (item.groupName || '').trim();
+            const uom = (item.defaultUom || 'Nos').trim();
+            if (!grp) continue;
+
+            const existing = await BomMaterialMaster.findAll({ where: { groupName: grp } });
+            if (existing.length > 0) {
+                // Update defaultUom on all specifications of this group
+                await BomMaterialMaster.update({ defaultUom: uom }, { where: { groupName: grp } });
+            } else {
+                // Create a default entry for new group with its chosen UOM
+                await BomMaterialMaster.create({
+                    groupName: grp,
+                    categoryType: 'Standard',
+                    specification: `${grp} Standard Spec`,
+                    defaultUom: uom,
+                    unitRate: 0,
+                    gstPercent: grp.toLowerCase() === 'panels' ? 5 : 18,
+                    sortOrder: 1
+                });
+            }
+        }
+
+        const items = await BomMaterialMaster.findAll({
+            order: [
+                ['groupName', 'ASC'],
+                ['categoryType', 'ASC'],
+                ['sortOrder', 'ASC'],
+                ['id', 'ASC']
+            ]
+        });
+
+        // Group by groupName
+        const grouped = {};
+        items.forEach(item => {
+            const grp = item.groupName;
+            if (!grouped[grp]) {
+                grouped[grp] = [];
+            }
+            grouped[grp].push({
+                id: item.id,
+                groupName: item.groupName,
+                categoryType: item.categoryType,
+                specification: item.specification,
+                defaultUom: item.defaultUom,
+                unitRate: item.unitRate,
+                gstPercent: item.gstPercent !== undefined ? Number(item.gstPercent) : (item.groupName === 'Panels' ? 5 : 18)
+            });
+        });
+
+        res.json({
+            success: true,
+            message: 'Material groups and default UOMs synced successfully',
+            data: items,
+            grouped: grouped
+        });
+    } catch (err) {
+        console.error('Error syncing material groups with UOM:', err);
+        res.status(500).json({ success: false, message: 'Failed to sync material groups', error: err.message });
+    }
+}
+
 module.exports = {
     seedBomMaterialsIfEmpty,
     getAllBomMaterials,
     saveMaterialGroupSpecs,
     createBomMaterialItem,
-    deleteBomMaterialItem
+    deleteBomMaterialItem,
+    syncMaterialGroupsWithUom
 };

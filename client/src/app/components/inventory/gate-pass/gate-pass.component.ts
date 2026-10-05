@@ -63,6 +63,11 @@ export class GatePassComponent implements OnInit {
   dispatchMaterials: GatePassItem[] = [];
   stockMaterialOptions: string[] = [...INVENTORY_MATERIALS];
 
+  // BOM Material Master & Project BOM state
+  bomMaterialsMasterList: any[] = [];
+  bomGroupMap: { [key: string]: any[] } = {};
+  bomGroupKeys: string[] = [];
+
   // Feedback Toast
   toastMessage = '';
   toastType: 'success' | 'danger' | 'info' = 'success';
@@ -119,6 +124,7 @@ export class GatePassComponent implements OnInit {
     this.loadGatePasses();
     this.loadWarehouseStockOptions();
     this.loadMasterMaterials();
+    this.loadBomMaterialsMaster();
     this.loadVendorsFromAddList();
     this.loadEngineersFromOffice();
     this.loadAwardedClients();
@@ -184,20 +190,209 @@ export class GatePassComponent implements OnInit {
     });
   }
 
+  loadBomMaterialsMaster(): void {
+    this.masterListService.getBomMaterials().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.bomMaterialsMasterList = res.data;
+          this.bomGroupMap = res.grouped || {};
+          this.bomGroupKeys = Object.keys(this.bomGroupMap);
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  getSelectedProject(): any | null {
+    if (!this.passForm.clientName) return null;
+    const norm = (this.passForm.clientName || '').toLowerCase().trim();
+    return this.projectsList.find(p => 
+      (p.clientName || '').toLowerCase().trim() === norm ||
+      (p.siteId || '').toLowerCase().trim() === norm ||
+      norm.includes((p.siteId || '').toLowerCase().trim()) ||
+      norm.includes((p.clientName || '').toLowerCase().trim())
+    ) || null;
+  }
+
+  parseBomItems(bomItems: any): any[] {
+    if (!bomItems) return [];
+    if (Array.isArray(bomItems)) return bomItems;
+    if (typeof bomItems === 'string') {
+      try { return JSON.parse(bomItems); } catch(e) { return []; }
+    }
+    return [];
+  }
+
+  hasProjectBomItems(): boolean {
+    const proj = this.getSelectedProject();
+    if (!proj || !proj.bomItems) return false;
+    const items = this.parseBomItems(proj.bomItems);
+    return items.length > 0;
+  }
+
+  populateFromProjectBom(): void {
+    const proj = this.getSelectedProject();
+    if (!proj || !proj.bomItems) return;
+    const items = this.parseBomItems(proj.bomItems);
+    if (items.length === 0) return;
+
+    const defaultDate = this.passForm.gatePassDate || new Date().toISOString().substring(0, 10);
+    this.dispatchMaterials = items.map(b => {
+      const grp = b.materialGroup || '';
+      const cat = b.categoryType || 'Standard';
+      const spec = b.specification || '';
+      const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+      const plannedQty = parseFloat(b.plannedQty) || 1;
+      const dispQty = parseFloat(b.dispatchedQty) || 0;
+      const remainingQty = Math.max(1, plannedQty - dispQty);
+      const r = Number(b.rate) || 0;
+      return {
+        dispatchDate: defaultDate,
+        materialName: autoName,
+        materialGroup: grp,
+        categoryType: cat,
+        specification: spec,
+        unit: b.uom || (grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos'),
+        quantity: remainingQty,
+        rate: r,
+        vendorName: this.vendorOptions[0] || '',
+        amount: Math.round(remainingQty * r * 100) / 100
+      };
+    });
+    this.showToast(`Loaded ${items.length} materials from Project BOM.`, 'info');
+    this.cdr.markForCheck();
+  }
+
+  getAvailableMaterialGroups(): string[] {
+    const proj = this.getSelectedProject();
+    const projGroups: string[] = [];
+    if (proj && proj.bomItems) {
+      const items = this.parseBomItems(proj.bomItems);
+      items.forEach(i => {
+        if (i.materialGroup && !projGroups.includes(i.materialGroup)) {
+          projGroups.push(i.materialGroup);
+        }
+      });
+    }
+    const masterGroups = this.bomGroupKeys.length > 0
+      ? this.bomGroupKeys
+      : ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree'];
+    return Array.from(new Set([...projGroups, ...masterGroups]));
+  }
+
+  getAvailableCategoryTypes(groupName?: string): string[] {
+    const normGrp = (groupName || '').toLowerCase().trim();
+    if (!normGrp) return ['Standard'];
+
+    const proj = this.getSelectedProject();
+    if (proj && proj.bomItems) {
+      const items = this.parseBomItems(proj.bomItems).filter(b => (b.materialGroup || '').toLowerCase().trim() === normGrp);
+      const projTypes = items.map(b => b.categoryType).filter(Boolean);
+      if (projTypes.length > 0) {
+        return Array.from(new Set(projTypes));
+      }
+    }
+
+    const matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    if (matches.length > 0) {
+      const types = Array.from(new Set(matches.map(m => m.categoryType || 'Standard')));
+      return types.length > 0 ? types : ['Standard'];
+    }
+    if (normGrp === 'cables') return ['AC Cable', 'DC Cable'];
+    if (normGrp === 'panels') return ['Mono PERC', 'TOPCon', 'Polycrystalline'];
+    if (normGrp === 'inverters') return ['On Grid', 'Hybrid'];
+    return ['Standard'];
+  }
+
+  getAvailableSpecs(groupName?: string, categoryType?: string): string[] {
+    const normGrp = (groupName || '').toLowerCase().trim();
+    const normType = (categoryType || '').toLowerCase().trim();
+    if (!normGrp) return [];
+
+    const proj = this.getSelectedProject();
+    if (proj && proj.bomItems) {
+      let items = this.parseBomItems(proj.bomItems).filter(b => (b.materialGroup || '').toLowerCase().trim() === normGrp);
+      if (normType && normType !== 'standard') {
+        const filtered = items.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
+        if (filtered.length > 0) items = filtered;
+      }
+      const specs = items.map(b => b.specification).filter(Boolean);
+      if (specs.length > 0) {
+        return Array.from(new Set(specs));
+      }
+    }
+
+    let matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    if (normType && normType !== 'standard') {
+      const filtered = matches.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
+      if (filtered.length > 0) matches = filtered;
+    }
+    if (matches.length > 0) {
+      return Array.from(new Set(matches.map(m => m.specification).filter(Boolean)));
+    }
+    return [];
+  }
+
+  onMaterialGroupChange(m: GatePassItem): void {
+    const grp = m.materialGroup || '';
+    const types = this.getAvailableCategoryTypes(grp);
+    m.categoryType = types[0] || 'Standard';
+    const specs = this.getAvailableSpecs(grp, m.categoryType);
+    m.specification = specs[0] || '';
+    this.updateMaterialRowFromSpec(m);
+  }
+
+  onCategoryTypeChange(m: GatePassItem): void {
+    const specs = this.getAvailableSpecs(m.materialGroup, m.categoryType);
+    m.specification = specs[0] || '';
+    this.updateMaterialRowFromSpec(m);
+  }
+
+  onSpecificationChange(m: GatePassItem): void {
+    this.updateMaterialRowFromSpec(m);
+  }
+
+  updateMaterialRowFromSpec(m: GatePassItem): void {
+    const grp = (m.materialGroup || '').trim();
+    const cat = (m.categoryType || '').trim();
+    const spec = (m.specification || '').trim();
+
+    const proj = this.getSelectedProject();
+    if (proj && proj.bomItems) {
+      const items = this.parseBomItems(proj.bomItems);
+      const match = items.find(b => 
+        (b.materialGroup || '').toLowerCase().trim() === grp.toLowerCase() &&
+        (b.specification || '').toLowerCase().trim() === spec.toLowerCase()
+      );
+      if (match) {
+        if (match.uom) m.unit = match.uom;
+        if (match.rate && (!m.rate || m.rate === 0)) m.rate = Number(match.rate);
+      }
+    }
+
+    if (!m.unit || m.unit === 'Nos') {
+      const masterMatch = this.bomMaterialsMasterList.find(b => 
+        (b.groupName || '').toLowerCase().trim() === grp.toLowerCase() &&
+        (b.specification || '').toLowerCase().trim() === spec.toLowerCase()
+      );
+      if (masterMatch && masterMatch.defaultUom) {
+        m.unit = masterMatch.defaultUom;
+      } else if (grp.toLowerCase() === 'cables') {
+        m.unit = 'Meter';
+      }
+    }
+
+    m.materialName = [grp, cat && cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp || 'Material';
+    this.calculateRowAmount(m);
+    this.cdr.markForCheck();
+  }
+
   get availableMaterialOptions(): string[] {
     if (this.passForm.clientName) {
-      const selectedProj = this.projectsList.find(p => 
-        (p.clientName || '').toLowerCase().trim() === this.passForm.clientName?.toLowerCase().trim() ||
-        (p.siteId || '').toLowerCase().trim() === this.passForm.clientName?.toLowerCase().trim()
-      );
+      const selectedProj = this.getSelectedProject();
       if (selectedProj && selectedProj.bomItems) {
-        let itemsArr: any[] = [];
-        if (typeof selectedProj.bomItems === 'string') {
-          try { itemsArr = JSON.parse(selectedProj.bomItems); } catch(e) {}
-        } else if (Array.isArray(selectedProj.bomItems)) {
-          itemsArr = selectedProj.bomItems;
-        }
-
+        const itemsArr = this.parseBomItems(selectedProj.bomItems);
         if (itemsArr.length > 0) {
           const bomOpts = itemsArr.map(b => {
             const grp = b.materialGroup || '';
@@ -321,17 +516,28 @@ export class GatePassComponent implements OnInit {
     this.isEditMode = false;
     this.passForm = this.getEmptyGatePass();
     const today = new Date().toISOString().substring(0, 10);
-    this.dispatchMaterials = [
-      {
-        dispatchDate: today,
-        materialName: this.stockMaterialOptions[0] || 'Cable Tray Materials',
-        unit: 'Nos',
-        quantity: 1,
-        rate: 0,
-        vendorName: this.vendorOptions[0] || '',
-        amount: 0
-      }
-    ];
+    const groups = this.getAvailableMaterialGroups();
+    const grp = groups[0] || 'Cables';
+    const types = this.getAvailableCategoryTypes(grp);
+    const cat = types[0] || 'Standard';
+    const specs = this.getAvailableSpecs(grp, cat);
+    const spec = specs[0] || '';
+    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+
+    const row: GatePassItem = {
+      dispatchDate: today,
+      materialName: autoName,
+      materialGroup: grp,
+      categoryType: cat,
+      specification: spec,
+      unit: grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos',
+      quantity: 1,
+      rate: 0,
+      vendorName: this.vendorOptions[0] || '',
+      amount: 0
+    };
+    this.updateMaterialRowFromSpec(row);
+    this.dispatchMaterials = [row];
     this.isModalOpen = true;
   }
 
@@ -348,8 +554,42 @@ export class GatePassComponent implements OnInit {
         const q = parseFloat(m.quantity as any) || 0;
         const r = parseFloat(m.rate as any) || 0;
         const a = m.amount !== undefined && m.amount !== null ? (parseFloat(m.amount as any) || 0) : Math.round(q * r * 100) / 100;
+        
+        let grp = m.materialGroup || '';
+        let cat = m.categoryType || '';
+        let spec = m.specification || '';
+
+        if (!grp && m.materialName) {
+          const parts = m.materialName.split(' - ').map(s => s.trim());
+          if (parts.length >= 3) {
+            grp = parts[0];
+            cat = parts[1];
+            spec = parts.slice(2).join(' - ');
+          } else if (parts.length === 2) {
+            grp = parts[0];
+            cat = 'Standard';
+            spec = parts[1];
+          } else {
+            const masterMatch = this.bomMaterialsMasterList.find(b => 
+              (b.specification || '').toLowerCase().trim() === m.materialName.toLowerCase().trim()
+            );
+            if (masterMatch) {
+              grp = masterMatch.groupName;
+              cat = masterMatch.categoryType || 'Standard';
+              spec = masterMatch.specification;
+            } else {
+              grp = m.materialName;
+              cat = 'Standard';
+              spec = m.materialName;
+            }
+          }
+        }
+
         return {
           ...m,
+          materialGroup: grp,
+          categoryType: cat || 'Standard',
+          specification: spec || m.materialName,
           dispatchDate: m.dispatchDate || defaultDate,
           unit: m.unit || 'Nos',
           quantity: q,
@@ -359,9 +599,17 @@ export class GatePassComponent implements OnInit {
         };
       });
     } else if (gp.descriptions) {
+      const parts = gp.descriptions.split(' - ').map(s => s.trim());
+      const grp = parts.length >= 2 ? parts[0] : gp.descriptions;
+      const cat = parts.length >= 3 ? parts[1] : 'Standard';
+      const spec = parts.length >= 3 ? parts.slice(2).join(' - ') : (parts.length === 2 ? parts[1] : gp.descriptions);
+
       this.dispatchMaterials = [{
         dispatchDate: defaultDate,
         materialName: gp.descriptions,
+        materialGroup: grp,
+        categoryType: cat,
+        specification: spec,
         unit: gp.unit || 'Nos',
         quantity: gp.quantity || 1,
         rate: 0,
@@ -369,17 +617,28 @@ export class GatePassComponent implements OnInit {
         amount: 0
       }];
     } else {
-      this.dispatchMaterials = [
-        {
-          dispatchDate: defaultDate,
-          materialName: this.stockMaterialOptions[0] || 'Cable Tray Materials',
-          unit: 'Nos',
-          quantity: 1,
-          rate: 0,
-          vendorName: this.vendorOptions[0] || '',
-          amount: 0
-        }
-      ];
+      const groups = this.getAvailableMaterialGroups();
+      const grp = groups[0] || 'Cables';
+      const types = this.getAvailableCategoryTypes(grp);
+      const cat = types[0] || 'Standard';
+      const specs = this.getAvailableSpecs(grp, cat);
+      const spec = specs[0] || '';
+      const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+
+      const row: GatePassItem = {
+        dispatchDate: defaultDate,
+        materialName: autoName,
+        materialGroup: grp,
+        categoryType: cat,
+        specification: spec,
+        unit: grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos',
+        quantity: 1,
+        rate: 0,
+        vendorName: this.vendorOptions[0] || '',
+        amount: 0
+      };
+      this.updateMaterialRowFromSpec(row);
+      this.dispatchMaterials = [row];
     }
     this.isModalOpen = true;
   }
@@ -410,15 +669,28 @@ export class GatePassComponent implements OnInit {
 
   addMaterialRow(): void {
     const defaultDate = this.passForm.gatePassDate || new Date().toISOString().substring(0, 10);
-    this.dispatchMaterials.push({
+    const groups = this.getAvailableMaterialGroups();
+    const grp = groups[0] || 'Cables';
+    const types = this.getAvailableCategoryTypes(grp);
+    const cat = types[0] || 'Standard';
+    const specs = this.getAvailableSpecs(grp, cat);
+    const spec = specs[0] || '';
+    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+
+    const newRow: GatePassItem = {
       dispatchDate: defaultDate,
-      materialName: this.stockMaterialOptions[0] || 'Cable Tray Materials',
-      unit: 'Nos',
+      materialName: autoName,
+      materialGroup: grp,
+      categoryType: cat,
+      specification: spec,
+      unit: grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos',
       quantity: 1,
       rate: 0,
       vendorName: this.vendorOptions[0] || '',
       amount: 0
-    });
+    };
+    this.updateMaterialRowFromSpec(newRow);
+    this.dispatchMaterials.push(newRow);
   }
 
   removeMaterialRow(index: number): void {

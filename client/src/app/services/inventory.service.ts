@@ -35,6 +35,9 @@ export interface IndentMaterial {
   id?: number;
   indentId?: number;
   materialName: string;
+  materialGroup?: string;
+  categoryType?: string;
+  specification?: string;
   quantity: number;
   unit: string;
   status: 'Ready to issue' | 'Requested Vendor' | 'Pending' | string;
@@ -55,6 +58,9 @@ export interface Indent {
 export interface WarehouseMaterial {
   id?: number;
   materialName: string;
+  materialGroup?: string;
+  categoryType?: string;
+  specification?: string;
   description?: string;
   unit: string;
   inStock: number;
@@ -172,6 +178,9 @@ export interface GatePassItem {
   gatePassId?: number;
   dispatchDate?: string;
   materialName: string;
+  materialGroup?: string;
+  categoryType?: string;
+  specification?: string;
   unit: string;
   quantity: number;
   rate?: number;
@@ -199,6 +208,9 @@ export interface CartItem {
   id?: number;
   orderDate: string;
   material: string;
+  materialGroup?: string;
+  categoryType?: string;
+  specification?: string;
   clientLocation: string;
   quantity: number;
   unit: string;

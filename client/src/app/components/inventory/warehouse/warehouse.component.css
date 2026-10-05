@@ -38,13 +38,13 @@
 .compact-table th {
   font-size: 0.74rem !important;
   font-weight: 700 !important;
-  padding: 8px 10px !important;
+  padding: 10px 12px !important;
   letter-spacing: 0.02em;
 }
 
 .compact-table td {
   font-size: 0.82rem !important;
-  padding: 8px 10px !important;
+  padding: 11px 12px !important;
 }
 
 .hover-link:hover {

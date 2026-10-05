@@ -45,6 +45,7 @@ export class WarehouseComponent implements OnInit {
   // Modal State
   isModalOpen = false;
   isEditMode = false;
+  isDescriptionCustomized = false;
   materialForm: Partial<WarehouseMaterial> = this.getEmptyMaterial();
   materialToDelete: WarehouseMaterial | null = null;
   isDeleteModalOpen = false;
@@ -60,6 +61,8 @@ export class WarehouseComponent implements OnInit {
   bomGroupMap: { [key: string]: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] } = {};
   bomGroupKeys: string[] = ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree'];
   selectedBomGroup: string = '';
+  availableBomCategories: string[] = [];
+  selectedBomCategory: string = '';
   availableBomSpecs: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] = [];
   selectedBomSpec: string = '';
 
@@ -123,7 +126,24 @@ export class WarehouseComponent implements OnInit {
   onBomGroupSelect(groupName: string): void {
     this.selectedBomGroup = groupName;
     this.selectedBomSpec = '';
-    this.availableBomSpecs = this.bomGroupMap[groupName] || [];
+    this.materialForm.materialGroup = groupName;
+
+    if (!groupName) {
+      this.availableBomCategories = [];
+      this.availableBomSpecs = [];
+      this.selectedBomCategory = '';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const allGroupItems = this.bomGroupMap[groupName] || [];
+    const cats = Array.from(new Set(allGroupItems.map(i => i.categoryType || 'Standard').filter(Boolean)));
+    this.availableBomCategories = cats.length > 0 ? cats : ['Standard'];
+    this.selectedBomCategory = this.availableBomCategories[0] || 'Standard';
+    this.materialForm.categoryType = this.selectedBomCategory;
+
+    this.onBomCategorySelect(this.selectedBomCategory);
+
     if (groupName === 'Cables') {
       this.materialForm.unit = 'Meter';
     } else if (groupName === 'MC4 Connector') {
@@ -131,24 +151,66 @@ export class WarehouseComponent implements OnInit {
     } else if (['Panels', 'Inverters', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware'].includes(groupName)) {
       this.materialForm.unit = 'Nos';
     }
-    if (groupName) {
-      this.materialForm.materialName = groupName;
-      this.materialForm.description = groupName;
+    this.cdr.markForCheck();
+  }
+
+  onBomCategorySelect(catName: string): void {
+    this.selectedBomCategory = catName;
+    this.materialForm.categoryType = catName;
+    this.selectedBomSpec = '';
+
+    const allGroupItems = this.bomGroupMap[this.selectedBomGroup] || [];
+    if (catName && catName !== 'Standard') {
+      const filtered = allGroupItems.filter(i => (i.categoryType || '').toLowerCase().trim() === catName.toLowerCase().trim());
+      this.availableBomSpecs = filtered.length > 0 ? filtered : allGroupItems;
+    } else {
+      this.availableBomSpecs = allGroupItems;
+    }
+
+    if (this.selectedBomGroup) {
+      const parts = [this.selectedBomGroup, catName && catName !== 'Standard' ? catName : ''].filter(Boolean);
+      this.materialForm.materialName = parts.join(' - ') || this.selectedBomGroup;
+      if (!this.isDescriptionCustomized) {
+        this.materialForm.description = this.materialForm.materialName;
+      }
     }
     this.cdr.markForCheck();
   }
 
   onBomSpecSelect(specName: string): void {
     this.selectedBomSpec = specName;
-    const specObj = this.availableBomSpecs.find(s => s.specification === specName);
+    this.materialForm.specification = specName;
+    const specObj = this.availableBomSpecs.find(s => s.specification === specName) ||
+                    (this.bomGroupMap[this.selectedBomGroup] || []).find(s => s.specification === specName);
+    const grp = this.selectedBomGroup || this.materialForm.materialGroup || '';
+    const cat = this.selectedBomCategory || (specObj ? specObj.categoryType : this.materialForm.categoryType) || 'Standard';
+
+    this.materialForm.materialGroup = grp;
+    this.materialForm.categoryType = cat;
+
+    if (specName) {
+      const parts = [grp, cat && cat !== 'Standard' ? cat : '', specName].filter(Boolean);
+      this.materialForm.materialName = parts.join(' - ') || specName;
+    }
+
     if (specObj) {
-      this.materialForm.materialName = `${this.selectedBomGroup} - ${specObj.specification}`;
-      this.materialForm.unit = specObj.defaultUom || (this.selectedBomGroup === 'Cables' ? 'Meter' : 'Nos');
-      this.materialForm.description = specObj.categoryType && specObj.categoryType !== 'Standard'
-        ? `${this.selectedBomGroup} (${specObj.categoryType} - ${specObj.specification})`
-        : `${this.selectedBomGroup} - ${specObj.specification}`;
+      this.materialForm.unit = specObj.defaultUom || (grp === 'Cables' ? 'Meter' : 'Nos');
+      if (!this.isDescriptionCustomized) {
+        this.materialForm.description = cat && cat !== 'Standard'
+          ? `${grp} (${cat} - ${specObj.specification})`
+          : `${grp} - ${specObj.specification}`;
+      }
     }
     this.cdr.markForCheck();
+  }
+
+  availableBomSpecsHas(specName: string): boolean {
+    if (!specName) return false;
+    return this.availableBomSpecs.some(s => s.specification === specName);
+  }
+
+  onDescriptionInput(): void {
+    this.isDescriptionCustomized = true;
   }
 
   loadMaterials(): void {
@@ -156,10 +218,30 @@ export class WarehouseComponent implements OnInit {
     this.inventoryService.getWarehouseMaterials().subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          this.materials = res.data.map(m => ({
-            ...m,
-            status: computeStockStatus(m.materialName, m.unit, m.inStock)
-          }));
+          this.materials = res.data.map(m => {
+            let grp = m.materialGroup || '';
+            let cat = m.categoryType || '';
+            let spec = m.specification || '';
+            if (!grp && m.materialName) {
+              const parts = m.materialName.split(' - ').map((s: string) => s.trim());
+              if (parts.length >= 3 && this.bomGroupKeys.some(k => k.toLowerCase() === parts[0].toLowerCase())) {
+                grp = parts[0];
+                cat = parts[1];
+                spec = parts.slice(2).join(' - ');
+              } else if (parts.length === 2 && this.bomGroupKeys.some(k => k.toLowerCase() === parts[0].toLowerCase())) {
+                grp = parts[0];
+                cat = 'Standard';
+                spec = parts[1];
+              }
+            }
+            return {
+              ...m,
+              materialGroup: grp || m.materialGroup,
+              categoryType: cat || m.categoryType,
+              specification: spec || m.specification,
+              status: computeStockStatus(m.materialName, m.unit, m.inStock)
+            };
+          });
         }
         this.loading = false;
         this.cdr.markForCheck();
@@ -189,8 +271,11 @@ export class WarehouseComponent implements OnInit {
       return;
     }
     this.isEditMode = false;
+    this.isDescriptionCustomized = false;
     this.selectedBomGroup = '';
+    this.selectedBomCategory = '';
     this.selectedBomSpec = '';
+    this.availableBomCategories = [];
     this.availableBomSpecs = [];
     this.materialForm = this.getEmptyMaterial();
     this.isModalOpen = true;
@@ -202,37 +287,83 @@ export class WarehouseComponent implements OnInit {
       return;
     }
     this.isEditMode = true;
+    this.isDescriptionCustomized = !!(item.description && item.description.trim());
     this.selectedBomGroup = '';
+    this.selectedBomCategory = '';
     this.selectedBomSpec = '';
+    this.availableBomCategories = [];
     this.availableBomSpecs = [];
 
-    // Try reverse matching group if materialName contains 'Group - Spec'
-    const nameParts = (item.materialName || '').split(' - ');
-    if (nameParts.length >= 2 && this.bomGroupKeys.includes(nameParts[0])) {
-      this.selectedBomGroup = nameParts[0];
-      this.availableBomSpecs = this.bomGroupMap[this.selectedBomGroup] || [];
-      const specPart = nameParts.slice(1).join(' - ');
-      const match = this.availableBomSpecs.find(s => s.specification === specPart);
-      if (match) {
-        this.selectedBomSpec = match.specification;
+    let grp = item.materialGroup || '';
+    let cat = item.categoryType || '';
+    let spec = item.specification || '';
+
+    // If BOM fields were not directly populated, try splitting from materialName
+    if (!grp && item.materialName) {
+      const parts = item.materialName.split(' - ').map(s => s.trim());
+      if (parts.length >= 3 && this.bomGroupKeys.some(k => k.toLowerCase() === parts[0].toLowerCase())) {
+        grp = parts[0];
+        cat = parts[1];
+        spec = parts.slice(2).join(' - ');
+      } else if (parts.length === 2 && this.bomGroupKeys.some(k => k.toLowerCase() === parts[0].toLowerCase())) {
+        grp = parts[0];
+        cat = 'Standard';
+        spec = parts[1];
       }
     }
 
-    this.materialForm = { ...item };
+    if (grp) {
+      this.selectedBomGroup = grp;
+      const allGroupItems = this.bomGroupMap[grp] || [];
+      const cats = Array.from(new Set(allGroupItems.map(i => i.categoryType || 'Standard').filter(Boolean)));
+      this.availableBomCategories = cats.length > 0 ? cats : ['Standard'];
+      this.selectedBomCategory = cat || this.availableBomCategories[0] || 'Standard';
+
+      if (this.selectedBomCategory && this.selectedBomCategory !== 'Standard') {
+        const filtered = allGroupItems.filter(i => (i.categoryType || '').toLowerCase().trim() === this.selectedBomCategory.toLowerCase().trim());
+        this.availableBomSpecs = filtered.length > 0 ? filtered : allGroupItems;
+      } else {
+        this.availableBomSpecs = allGroupItems;
+      }
+      this.selectedBomSpec = spec;
+    }
+
+    this.materialForm = {
+      ...item,
+      materialGroup: grp || item.materialGroup,
+      categoryType: cat || item.categoryType,
+      specification: spec || item.specification
+    };
     this.isModalOpen = true;
   }
 
   closeModal(): void {
     this.isModalOpen = false;
+    this.isDescriptionCustomized = false;
     this.selectedBomGroup = '';
+    this.selectedBomCategory = '';
     this.selectedBomSpec = '';
+    this.availableBomCategories = [];
     this.availableBomSpecs = [];
     this.materialForm = this.getEmptyMaterial();
   }
 
   saveMaterial(): void {
     if (!this.materialForm.materialName?.trim()) {
-      this.showToast('Material Name is required.', 'danger');
+      const parts = [
+        this.materialForm.materialGroup,
+        this.materialForm.categoryType && this.materialForm.categoryType !== 'Standard' ? this.materialForm.categoryType : '',
+        this.materialForm.specification
+      ].filter(Boolean);
+      this.materialForm.materialName = parts.join(' - ') || 
+                                       this.materialForm.specification || 
+                                       this.materialForm.description?.trim() || 
+                                       this.materialForm.materialGroup || 
+                                       '';
+    }
+
+    if (!this.materialForm.materialName?.trim()) {
+      this.showToast('Please enter a Material Name or choose from BOM Master.', 'danger');
       return;
     }
 
@@ -325,6 +456,9 @@ export class WarehouseComponent implements OnInit {
   getEmptyMaterial(): Partial<WarehouseMaterial> {
     return {
       materialName: '',
+      materialGroup: '',
+      categoryType: '',
+      specification: '',
       description: '',
       unit: 'Nos',
       inStock: 0,

@@ -4,11 +4,13 @@ const {
     getAllBomMaterials,
     saveMaterialGroupSpecs,
     createBomMaterialItem,
-    deleteBomMaterialItem
+    deleteBomMaterialItem,
+    syncMaterialGroupsWithUom
 } = require('../controllers/bomMaterialController');
 
 router.get('/', getAllBomMaterials);
 router.post('/bulk-save', saveMaterialGroupSpecs);
+router.post('/sync-groups', syncMaterialGroupsWithUom);
 router.post('/', createBomMaterialItem);
 router.delete('/:id', deleteBomMaterialItem);
 

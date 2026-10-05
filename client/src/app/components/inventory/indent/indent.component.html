@@ -257,10 +257,16 @@
                 </h6>
                 <small class="text-muted">Select materials, quantity, unit, status, and PO/WO.</small>
               </div>
-              <button type="button" class="btn btn-sm btn-add-material-custom fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1"
-                      (click)="addMaterialRow()">
-                <i class="bi bi-plus-lg"></i> Add Material
-              </button>
+              <div class="d-flex align-items-center gap-2">
+                <button *ngIf="hasProjectBomItems()" type="button" class="btn btn-sm btn-outline-primary fw-bold px-2.5 py-1 shadow-xs d-flex align-items-center gap-1"
+                        (click)="populateFromProjectBom()" title="Load materials from this project's Bill of Materials">
+                  <i class="bi bi-box-seam"></i> Load Project BOM
+                </button>
+                <button type="button" class="btn btn-sm btn-add-material-custom fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1"
+                        (click)="addMaterialRow()">
+                  <i class="bi bi-plus-lg"></i> Add Material
+                </button>
+              </div>
             </div>
 
             <!-- Material Rows Table -->
@@ -268,22 +274,50 @@
               <table class="table table-borderless align-middle mb-0">
                 <thead>
                   <tr class="text-uppercase text-secondary" style="font-size: 0.72rem; font-weight: 700;">
-                    <th style="min-width: 220px;">MATERIAL (FROM STOCK) *</th>
-                    <th style="width: 100px;">QUANTITY *</th>
-                    <th style="width: 110px;">UNIT *</th>
-                    <th style="width: 160px;">STATUS *</th>
-                    <th style="width: 120px;" class="text-center">PO/WO</th>
-                    <th style="width: 45px;"></th>
+                    <th style="min-width: 140px;">MATERIAL GROUP *</th>
+                    <th style="min-width: 135px;">CATEGORY / TYPE</th>
+                    <th style="min-width: 160px;">SPECIFICATION / RATING *</th>
+                    <th style="width: 85px;">QUANTITY *</th>
+                    <th style="width: 85px;">UNIT *</th>
+                    <th style="width: 150px;">STATUS *</th>
+                    <th style="width: 110px;" class="text-center">PO/WO</th>
+                    <th style="width: 35px;"></th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let m of requestedMaterials; let i = index" class="border-bottom-custom">
-                    <!-- MATERIAL (FROM STOCK) -->
+                    <!-- 1. MATERIAL GROUP -->
                     <td>
-                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-semibold text-dark" 
-                              [(ngModel)]="m.materialName" 
-                              [name]="'mat_name_' + i">
-                        <option *ngFor="let opt of availableMaterialOptions" [value]="opt">{{ opt }}</option>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-bold text-dark" 
+                              [(ngModel)]="m.materialGroup" 
+                              (change)="onMaterialGroupChange(m)"
+                              [name]="'mat_grp_' + i"
+                              required>
+                        <option value="">-- Group --</option>
+                        <option *ngFor="let grp of getAvailableMaterialGroups()" [value]="grp">{{ grp }}</option>
+                      </select>
+                    </td>
+
+                    <!-- 2. CATEGORY / TYPE (e.g. AC / DC) -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-primary fw-semibold" 
+                              [(ngModel)]="m.categoryType" 
+                              (change)="onCategoryTypeChange(m)"
+                              [name]="'mat_cat_' + i">
+                        <option *ngFor="let t of getAvailableCategoryTypes(m.materialGroup)" [value]="t">{{ t }}</option>
+                      </select>
+                    </td>
+
+                    <!-- 3. SPECIFICATION / RATING -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-bold text-dark" 
+                              [(ngModel)]="m.specification" 
+                              (change)="onSpecificationChange(m)"
+                              [name]="'mat_spec_' + i"
+                              required>
+                        <option value="">-- Select Spec --</option>
+                        <option *ngFor="let s of getAvailableSpecs(m.materialGroup, m.categoryType)" [value]="s">{{ s }}</option>
+                        <option *ngIf="m.specification && !getAvailableSpecs(m.materialGroup, m.categoryType).includes(m.specification)" [value]="m.specification">{{ m.specification }}</option>
                       </select>
                     </td>
 
@@ -303,6 +337,7 @@
                               [(ngModel)]="m.unit" 
                               [name]="'mat_unit_' + i">
                         <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
+                        <option *ngIf="m.unit && !unitOptions.includes(m.unit)" [value]="m.unit">{{ m.unit }}</option>
                       </select>
                     </td>
 

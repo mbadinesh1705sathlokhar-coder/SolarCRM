@@ -374,10 +374,18 @@ export class AddListComponent implements OnInit {
         },
         {
           key: 'proj-materials-group',
+          columnName: 'Material Group',
+          listTitle: 'Material Group',
+          category: 'Inventory',
+          description: 'Material Groups (Cables, Panels, Inverters, etc.) and their default UOM',
+          defaultOptions: ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree']
+        },
+        {
+          key: 'proj-bom-specs',
           columnName: 'Bill of Materials (BOM)',
           listTitle: 'BOM',
           category: 'Inventory',
-          description: 'Material categories and groups for Bill of Materials (BOM) Cost Sheet allocation',
+          description: 'Bill of Materials (BOM) specifications, types, sizes and ratings for each material group',
           defaultOptions: ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree']
         },
         {
@@ -699,10 +707,18 @@ export class AddListComponent implements OnInit {
       columns: [
         {
           key: 'inv-materials-group',
+          columnName: 'Material Group',
+          listTitle: 'Material Group',
+          category: 'Inventory',
+          description: 'Material Groups (Cables, Panels, Inverters, etc.) and their default UOM',
+          defaultOptions: ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree']
+        },
+        {
+          key: 'inv-bom-specs',
           columnName: 'Bill of Materials (BOM)',
           listTitle: 'BOM',
           category: 'Inventory',
-          description: 'Material Groups for BOM Cost Sheet allocation',
+          description: 'Bill of Materials (BOM) specifications, types, sizes and ratings for each material group',
           defaultOptions: ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree']
         },
         {
@@ -1152,6 +1168,8 @@ export class AddListComponent implements OnInit {
 
   // --- HIERARCHICAL BOM MATERIAL MASTER STATE & METHODS ---
   isBomMaterialsMode = false;
+  isMaterialGroupMode = false;
+  materialGroupRows: { groupName: string; defaultUom: string }[] = [];
   bomMaterialGroups: string[] = [
     'Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous',
     'Consumables', 'Earthing Protection', 'Module Mounting Structures',
@@ -1177,7 +1195,81 @@ export class AddListComponent implements OnInit {
     this.bomGroupSpecRows.forEach(r => {
       if (r.defaultUom && r.defaultUom.trim()) set.add(r.defaultUom.trim());
     });
+    this.materialGroupRows.forEach(r => {
+      if (r.defaultUom && r.defaultUom.trim()) set.add(r.defaultUom.trim());
+    });
     return Array.from(set);
+  }
+
+  initMaterialGroupRows(): void {
+    if (Object.keys(this.allBomGroupItems || {}).length === 0) {
+      this.masterListService.getBomMaterials().subscribe({
+        next: (res) => {
+          if (res.success && res.grouped) {
+            this.allBomGroupItems = res.grouped;
+          }
+          this.populateMaterialGroupRows();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.populateMaterialGroupRows();
+          this.cdr.markForCheck();
+        }
+      });
+    } else {
+      this.populateMaterialGroupRows();
+    }
+  }
+
+  getDefaultUomForGroupName(grp: string): string {
+    const norm = (grp || '').toLowerCase().trim();
+    const items = this.allBomGroupItems[grp] || [];
+    if (items.length > 0 && items[0].defaultUom) {
+      return items[0].defaultUom;
+    }
+    for (const key of Object.keys(this.allBomGroupItems || {})) {
+      if (key.toLowerCase().trim() === norm && this.allBomGroupItems[key].length > 0 && this.allBomGroupItems[key][0].defaultUom) {
+        return this.allBomGroupItems[key][0].defaultUom;
+      }
+    }
+    if (norm === 'cables') return 'Meter';
+    if (norm.includes('structure')) return 'Kg';
+    if (norm.includes('civil') || norm.includes('earthing')) return 'Sets';
+    return 'Nos';
+  }
+
+  populateMaterialGroupRows(): void {
+    const currentGroups = this.formRows
+      .map(r => (r.value || '').trim())
+      .filter(Boolean);
+
+    const baseList = currentGroups.length > 0 
+      ? currentGroups 
+      : [
+          'Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous',
+          'Consumables', 'Earthing Protection', 'Module Mounting Structures',
+          'Tata SPG Package', 'Waree'
+        ];
+
+    this.materialGroupRows = baseList.map(grp => ({
+      groupName: grp,
+      defaultUom: this.getDefaultUomForGroupName(grp)
+    }));
+  }
+
+  addMaterialGroupRow(): void {
+    this.materialGroupRows.push({
+      groupName: '',
+      defaultUom: 'Nos'
+    });
+  }
+
+  removeMaterialGroupRow(index: number): void {
+    if (this.materialGroupRows.length === 1) {
+      this.materialGroupRows[0].groupName = '';
+      return;
+    }
+    this.materialGroupRows.splice(index, 1);
   }
 
   loadBomMaterialsData(): void {
@@ -1314,11 +1406,24 @@ export class AddListComponent implements OnInit {
 
   checkIfBomMaterialsMode(): void {
     const titleNorm = (this.formTitle || '').toLowerCase().trim();
+    const hasMatGroupRow = this.mappingRows.some(r => {
+      const keyNorm = (r.columnKey || '').toLowerCase().trim();
+      return keyNorm === 'inv-materials-group' || keyNorm === 'proj-materials-group';
+    });
+
+    if (titleNorm === 'material group' || titleNorm === 'materials group' || titleNorm === 'material_group' || (hasMatGroupRow && titleNorm !== 'bom')) {
+      this.isMaterialGroupMode = true;
+      this.isBomMaterialsMode = false;
+      this.initMaterialGroupRows();
+      return;
+    }
+
+    this.isMaterialGroupMode = false;
     const hasBomRow = this.mappingRows.some(r => {
       const keyNorm = (r.columnKey || '').toLowerCase().trim();
-      return keyNorm === 'inv-materials-group' || keyNorm === 'proj-materials-group' || keyNorm === 'bom-materials-group' || keyNorm === 'indent-materials';
+      return keyNorm === 'inv-bom-specs' || keyNorm === 'proj-bom-specs' || keyNorm === 'bom-materials-group' || keyNorm === 'indent-materials';
     });
-    this.isBomMaterialsMode = (titleNorm === 'bom' || titleNorm === 'materials_' || titleNorm === 'material group' || titleNorm.includes('bom') || hasBomRow);
+    this.isBomMaterialsMode = (titleNorm === 'bom' || titleNorm === 'materials_' || titleNorm.includes('bom') || hasBomRow);
     if (this.isBomMaterialsMode) {
       this.loadBomMaterialsData();
     }
@@ -1329,6 +1434,8 @@ export class AddListComponent implements OnInit {
     this.editingId = null;
     this.formRows = [{ value: '' }];
     this.mappingRows = [];
+    this.materialGroupRows = [];
+    this.isMaterialGroupMode = false;
     this.selectedSectionId = '';
     this.selectedColumnKey = '';
     this.configNoticeText = '';
@@ -1356,6 +1463,51 @@ export class AddListComponent implements OnInit {
 
     if (this.isEditMode ? !this.canEdit() : !this.canAdd()) {
       this.showToast('You do not have permission to perform this action.', 'danger');
+      return;
+    }
+
+    if (this.isMaterialGroupMode) {
+      const cleanGroups = this.materialGroupRows.filter(r => r.groupName && r.groupName.trim().length > 0);
+      if (cleanGroups.length === 0) {
+        this.showToast('Please add at least one Material Group.', 'danger');
+        return;
+      }
+
+      const groupNames = cleanGroups.map(r => r.groupName.trim());
+
+      // 1. Sync Material Groups & Default UOM with backend
+      this.masterListService.syncMaterialGroupsWithUom(cleanGroups).subscribe({
+        next: (res) => {
+          if (res.success && res.grouped) {
+            this.allBomGroupItems = res.grouped;
+            this.syncBomMaterialGroups();
+          }
+        },
+        error: (err) => console.error('Error syncing material groups with UOM:', err)
+      });
+
+      // 2. Save to MasterList table
+      const payload = {
+        title: this.formTitle.trim(),
+        category: this.formCategory,
+        description: this.formDescription.trim(),
+        items: groupNames
+      };
+
+      const op = (this.isEditMode && this.editingId)
+        ? this.masterListService.updateList(this.editingId, payload)
+        : this.masterListService.createList(payload);
+
+      op.subscribe({
+        next: () => {
+          this.showToast(`Saved Material Groups (${cleanGroups.length} groups with Default UOM) successfully!`, 'success');
+          this.closeModal();
+          this.loadLists();
+        },
+        error: (err) => {
+          this.showToast(err.error?.message || 'Failed to save configuration list.', 'danger');
+        }
+      });
       return;
     }
 

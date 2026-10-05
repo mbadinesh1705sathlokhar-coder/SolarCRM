@@ -59,6 +59,21 @@ const IndentMaterial = conDb.define('IndentMaterial', {
         allowNull: false,
         field: 'material_name'
     },
+    materialGroup: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'material_group'
+    },
+    categoryType: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'category_type'
+    },
+    specification: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'specification'
+    },
     quantity: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
@@ -104,6 +119,21 @@ const WarehouseMaterial = conDb.define('WarehouseMaterial', {
         type: DataTypes.STRING(255),
         allowNull: false,
         field: 'material_name'
+    },
+    materialGroup: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'material_group'
+    },
+    categoryType: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'category_type'
+    },
+    specification: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'specification'
     },
     description: {
         type: DataTypes.TEXT,
@@ -225,6 +255,21 @@ const GatePassItem = conDb.define('GatePassItem', {
         allowNull: false,
         field: 'material_name'
     },
+    materialGroup: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'material_group'
+    },
+    categoryType: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'category_type'
+    },
+    specification: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'specification'
+    },
     quantity: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
@@ -282,6 +327,21 @@ const CartItem = conDb.define('CartItem', {
         type: DataTypes.STRING(255),
         allowNull: false,
         field: 'material'
+    },
+    materialGroup: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'material_group'
+    },
+    categoryType: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'category_type'
+    },
+    specification: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'specification'
     },
     clientLocation: {
         type: DataTypes.STRING(255),

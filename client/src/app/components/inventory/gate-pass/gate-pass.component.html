@@ -161,7 +161,7 @@
 <!-- MODAL: ADD / EDIT GATE PASS                              -->
 <!-- ======================================================== -->
 <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 1100px;">
+  <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 1280px;">
     <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
       <div class="modal-header bg-warning text-dark py-3 px-4">
         <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
@@ -276,10 +276,16 @@
                   DISPATCH MATERIALS
                 </h6>
               </div>
-              <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1"
-                      (click)="addMaterialRow()">
-                <i class="bi bi-plus-lg"></i> Add Material
-              </button>
+              <div class="d-flex align-items-center gap-2">
+                <button *ngIf="hasProjectBomItems()" type="button" class="btn btn-sm btn-outline-primary fw-bold px-2.5 py-1 shadow-xs d-flex align-items-center gap-1"
+                        (click)="populateFromProjectBom()" title="Load materials from this project's Bill of Materials">
+                  <i class="bi bi-box-seam"></i> Load Project BOM
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1"
+                        (click)="addMaterialRow()">
+                  <i class="bi bi-plus-lg"></i> Add Material
+                </button>
+              </div>
             </div>
 
             <!-- Material Rows Table -->
@@ -287,14 +293,16 @@
               <table class="table table-borderless align-middle mb-0">
                 <thead>
                   <tr class="text-uppercase text-secondary" style="font-size: 0.72rem; font-weight: 700;">
-                    <th style="width: 130px;">DATE</th>
-                    <th style="min-width: 200px;">MATERIAL (FROM STOCK) *</th>
-                    <th style="width: 95px;">UNIT *</th>
-                    <th style="width: 85px;" class="text-center">QUANTITY *</th>
-                    <th *ngIf="canViewPricing()" style="width: 100px;" class="text-end">RATE (₹)</th>
-                    <th *ngIf="canViewPricing()" style="min-width: 180px;">VENDOR NAME</th>
-                    <th *ngIf="canViewPricing()" style="min-width: 135px; width: 135px;" class="text-end">AMOUNT (₹)</th>
-                    <th style="width: 40px;"></th>
+                    <th style="width: 120px;">DATE</th>
+                    <th style="min-width: 140px;">MATERIAL GROUP *</th>
+                    <th style="min-width: 135px;">CATEGORY / TYPE</th>
+                    <th style="min-width: 160px;">SPECIFICATION / RATING *</th>
+                    <th style="width: 85px;">UNIT *</th>
+                    <th style="width: 80px;" class="text-center">QUANTITY *</th>
+                    <th *ngIf="canViewPricing()" style="width: 95px;" class="text-end">RATE (₹)</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 150px;">VENDOR NAME</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 110px; width: 110px;" class="text-end">AMOUNT (₹)</th>
+                    <th style="width: 35px;"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -307,13 +315,38 @@
                              [name]="'mat_date_' + i">
                     </td>
 
-                    <!-- MATERIAL (FROM STOCK) -->
+                    <!-- 1. MATERIAL GROUP -->
                     <td>
-                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-semibold text-dark" 
-                              [(ngModel)]="m.materialName" 
-                              [name]="'mat_name_' + i"
+                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-bold text-dark" 
+                              [(ngModel)]="m.materialGroup" 
+                              (change)="onMaterialGroupChange(m)"
+                              [name]="'mat_grp_' + i"
                               required>
-                        <option *ngFor="let opt of availableMaterialOptions" [value]="opt">{{ opt }}</option>
+                        <option value="">-- Group --</option>
+                        <option *ngFor="let grp of getAvailableMaterialGroups()" [value]="grp">{{ grp }}</option>
+                      </select>
+                    </td>
+
+                    <!-- 2. CATEGORY / TYPE (e.g. AC / DC) -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-primary fw-semibold" 
+                              [(ngModel)]="m.categoryType" 
+                              (change)="onCategoryTypeChange(m)"
+                              [name]="'mat_cat_' + i">
+                        <option *ngFor="let t of getAvailableCategoryTypes(m.materialGroup)" [value]="t">{{ t }}</option>
+                      </select>
+                    </td>
+
+                    <!-- 3. SPECIFICATION / RATING -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-bold text-dark" 
+                              [(ngModel)]="m.specification" 
+                              (change)="onSpecificationChange(m)"
+                              [name]="'mat_spec_' + i"
+                              required>
+                        <option value="">-- Select Spec --</option>
+                        <option *ngFor="let s of getAvailableSpecs(m.materialGroup, m.categoryType)" [value]="s">{{ s }}</option>
+                        <option *ngIf="m.specification && !getAvailableSpecs(m.materialGroup, m.categoryType).includes(m.specification)" [value]="m.specification">{{ m.specification }}</option>
                       </select>
                     </td>
 
@@ -324,6 +357,7 @@
                               [name]="'mat_unit_' + i"
                               required>
                         <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
+                        <option *ngIf="m.unit && !unitOptions.includes(m.unit)" [value]="m.unit">{{ m.unit }}</option>
                       </select>
                     </td>
 

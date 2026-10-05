@@ -62,14 +62,23 @@ async function createIndent(req, res) {
 
         // Insert nested requested materials
         if (Array.isArray(materials) && materials.length > 0) {
-            const matRecords = materials.map(m => ({
-                indentId: createdIndent.id,
-                materialName: m.materialName || 'Solar Component',
-                quantity: parseFloat(m.quantity) || 1,
-                unit: m.unit || 'Nos',
-                status: m.status || 'Ready to issue',
-                poWo: !!m.poWo
-            }));
+            const matRecords = materials.map(m => {
+                const grp = (m.materialGroup || '').trim();
+                const cat = (m.categoryType || '').trim();
+                const spec = (m.specification || '').trim();
+                const autoName = [grp, cat, spec].filter(Boolean).join(' - ');
+                return {
+                    indentId: createdIndent.id,
+                    materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Solar Component'),
+                    materialGroup: grp || null,
+                    categoryType: cat || null,
+                    specification: spec || null,
+                    quantity: parseFloat(m.quantity) || 1,
+                    unit: m.unit || 'Nos',
+                    status: m.status || 'Ready to issue',
+                    poWo: !!m.poWo
+                };
+            });
             await IndentMaterial.bulkCreate(matRecords);
         }
 
@@ -105,14 +114,23 @@ async function updateIndent(req, res) {
         if (Array.isArray(materials)) {
             await IndentMaterial.destroy({ where: { indentId: id } });
             if (materials.length > 0) {
-                const matRecords = materials.map(m => ({
-                    indentId: id,
-                    materialName: m.materialName || 'Solar Component',
-                    quantity: parseFloat(m.quantity) || 1,
-                    unit: m.unit || 'Nos',
-                    status: m.status || 'Ready to issue',
-                    poWo: !!m.poWo
-                }));
+                const matRecords = materials.map(m => {
+                    const grp = (m.materialGroup || '').trim();
+                    const cat = (m.categoryType || '').trim();
+                    const spec = (m.specification || '').trim();
+                    const autoName = [grp, cat, spec].filter(Boolean).join(' - ');
+                    return {
+                        indentId: id,
+                        materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Solar Component'),
+                        materialGroup: grp || null,
+                        categoryType: cat || null,
+                        specification: spec || null,
+                        quantity: parseFloat(m.quantity) || 1,
+                        unit: m.unit || 'Nos',
+                        status: m.status || 'Ready to issue',
+                        poWo: !!m.poWo
+                    };
+                });
                 await IndentMaterial.bulkCreate(matRecords);
             }
         }
@@ -226,16 +244,25 @@ async function getAllWarehouseMaterials(req, res) {
 
 async function createWarehouseMaterial(req, res) {
     try {
-        const { materialName, description, unit, inStock } = req.body;
-        if (!materialName || !materialName.trim()) {
-            return res.status(400).json({ success: false, message: 'Material name is required.' });
+        const { materialName, materialGroup, categoryType, specification, description, unit, inStock } = req.body;
+        const grp = (materialGroup || '').trim();
+        const cat = (categoryType || '').trim();
+        const spec = (specification || '').trim();
+        const autoName = [grp, cat && cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+        const finalName = (materialName && materialName.trim()) ? materialName.trim() : autoName;
+
+        if (!finalName && !spec) {
+            return res.status(400).json({ success: false, message: 'Material name or specification is required.' });
         }
 
         const stockNum = parseFloat(inStock) || 0;
-        const autoStatus = computeWarehouseStockStatus(materialName, unit, stockNum);
+        const autoStatus = computeWarehouseStockStatus(finalName || spec, unit, stockNum);
 
         const created = await WarehouseMaterial.create({
-            materialName: materialName.trim(),
+            materialName: finalName || spec,
+            materialGroup: grp || null,
+            categoryType: cat || null,
+            specification: spec || null,
             description: description ? description.trim() : '',
             unit: unit || 'Nos',
             inStock: stockNum,
@@ -257,13 +284,24 @@ async function updateWarehouseMaterial(req, res) {
             return res.status(404).json({ success: false, message: 'Material not found' });
         }
 
-        const name = req.body.materialName !== undefined ? req.body.materialName : item.materialName;
+        const grp = req.body.materialGroup !== undefined ? (req.body.materialGroup || '').trim() : item.materialGroup;
+        const cat = req.body.categoryType !== undefined ? (req.body.categoryType || '').trim() : item.categoryType;
+        const spec = req.body.specification !== undefined ? (req.body.specification || '').trim() : item.specification;
+        let finalName = req.body.materialName !== undefined ? (req.body.materialName || '').trim() : item.materialName;
+        if (!finalName) {
+            finalName = [grp, cat && cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || item.materialName;
+        }
+
         const unit = req.body.unit !== undefined ? req.body.unit : item.unit;
         const inStock = req.body.inStock !== undefined ? parseFloat(req.body.inStock) || 0 : item.inStock;
-        const autoStatus = computeWarehouseStockStatus(name, unit, inStock);
+        const autoStatus = computeWarehouseStockStatus(finalName, unit, inStock);
 
         await item.update({
             ...req.body,
+            materialName: finalName,
+            materialGroup: grp || null,
+            categoryType: cat || null,
+            specification: spec || null,
             inStock,
             status: autoStatus
         });
@@ -348,14 +386,34 @@ async function deductWarehouseStock(items) {
     if (!Array.isArray(items) || items.length === 0) return;
     for (const it of items) {
         const name = (it.materialName || '').trim();
+        const grp = (it.materialGroup || '').trim();
+        const spec = (it.specification || '').trim();
         const qty = parseFloat(it.quantity) || 0;
-        if (!name || qty <= 0) continue;
+        if ((!name && !spec) || qty <= 0) continue;
 
-        const mat = await WarehouseMaterial.findOne({
-            where: {
-                materialName: { [Op.like]: name }
-            }
-        });
+        let mat = null;
+        if (grp && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    materialGroup: grp,
+                    specification: spec
+                }
+            });
+        }
+        if (!mat && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    specification: spec
+                }
+            });
+        }
+        if (!mat && name) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    materialName: { [Op.like]: name }
+                }
+            });
+        }
         if (mat) {
             const currentStock = parseFloat(mat.inStock) || 0;
             const newStock = Math.max(0, currentStock - qty);
@@ -372,14 +430,34 @@ async function restoreWarehouseStock(items) {
     if (!Array.isArray(items) || items.length === 0) return;
     for (const it of items) {
         const name = (it.materialName || '').trim();
+        const grp = (it.materialGroup || '').trim();
+        const spec = (it.specification || '').trim();
         const qty = parseFloat(it.quantity) || 0;
-        if (!name || qty <= 0) continue;
+        if ((!name && !spec) || qty <= 0) continue;
 
-        const mat = await WarehouseMaterial.findOne({
-            where: {
-                materialName: { [Op.like]: name }
-            }
-        });
+        let mat = null;
+        if (grp && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    materialGroup: grp,
+                    specification: spec
+                }
+            });
+        }
+        if (!mat && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    specification: spec
+                }
+            });
+        }
+        if (!mat && name) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    materialName: { [Op.like]: name }
+                }
+            });
+        }
         if (mat) {
             const currentStock = parseFloat(mat.inStock) || 0;
             const newStock = currentStock + qty;
@@ -476,10 +554,23 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
                 const itQty = parseFloat(it.quantity) || 0;
                 const itAmt = it.amount !== undefined && it.amount !== null ? (parseFloat(it.amount) || 0) : (itQty * (parseFloat(it.rate) || 0));
 
+                const itGrp = (it.materialGroup || '').toLowerCase().trim();
+                const itCat = (it.categoryType || '').toLowerCase().trim();
+                const itSpec = (it.specification || '').toLowerCase().trim();
+
                 let matched = bomItems.find(b => {
                     const grp = (b.materialGroup || '').toLowerCase().trim();
                     const cat = (b.categoryType || '').toLowerCase().trim();
                     const spec = (b.specification || '').toLowerCase().trim();
+
+                    // 1. Exact match on group and specification
+                    if (itGrp && itSpec && grp === itGrp && spec === itSpec) {
+                        if (!itCat || !cat || itCat === cat) return true;
+                    }
+                    // 2. Exact match on specification
+                    if (itSpec && spec === itSpec) return true;
+
+                    // 3. Fallback to substring matching on materialName
                     return matName.includes(grp) || grp.includes(matName) || 
                            matName.includes(cat) || cat.includes(matName) ||
                            matName.includes(spec) || spec.includes(matName);
@@ -595,10 +686,17 @@ async function createGatePass(req, res) {
                 const q = parseFloat(m.quantity) || 0;
                 const r = parseFloat(m.rate) || 0;
                 const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                const grp = (m.materialGroup || '').trim();
+                const cat = (m.categoryType || '').trim();
+                const spec = (m.specification || '').trim();
+                const autoName = [grp, cat, spec].filter(Boolean).join(' - ');
                 return {
                     gatePassId: created.id,
                     dispatchDate: m.dispatchDate || gatePassDate || new Date().toISOString().substring(0, 10),
-                    materialName: m.materialName || 'Material',
+                    materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
+                    materialGroup: grp || null,
+                    categoryType: cat || null,
+                    specification: spec || null,
                     quantity: q,
                     unit: m.unit || 'Nos',
                     rate: r,
@@ -681,10 +779,17 @@ async function updateGatePass(req, res) {
                     const q = parseFloat(m.quantity) || 0;
                     const r = parseFloat(m.rate) || 0;
                     const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                    const grp = (m.materialGroup || '').trim();
+                    const cat = (m.categoryType || '').trim();
+                    const spec = (m.specification || '').trim();
+                    const autoName = [grp, cat, spec].filter(Boolean).join(' - ');
                     return {
                         gatePassId: id,
                         dispatchDate: m.dispatchDate || pass.gatePassDate || new Date().toISOString().substring(0, 10),
-                        materialName: m.materialName || 'Material',
+                        materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
+                        materialGroup: grp || null,
+                        categoryType: cat || null,
+                        specification: spec || null,
                         quantity: q,
                         unit: m.unit || 'Nos',
                         rate: r,
@@ -779,36 +884,54 @@ async function getCartItems(req, res) {
 
 async function createCartItem(req, res) {
     try {
-        const { items, orderDate, vendorName, procurementStatus, material, clientLocation, quantity, unit, totalAmount } = req.body;
+        const { items, orderDate, vendorName, procurementStatus, material, clientLocation, quantity, unit, totalAmount, materialGroup, categoryType, specification } = req.body;
 
         // If multiple items are provided (batch creation)
         if (Array.isArray(items) && items.length > 0) {
-            const validRows = items.filter(r => r.material && r.material.trim());
+            const validRows = items.filter(r => (r.material && r.material.trim()) || (r.specification && r.specification.trim()) || (r.materialGroup && r.materialGroup.trim()));
             if (validRows.length === 0) {
                 return res.status(400).json({ success: false, message: 'At least one valid material item is required.' });
             }
-            const toCreate = validRows.map(r => ({
-                orderDate: r.orderDate || orderDate || new Date().toISOString().substring(0, 10),
-                material: r.material.trim(),
-                clientLocation: (r.clientLocation || clientLocation || '').trim(),
-                quantity: parseFloat(r.quantity) || 1,
-                unit: r.unit || 'Nos',
-                vendorName: (r.vendorName !== undefined && r.vendorName !== '' ? r.vendorName : (vendorName || '')).trim(),
-                procurementStatus: r.procurementStatus || procurementStatus || 'Yet to Start',
-                totalAmount: parseFloat(r.totalAmount) || 0.00
-            }));
+            const toCreate = validRows.map(r => {
+                const grp = (r.materialGroup || '').trim();
+                const cat = (r.categoryType || '').trim();
+                const spec = (r.specification || '').trim();
+                const autoName = [grp, cat, spec].filter(Boolean).join(' - ');
+                return {
+                    orderDate: r.orderDate || orderDate || new Date().toISOString().substring(0, 10),
+                    material: (r.material && r.material.trim()) ? r.material.trim() : (autoName || 'Material'),
+                    materialGroup: grp || null,
+                    categoryType: cat || null,
+                    specification: spec || null,
+                    clientLocation: (r.clientLocation || clientLocation || '').trim(),
+                    quantity: parseFloat(r.quantity) || 1,
+                    unit: r.unit || 'Nos',
+                    vendorName: (r.vendorName !== undefined && r.vendorName !== '' ? r.vendorName : (vendorName || '')).trim(),
+                    procurementStatus: r.procurementStatus || procurementStatus || 'Yet to Start',
+                    totalAmount: parseFloat(r.totalAmount) || 0.00
+                };
+            });
             const createdItems = await CartItem.bulkCreate(toCreate);
             return res.status(201).json({ success: true, data: createdItems, count: createdItems.length });
         }
 
         // Single item fallback
-        if (!material || !material.trim()) {
+        const grp = (materialGroup || '').trim();
+        const cat = (categoryType || '').trim();
+        const spec = (specification || '').trim();
+        const autoName = [grp, cat, spec].filter(Boolean).join(' - ');
+        const finalMat = (material && material.trim()) ? material.trim() : autoName;
+
+        if (!finalMat) {
             return res.status(400).json({ success: false, message: 'Material is required.' });
         }
 
         const created = await CartItem.create({
             orderDate: orderDate || new Date().toISOString().substring(0, 10),
-            material: material.trim(),
+            material: finalMat,
+            materialGroup: grp || null,
+            categoryType: cat || null,
+            specification: spec || null,
             clientLocation: (clientLocation || '').trim(),
             quantity: parseFloat(quantity) || 1,
             unit: unit || 'Nos',
@@ -832,7 +955,21 @@ async function updateCartItem(req, res) {
             return res.status(404).json({ success: false, message: 'Cart item not found' });
         }
 
-        await item.update(req.body);
+        const grp = (req.body.materialGroup !== undefined ? req.body.materialGroup : item.materialGroup) || '';
+        const cat = (req.body.categoryType !== undefined ? req.body.categoryType : item.categoryType) || '';
+        const spec = (req.body.specification !== undefined ? req.body.specification : item.specification) || '';
+        let finalMat = req.body.material;
+        if (!finalMat || !finalMat.trim()) {
+            finalMat = [grp, cat, spec].filter(Boolean).join(' - ') || item.material;
+        }
+
+        await item.update({
+            ...req.body,
+            material: finalMat,
+            materialGroup: grp ? grp.trim() : null,
+            categoryType: cat ? cat.trim() : null,
+            specification: spec ? spec.trim() : null
+        });
         res.json({ success: true, data: item });
     } catch (err) {
         console.error('Error updating cart item:', err);

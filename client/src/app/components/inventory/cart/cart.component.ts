@@ -13,6 +13,9 @@ import * as XLSX from 'xlsx';
 
 export interface CartRowItem {
   material: string;
+  materialGroup?: string;
+  categoryType?: string;
+  specification?: string;
   quantity: number;
   unit: string;
   clientLocation?: string;
@@ -72,6 +75,7 @@ export class CartComponent implements OnInit {
   // Batch Add State (Multiple Clients / Multiple Materials)
   cartHeader = {
     orderDate: new Date().toISOString().substring(0, 10),
+    clientLocation: '',
     vendorName: '',
     procurementStatus: 'Yet to Start'
   };
@@ -96,9 +100,95 @@ export class CartComponent implements OnInit {
     'Delivered to Site'
   ];
 
+  // Searchable Client Dropdowns
+  headerClientDropdownOpen = false;
+  editClientDropdownOpen = false;
+
+  get filteredHeaderClientOptions(): string[] {
+    const q = (this.cartHeader.clientLocation || '').toLowerCase().trim();
+    if (!q) return this.clientLocationOptions;
+    return this.clientLocationOptions.filter(c => c.toLowerCase().includes(q));
+  }
+
+  get filteredEditClientOptions(): string[] {
+    const q = (this.cartForm.clientLocation || '').toLowerCase().trim();
+    if (!q) return this.clientLocationOptions;
+    return this.clientLocationOptions.filter(c => c.toLowerCase().includes(q));
+  }
+
+  openHeaderClientDropdown(): void {
+    this.headerClientDropdownOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeHeaderClientDropdown(): void {
+    setTimeout(() => {
+      this.headerClientDropdownOpen = false;
+      this.cdr.markForCheck();
+    }, 200);
+  }
+
+  toggleHeaderClientDropdown(event: MouseEvent): void {
+    event.preventDefault();
+    this.headerClientDropdownOpen = !this.headerClientDropdownOpen;
+    this.cdr.markForCheck();
+  }
+
+  selectHeaderClient(client: string): void {
+    this.cartHeader.clientLocation = client;
+    this.headerClientDropdownOpen = false;
+    this.onHeaderClientChange();
+    this.cdr.markForCheck();
+  }
+
+  clearHeaderClientSelection(): void {
+    this.cartHeader.clientLocation = '';
+    this.headerClientDropdownOpen = true;
+    this.onHeaderClientChange();
+    this.cdr.markForCheck();
+  }
+
+  openEditClientDropdown(): void {
+    this.editClientDropdownOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeEditClientDropdown(): void {
+    setTimeout(() => {
+      this.editClientDropdownOpen = false;
+      this.cdr.markForCheck();
+    }, 200);
+  }
+
+  toggleEditClientDropdown(event: MouseEvent): void {
+    event.preventDefault();
+    this.editClientDropdownOpen = !this.editClientDropdownOpen;
+    this.cdr.markForCheck();
+  }
+
+  selectEditClient(client: string): void {
+    this.cartForm.clientLocation = client;
+    this.editClientDropdownOpen = false;
+    this.onMaterialGroupChange(this.cartForm);
+    this.cdr.markForCheck();
+  }
+
+  clearEditClientSelection(): void {
+    this.cartForm.clientLocation = '';
+    this.editClientDropdownOpen = true;
+    this.onMaterialGroupChange(this.cartForm);
+    this.cdr.markForCheck();
+  }
+
+  // BOM Material Master & Project BOM state
+  bomMaterialsMasterList: any[] = [];
+  bomGroupMap: { [key: string]: any[] } = {};
+  bomGroupKeys: string[] = [];
+
   ngOnInit(): void {
     this.loadCart();
     this.loadMasterMaterials();
+    this.loadBomMaterialsMaster();
     this.loadVendorsFromOffice();
     this.loadAwardedSites();
   }
@@ -112,6 +202,167 @@ export class CartComponent implements OnInit {
         }
       }
     });
+  }
+
+  loadBomMaterialsMaster(): void {
+    this.masterListService.getBomMaterials().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.bomMaterialsMasterList = res.data;
+          this.bomGroupMap = res.grouped || {};
+          this.bomGroupKeys = Object.keys(this.bomGroupMap);
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  getSelectedProject(targetClient?: string): any | null {
+    const client = targetClient || this.cartForm.clientLocation || (this.cartRows.find(r => r.clientLocation)?.clientLocation || '');
+    if (!client) return null;
+    const norm = client.toLowerCase().trim();
+    return this.projectsList.find(p => 
+      norm.includes((p.clientName || '').toLowerCase().trim()) ||
+      norm.includes((p.siteId || '').toLowerCase().trim()) ||
+      (p.clientName || '').toLowerCase().trim() === norm ||
+      (p.siteId || '').toLowerCase().trim() === norm
+    ) || null;
+  }
+
+  parseBomItems(bomItems: any): any[] {
+    if (!bomItems) return [];
+    if (Array.isArray(bomItems)) return bomItems;
+    if (typeof bomItems === 'string') {
+      try { return JSON.parse(bomItems); } catch(e) { return []; }
+    }
+    return [];
+  }
+
+  getAvailableMaterialGroups(targetClient?: string): string[] {
+    const proj = this.getSelectedProject(targetClient);
+    const projGroups: string[] = [];
+    if (proj && proj.bomItems) {
+      const items = this.parseBomItems(proj.bomItems);
+      items.forEach(i => {
+        if (i.materialGroup && !projGroups.includes(i.materialGroup)) {
+          projGroups.push(i.materialGroup);
+        }
+      });
+    }
+    const masterGroups = this.bomGroupKeys.length > 0
+      ? this.bomGroupKeys
+      : ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree'];
+    return Array.from(new Set([...projGroups, ...masterGroups]));
+  }
+
+  getAvailableCategoryTypes(groupName?: string, targetClient?: string): string[] {
+    const normGrp = (groupName || '').toLowerCase().trim();
+    if (!normGrp) return ['Standard'];
+
+    const proj = this.getSelectedProject(targetClient);
+    if (proj && proj.bomItems) {
+      const items = this.parseBomItems(proj.bomItems).filter(b => (b.materialGroup || '').toLowerCase().trim() === normGrp);
+      const projTypes = items.map(b => b.categoryType).filter(Boolean);
+      if (projTypes.length > 0) {
+        return Array.from(new Set(projTypes));
+      }
+    }
+
+    const matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    if (matches.length > 0) {
+      const types = Array.from(new Set(matches.map(m => m.categoryType || 'Standard')));
+      return types.length > 0 ? types : ['Standard'];
+    }
+    if (normGrp === 'cables') return ['AC Cable', 'DC Cable'];
+    if (normGrp === 'panels') return ['Mono PERC', 'TOPCon', 'Polycrystalline'];
+    if (normGrp === 'inverters') return ['On Grid', 'Hybrid'];
+    return ['Standard'];
+  }
+
+  getAvailableSpecs(groupName?: string, categoryType?: string, targetClient?: string): string[] {
+    const normGrp = (groupName || '').toLowerCase().trim();
+    const normType = (categoryType || '').toLowerCase().trim();
+    if (!normGrp) return [];
+
+    const proj = this.getSelectedProject(targetClient);
+    if (proj && proj.bomItems) {
+      let items = this.parseBomItems(proj.bomItems).filter(b => (b.materialGroup || '').toLowerCase().trim() === normGrp);
+      if (normType && normType !== 'standard') {
+        const filtered = items.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
+        if (filtered.length > 0) items = filtered;
+      }
+      const specs = items.map(b => b.specification).filter(Boolean);
+      if (specs.length > 0) {
+        return Array.from(new Set(specs));
+      }
+    }
+
+    let matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    if (normType && normType !== 'standard') {
+      const filtered = matches.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
+      if (filtered.length > 0) matches = filtered;
+    }
+    if (matches.length > 0) {
+      return Array.from(new Set(matches.map(m => m.specification).filter(Boolean)));
+    }
+    return [];
+  }
+
+  onMaterialGroupChange(item: any): void {
+    const grp = item.materialGroup || '';
+    const types = this.getAvailableCategoryTypes(grp, item.clientLocation);
+    item.categoryType = types[0] || 'Standard';
+    const specs = this.getAvailableSpecs(grp, item.categoryType, item.clientLocation);
+    item.specification = specs[0] || '';
+    this.updateCartRowFromSpec(item);
+  }
+
+  onCategoryTypeChange(item: any): void {
+    const specs = this.getAvailableSpecs(item.materialGroup, item.categoryType, item.clientLocation);
+    item.specification = specs[0] || '';
+    this.updateCartRowFromSpec(item);
+  }
+
+  onSpecificationChange(item: any): void {
+    this.updateCartRowFromSpec(item);
+  }
+
+  updateCartRowFromSpec(item: any): void {
+    const grp = (item.materialGroup || '').trim();
+    const cat = (item.categoryType || '').trim();
+    const spec = (item.specification || '').trim();
+
+    const proj = this.getSelectedProject(item.clientLocation);
+    if (proj && proj.bomItems) {
+      const items = this.parseBomItems(proj.bomItems);
+      const match = items.find(b => 
+        (b.materialGroup || '').toLowerCase().trim() === grp.toLowerCase() &&
+        (b.specification || '').toLowerCase().trim() === spec.toLowerCase()
+      );
+      if (match) {
+        if (match.uom) item.unit = match.uom;
+        if (match.rate && (!item.totalAmount || item.totalAmount === 0)) {
+          const q = Number(item.quantity) || 1;
+          item.totalAmount = Math.round(q * Number(match.rate) * 100) / 100;
+        }
+      }
+    }
+
+    if (!item.unit || item.unit === 'Nos') {
+      const masterMatch = this.bomMaterialsMasterList.find(b => 
+        (b.groupName || '').toLowerCase().trim() === grp.toLowerCase() &&
+        (b.specification || '').toLowerCase().trim() === spec.toLowerCase()
+      );
+      if (masterMatch && masterMatch.defaultUom) {
+        item.unit = masterMatch.defaultUom;
+      } else if (grp.toLowerCase() === 'cables') {
+        item.unit = 'Meter';
+      }
+    }
+
+    item.material = [grp, cat && cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp || 'Material';
+    this.cdr.markForCheck();
   }
 
   get availableMaterialOptions(): string[] {
@@ -163,7 +414,29 @@ export class CartComponent implements OnInit {
     this.inventoryService.getCartItems().subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          this.cartItems = res.data;
+          this.cartItems = res.data.map(item => {
+            let grp = item.materialGroup || '';
+            let cat = item.categoryType || '';
+            let spec = item.specification || '';
+            if (!grp && item.material) {
+              const parts = item.material.split(' - ').map((s: string) => s.trim());
+              if (parts.length >= 3) {
+                grp = parts[0];
+                cat = parts[1];
+                spec = parts.slice(2).join(' - ');
+              } else if (parts.length === 2) {
+                grp = parts[0];
+                cat = 'Standard';
+                spec = parts[1];
+              }
+            }
+            return {
+              ...item,
+              materialGroup: grp || item.materialGroup,
+              categoryType: cat || item.categoryType,
+              specification: spec || item.specification
+            };
+          });
           this.summary = res.summary;
         }
         this.loading = false;
@@ -208,6 +481,55 @@ export class CartComponent implements OnInit {
     );
   }
 
+  onHeaderClientChange(): void {
+    const client = this.cartHeader.clientLocation;
+    this.cartRows.forEach(r => {
+      r.clientLocation = client;
+    });
+    this.cdr.markForCheck();
+  }
+
+  hasProjectBomItems(targetClient?: string): boolean {
+    const proj = this.getSelectedProject(targetClient || this.cartHeader.clientLocation);
+    if (!proj || !proj.bomItems) return false;
+    const items = this.parseBomItems(proj.bomItems);
+    return items.length > 0;
+  }
+
+  populateFromProjectBom(): void {
+    const proj = this.getSelectedProject(this.cartHeader.clientLocation);
+    if (!proj || !proj.bomItems) {
+      this.showToast('Please select a client/project with planned BOM items first.', 'info');
+      return;
+    }
+    const items = this.parseBomItems(proj.bomItems);
+    if (items.length === 0) {
+      this.showToast('No BOM items found for this project.', 'info');
+      return;
+    }
+
+    this.cartRows = items.map(b => {
+      const grp = b.materialGroup || '';
+      const cat = b.categoryType || 'Standard';
+      const spec = b.specification || '';
+      const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+      const plannedQty = parseFloat(b.plannedQty) || 1;
+      const rate = parseFloat(b.rate) || 0;
+      return {
+        material: autoName,
+        materialGroup: grp,
+        categoryType: cat,
+        specification: spec,
+        quantity: plannedQty,
+        unit: b.uom || (grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos'),
+        totalAmount: rate > 0 ? Math.round(plannedQty * rate * 100) / 100 : (null as any),
+        clientLocation: this.cartHeader.clientLocation
+      };
+    });
+    this.showToast(`Loaded ${items.length} materials from Project BOM.`, 'info');
+    this.cdr.markForCheck();
+  }
+
   openAddModal(): void {
     if (!this.canAdd()) {
       this.showToast('You do not have permission to add items to cart.', 'danger');
@@ -216,35 +538,81 @@ export class CartComponent implements OnInit {
     this.isEditMode = false;
     this.cartHeader = {
       orderDate: new Date().toISOString().substring(0, 10),
+      clientLocation: '',
       vendorName: '',
       procurementStatus: 'Yet to Start'
     };
-    this.cartRows = [
-      { material: '', quantity: 1, unit: 'Nos', totalAmount: null as any }
-    ];
+
+    const groups = this.getAvailableMaterialGroups();
+    const grp = groups[0] || 'Cables';
+    const types = this.getAvailableCategoryTypes(grp);
+    const cat = types[0] || 'Standard';
+    const specs = this.getAvailableSpecs(grp, cat);
+    const spec = specs[0] || '';
+    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+
+    const initialRow: CartRowItem = {
+      material: autoName,
+      materialGroup: grp,
+      categoryType: cat,
+      specification: spec,
+      quantity: 1,
+      unit: grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos',
+      totalAmount: null as any
+    };
+    this.updateCartRowFromSpec(initialRow);
+    this.cartRows = [initialRow];
     this.loadVendorsFromOffice();
     this.isModalOpen = true;
   }
 
   addCartRow(): void {
-    this.cartRows.push({
-      material: '',
+    const groups = this.getAvailableMaterialGroups(this.cartHeader.clientLocation);
+    const grp = groups[0] || 'Cables';
+    const types = this.getAvailableCategoryTypes(grp, this.cartHeader.clientLocation);
+    const cat = types[0] || 'Standard';
+    const specs = this.getAvailableSpecs(grp, cat, this.cartHeader.clientLocation);
+    const spec = specs[0] || '';
+    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+
+    const row: CartRowItem = {
+      material: autoName,
+      materialGroup: grp,
+      categoryType: cat,
+      specification: spec,
       quantity: 1,
-      unit: 'Nos',
-      totalAmount: null as any
-    });
+      unit: grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos',
+      totalAmount: null as any,
+      clientLocation: this.cartHeader.clientLocation
+    };
+    this.updateCartRowFromSpec(row);
+    this.cartRows.push(row);
   }
 
   removeCartRow(index: number): void {
     if (this.cartRows.length > 1) {
       this.cartRows.splice(index, 1);
     } else {
-      this.cartRows[0] = {
-        material: '',
+      const groups = this.getAvailableMaterialGroups(this.cartHeader.clientLocation);
+      const grp = groups[0] || 'Cables';
+      const types = this.getAvailableCategoryTypes(grp, this.cartHeader.clientLocation);
+      const cat = types[0] || 'Standard';
+      const specs = this.getAvailableSpecs(grp, cat, this.cartHeader.clientLocation);
+      const spec = specs[0] || '';
+      const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+
+      const row: CartRowItem = {
+        material: autoName,
+        materialGroup: grp,
+        categoryType: cat,
+        specification: spec,
         quantity: 1,
-        unit: 'Nos',
-        totalAmount: null as any
+        unit: grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos',
+        totalAmount: null as any,
+        clientLocation: this.cartHeader.clientLocation
       };
+      this.updateCartRowFromSpec(row);
+      this.cartRows = [row];
     }
   }
 
@@ -263,12 +631,49 @@ export class CartComponent implements OnInit {
     }
     this.isEditMode = true;
     this.cartForm = { ...item };
+
+    // Resolve materialGroup, categoryType, specification if missing
+    let grp = item.materialGroup || '';
+    let cat = item.categoryType || '';
+    let spec = item.specification || '';
+
+    if (!grp && item.material) {
+      const parts = item.material.split(' - ').map(s => s.trim());
+      if (parts.length >= 3) {
+        grp = parts[0];
+        cat = parts[1];
+        spec = parts.slice(2).join(' - ');
+      } else if (parts.length === 2) {
+        grp = parts[0];
+        cat = 'Standard';
+        spec = parts[1];
+      } else {
+        const masterMatch = this.bomMaterialsMasterList.find(b => 
+          (b.specification || '').toLowerCase().trim() === item.material.toLowerCase().trim()
+        );
+        if (masterMatch) {
+          grp = masterMatch.groupName || 'Cables';
+          cat = masterMatch.categoryType || 'Standard';
+          spec = masterMatch.specification;
+        } else {
+          grp = this.getAvailableMaterialGroups(item.clientLocation)[0] || 'Cables';
+          cat = 'Standard';
+          spec = item.material;
+        }
+      }
+    }
+    this.cartForm.materialGroup = grp;
+    this.cartForm.categoryType = cat || 'Standard';
+    this.cartForm.specification = spec;
+
     this.loadVendorsFromOffice();
     this.isModalOpen = true;
   }
 
   closeModal(): void {
     this.isModalOpen = false;
+    this.headerClientDropdownOpen = false;
+    this.editClientDropdownOpen = false;
     this.cartForm = this.getEmptyCartItem();
     this.cartRows = [];
   }
@@ -280,8 +685,9 @@ export class CartComponent implements OnInit {
     }
 
     if (this.isEditMode) {
-      if (!this.cartForm.material?.trim()) {
-        this.showToast('Material name is required.', 'danger');
+      this.updateCartRowFromSpec(this.cartForm);
+      if (!this.cartForm.specification?.trim() && !this.cartForm.material?.trim()) {
+        this.showToast('Material specification is required.', 'danger');
         return;
       }
 
@@ -307,7 +713,14 @@ export class CartComponent implements OnInit {
       return;
     }
 
-    const validRows = this.cartRows.filter(r => r.material && r.material.trim());
+    this.cartRows.forEach(r => {
+      if (this.cartHeader.clientLocation && !r.clientLocation) {
+        r.clientLocation = this.cartHeader.clientLocation;
+      }
+      this.updateCartRowFromSpec(r);
+    });
+
+    const validRows = this.cartRows.filter(r => (r.specification && r.specification.trim()) || (r.material && r.material.trim()));
     if (validRows.length === 0) {
       this.showToast('Please select at least one material.', 'danger');
       return;
@@ -317,7 +730,11 @@ export class CartComponent implements OnInit {
       orderDate: this.cartHeader.orderDate,
       vendorName: this.cartHeader.vendorName,
       procurementStatus: this.cartHeader.procurementStatus,
-      items: validRows
+      clientLocation: this.cartHeader.clientLocation,
+      items: validRows.map(r => ({
+        ...r,
+        clientLocation: r.clientLocation || this.cartHeader.clientLocation || ''
+      }))
     };
 
     this.inventoryService.createCartItem(payload).subscribe({
