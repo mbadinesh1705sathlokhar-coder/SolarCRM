@@ -338,6 +338,18 @@ export class ContactsService {
     );
   }
 
+  clearAllMeetings(): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/meetings/all`);
+  }
+
+  clearAllCalls(): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/calls/all`);
+  }
+
+  clearAllTasks(): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/tasks/all`);
+  }
+
   // --- Helpers for offline / fallback ---
   private getLocalMeetings(): Meeting[] {
     const cached = localStorage.getItem('sathlokhar_meetings');

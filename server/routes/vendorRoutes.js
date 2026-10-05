@@ -7,6 +7,7 @@ router.get('/', vendorLedgerController.getAllVendors);
 router.post('/', vendorLedgerController.createVendor);
 router.get('/:id', vendorLedgerController.getVendorWithLedger);
 router.put('/:id', vendorLedgerController.updateVendor);
+router.delete('/all', vendorLedgerController.deleteAllVendors);
 router.delete('/:id', vendorLedgerController.deleteVendor);
 
 // PO / WO CRUD

@@ -225,16 +225,16 @@
         </div>
       </div>
 
-      <!-- Order By Filter Popover Button -->
+      <!-- Engineer Filter Popover Button -->
       <div class="col-6 col-sm-4 col-md col-lg filter-container position-relative">
         <button class="btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center text-truncate shadow-none" (click)="toggleFilter('orderBy', $event)">
-          <span><i class="bi bi-funnel me-1"></i> Order By</span>
+          <span><i class="bi bi-funnel me-1"></i> Engineer</span>
           <i class="bi bi-chevron-down small ms-1"></i>
         </button>
-        <!-- Order By Filter Popup -->
+        <!-- Engineer Filter Popup -->
         <div *ngIf="orderByFilterOpen" class="filter-popup-menu shadow">
           <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
-            <span class="fw-semibold small text-muted">Order By</span>
+            <span class="fw-semibold small text-muted">Engineer</span>
             <span class="badge bg-light text-muted border" style="font-size: 0.68rem;">Filter</span>
           </div>
           <div class="mb-2">
@@ -253,14 +253,15 @@
         </div>
       </div>
 
-      <!-- PDF & EXCEL Export Buttons (Positioned above search table) -->
+      <!-- Upload Excel & Export (PDF + Excel) Action Buttons -->
       <div class="col-12 col-sm-auto ms-auto d-flex align-items-center gap-2">
-        <button class="btn btn-outline-danger btn-sm px-3 shadow-sm d-flex align-items-center" (click)="exportToPdf()" title="Export PDF">
-          <i class="bi bi-file-earmark-pdf-fill me-1.5"></i> PDF
+        <button class="btn btn-outline-success btn-sm px-3 shadow-sm d-flex align-items-center gap-1.5 fw-semibold" (click)="triggerExcelImport()" title="Upload Excel spreadsheet">
+          <i class="bi bi-file-earmark-arrow-up-fill text-success"></i> Upload
         </button>
-        <button class="btn btn-outline-success btn-sm px-3 shadow-sm d-flex align-items-center" (click)="exportToCsv()" title="Export Excel">
-          <i class="bi bi-file-earmark-excel-fill me-1.5"></i> EXCEL
+        <button class="btn btn-outline-danger btn-sm px-3 shadow-sm d-flex align-items-center gap-1.5 fw-semibold" (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
+          <i class="bi bi-download text-danger"></i> Export
         </button>
+        <input #excelFileInput type="file" accept=".xlsx,.xls,.csv" (change)="onExcelUploadSelected($event)" class="d-none">
       </div>
     </div>
   </div>
@@ -304,7 +305,7 @@
             <th style="min-width: 240px;">Client Name</th>
             <th style="min-width: 150px;">Location</th>
             <th class="text-end" style="width: 140px;">Site Value</th>
-            <th style="width: 140px;">Order By</th>
+            <th style="width: 140px;">Engineer</th>
             <th class="text-center bg-success-subtle text-success-emphasis" style="width: 110px;">Completed</th>
             <th class="text-center" style="width: 130px;">Actions</th>
           </tr>
@@ -346,7 +347,7 @@
                   <span class="text-primary fw-semibold">Central Inventory Store</span> &bull; Materials & Equipment
                 </ng-container>
                 <ng-container *ngIf="p.siteId !== 'WAREHOUSE'">
-                  {{ p.siteCapacity }} kW &bull; {{ p.siteType }}
+                  {{ formatCapacity(p.siteCapacity) }} &bull; {{ p.siteType }}
                 </ng-container>
               </div>
             </td>
@@ -562,13 +563,9 @@
               </div>
 
               <div class="col-md-4">
-                <label class="form-label small fw-bold">Order By</label>
+                <label class="form-label small fw-bold">Engineer / Site Manager</label>
                 <select class="form-select" [(ngModel)]="projectForm.orderBy" name="orderBy">
-                  <option value="K KARTHIKEYAN">K KARTHIKEYAN</option>
-                  <option value="K SATHISH">K SATHISH</option>
-                  <option value="S KARTHIKEYAN">S KARTHIKEYAN</option>
-                  <option value="SOUNDARARAJAN M">SOUNDARARAJAN M</option>
-                  <option value="V SHARATH">V SHARATH</option>
+                  <option *ngFor="let opt of orderByOptions" [value]="opt.label">{{ opt.label }}</option>
                 </select>
               </div>
 
@@ -583,18 +580,7 @@
 
             <!-- TAB 3: Financials & Ledger -->
             <div *ngIf="modalTab === 'finance'" class="row g-3">
-              <div class="col-12" *ngIf="isEditMode">
-                <div class="alert alert-secondary py-2 px-3 small d-flex align-items-center mb-1 text-dark border-0 bg-light rounded-3">
-                  <i class="bi bi-shield-lock-fill text-primary me-2 fs-6"></i>
-                  <span><strong>Financials &amp; Ledgers are non-editable:</strong> Client payments are recorded in <strong>Client Payment Ledger</strong> and expenses in <strong>Expense Ledger</strong> to prevent payment mismatches.</span>
-                </div>
-              </div>
-              <div class="col-12" *ngIf="!isEditMode">
-                <div class="alert alert-secondary py-2 px-3 small d-flex align-items-center mb-1 text-dark border-0 bg-light rounded-3">
-                  <i class="bi bi-info-circle-fill text-primary me-2 fs-6"></i>
-                  <span>Enter the agreed <strong>Site Value</strong>. Received payments and direct expenses are non-editable here and must be recorded separately in the respective ledgers.</span>
-                </div>
-              </div>
+
 
               <div class="col-md-4">
                 <label class="form-label small fw-bold d-flex align-items-center justify-content-between">
@@ -602,7 +588,7 @@
                   <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="bi bi-pencil-fill me-1"></i>Editable</span>
                 </label>
                 <input type="number" step="0.01" class="form-control font-mono fs-5 text-primary fw-bold" [(ngModel)]="projectForm.siteValue" name="siteValue" placeholder="0" required>
-                <small class="text-muted">Total agreed project value (Editable)</small>
+
               </div>
 
               <div class="col-md-4">
@@ -611,7 +597,7 @@
                   <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-lock-fill me-1"></i>Client Payment Ledger</span>
                 </label>
                 <input type="number" step="0.01" class="form-control font-mono fs-5 text-success bg-light" [(ngModel)]="projectForm.received" name="received" [disabled]="true" readonly>
-                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Non-editable. Synced from Client Payment Ledger.</small>
+
               </div>
 
               <div class="col-md-4">
@@ -620,7 +606,7 @@
                   <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="bi bi-lock-fill me-1"></i>Expenses Ledger</span>
                 </label>
                 <input type="number" step="0.01" class="form-control font-mono fs-5 text-dark bg-light" [(ngModel)]="projectForm.siteExpenses" name="siteExpenses" [disabled]="true" readonly>
-                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Non-editable. Synced from Expense Ledger.</small>
+
               </div>
 
               <!-- Computed Preview Box -->
@@ -649,12 +635,7 @@
 
             <!-- TAB 4: Milestones & Progress -->
             <div *ngIf="modalTab === 'milestones'" class="row g-4">
-              <div class="col-12">
-                <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-0">
-                  <i class="bi bi-info-circle-fill me-2 fs-6"></i>
-                  Each milestone tick contributes <strong>16.67%</strong> to Completed. All 6 ticks equal <strong>100%</strong>. Work in Process equals <strong>(100 - Completed)</strong>. Select the stage or toggle warranty/handover to update project progress.
-                </div>
-              </div>
+
 
               <!-- Stage Dropdown Card -->
               <div class="col-md-6">
@@ -680,9 +661,7 @@
                     <option value="EB Process">EB Process</option>
                     <option value="Documents">Documents</option>
                   </select>
-                  <small class="text-muted mt-2 d-block">
-                    <i class="bi bi-check2-circle me-1 text-success"></i>Editable mode enabled for project execution stage.
-                  </small>
+
                 </div>
               </div>
 
@@ -715,9 +694,7 @@
                       </label>
                     </div>
                   </div>
-                  <small class="text-muted mt-2 d-block">
-                    <i class="bi bi-check2-circle me-1 text-success"></i>Editable mode enabled for handover &amp; warranty status.
-                  </small>
+
                 </div>
               </div>
 
@@ -747,7 +724,7 @@
                       <i class="bi bi-pie-chart-fill text-success"></i>
                       Site Commercial &amp; Financial Analytics
                     </h6>
-                    <small class="text-muted">Breakdown of Client Payments, Site Expenses, and Margin as per Agreement Site Value</small>
+
                   </div>
                   <div class="d-flex align-items-center gap-2 bg-white border rounded-2 px-2.5 py-1 shadow-xs">
                     <label class="small text-muted mb-0 fw-semibold text-nowrap">
@@ -1008,13 +985,13 @@
                     <thead class="table-light text-uppercase fs-8 text-secondary">
                       <tr>
                         <th style="width: 55px;" class="text-center">S.NO</th>
-                        <th style="min-width: 110px;" class="text-center" title="Dispatched from Warehouse / Gate Pass">Dispatched</th>
-                        <th style="min-width: 140px;">Material Group</th>
-                        <th style="min-width: 130px;">Type / Sub-Group</th>
-                        <th style="min-width: 160px;">Specification / Size</th>
-                        <th style="min-width: 80px;">UOM</th>
-                        <th class="text-end" style="min-width: 100px;">QTY</th>
-                        <th class="text-end" style="min-width: 115px;">Rate (₹)</th>
+                        <th style="min-width: 115px;" class="text-center" title="Dispatched from Warehouse / Gate Pass">Dispatched</th>
+                        <th style="min-width: 180px;">Material Group</th>
+                        <th style="min-width: 180px;">Type / Sub-Group</th>
+                        <th style="min-width: 220px;">Specification / Size</th>
+                        <th style="min-width: 65px;" class="text-center">UOM</th>
+                        <th class="text-end" style="min-width: 95px;">QTY</th>
+                        <th class="text-end" style="min-width: 110px;">Rate (₹)</th>
                         <th class="text-end" style="min-width: 100px;">Base Cost (₹)</th>
                         <th class="text-center" style="width: 80px;">GST (%)</th>
                         <th class="text-end" style="min-width: 95px;">GST Amt (₹)</th>
@@ -1030,38 +1007,33 @@
                           <i class="bi text-primary" [ngClass]="expandedBomRowIndex === i ? 'bi-chevron-down-circle-fill' : 'bi-chevron-right-circle'"></i>
                         </td>
 
-                        <!-- Dispatched Status Badge / Toggle (Full = light green bg, Part = light blue bg, None = checkbox) -->
+                        <!-- Dispatched Status Badge (Automatic based on 100% Gate Pass Dispatch Qty) -->
                         <td class="text-center" (click)="$event.stopPropagation()">
-                          <!-- Fully Dispatched (Light Green BG: #dcfce7, text: #15803d, border: #86efac) -->
+                          <!-- Fully Dispatched 100% (Light Green BG: #dcfce7, text: #15803d, border: #86efac) -->
                           <div *ngIf="getBomDispatchStatus(item) === 'full'" 
-                               (click)="item.isDispatched = !item.isDispatched"
-                               class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs cursor-pointer" 
+                               class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs" 
                                style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.75rem;" 
-                               title="Fully Dispatched ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }}{{ item.dispatchDate ? ' on ' + item.dispatchDate : '' }}). Click to toggle.">
+                               title="Fully Dispatched (100% - {{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }}{{ item.dispatchDate ? ' on ' + item.dispatchDate : '' }})">
                             <i class="bi bi-check2-circle-fill"></i> ✓ Dispatched
                           </div>
 
                           <!-- Partially Dispatched (Light Blue BG: #e0f2fe, text: #0369a1, border: #7dd3fc) -->
                           <div *ngIf="getBomDispatchStatus(item) === 'part'" 
-                               (click)="item.isDispatched = !item.isDispatched"
-                               class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs cursor-pointer" 
+                               class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs" 
                                style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 0.75rem;" 
-                               title="Partially Dispatched ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }}{{ item.dispatchDate ? ' on ' + item.dispatchDate : '' }}). Click to toggle.">
+                               title="Partially Dispatched ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }})">
                             <i class="bi bi-hourglass-split"></i> Part ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }})
                           </div>
 
-                          <!-- Not Yet Dispatched: Checkbox -->
+                          <!-- Not Dispatched: Dash -->
                           <div *ngIf="getBomDispatchStatus(item) === 'none'" class="d-flex align-items-center justify-content-center">
-                            <input type="checkbox" class="form-check-input my-0 cursor-pointer" 
-                                   [(ngModel)]="item.isDispatched" 
-                                   name="disp_{{i}}" 
-                                   title="Click to mark as dispatched">
+                            <span class="text-muted font-mono small">—</span>
                           </div>
                         </td>
 
                         <!-- Group Select -->
                         <td (click)="$event.stopPropagation()">
-                          <select class="form-select form-select-sm" [(ngModel)]="item.materialGroup" (change)="onMaterialGroupChange(item)" name="grp_{{i}}">
+                          <select class="form-select form-select-sm" style="min-width: 170px;" [(ngModel)]="item.materialGroup" (change)="onMaterialGroupChange(item)" name="grp_{{i}}">
                             <option value="">-- Select Group --</option>
                             <option *ngFor="let g of materialGroupsList" [value]="g.group">{{ g.group }}</option>
                           </select>
@@ -1069,7 +1041,7 @@
 
                         <!-- Category Type Select -->
                         <td (click)="$event.stopPropagation()">
-                          <select class="form-select form-select-sm font-semibold text-primary" [(ngModel)]="item.categoryType" (change)="onCategoryTypeChange(item)" name="cat_{{i}}">
+                          <select class="form-select form-select-sm font-semibold text-primary" style="min-width: 170px;" [(ngModel)]="item.categoryType" (change)="onCategoryTypeChange(item)" name="cat_{{i}}">
                             <option value="">-- Select Type --</option>
                             <option *ngFor="let t of getAvailableCategoryTypes(item.materialGroup)" [value]="t">{{ t }}</option>
                           </select>
@@ -1078,7 +1050,7 @@
                         <!-- Specification Select Dropdown -->
                         <td (click)="$event.stopPropagation()">
                           <select class="form-select form-select-sm font-semibold text-dark" 
-                                  style="min-width: 130px;"
+                                  style="min-width: 210px;"
                                   [(ngModel)]="item.specification" 
                                   (change)="recalculateBomItem(item)" 
                                   name="spec_{{i}}">
@@ -1094,7 +1066,7 @@
 
                         <!-- UOM Select -->
                         <td (click)="$event.stopPropagation()">
-                          <select class="form-select form-select-sm" style="min-width: 80px;" [(ngModel)]="item.uom" name="uom_{{i}}">
+                          <select class="form-select form-select-sm px-1 text-center" style="width: 65px;" [(ngModel)]="item.uom" name="uom_{{i}}">
                             <option *ngFor="let u of uomOptions" [value]="u">{{ u }}</option>
                           </select>
                         </td>
@@ -1160,8 +1132,11 @@
                                 <i class="bi bi-receipt text-primary"></i> Actual Expenses &amp; Gate Pass Dispatch Tracking for {{ item.materialGroup }} ({{ item.specification }})
                               </span>
                               <div class="d-flex align-items-center gap-2">
-                                <span *ngIf="item.isDispatched" class="badge bg-success text-white">
-                                  <i class="bi bi-check2-circle me-1"></i>Dispatched via GP ({{ item.dispatchedQty || item.warehouseUnitsDrawn || 0 }} {{ item.uom }})
+                                <span *ngIf="getBomDispatchStatus(item) === 'full'" class="badge bg-success text-white">
+                                  <i class="bi bi-check2-circle me-1"></i>Fully Dispatched 100% ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }})
+                                </span>
+                                <span *ngIf="getBomDispatchStatus(item) === 'part'" class="badge bg-info text-white">
+                                  <i class="bi bi-hourglass-split me-1"></i>Partially Dispatched ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }})
                                 </span>
                                 <span class="badge" [ngClass]="isBomBudgetExceeded(item) ? 'bg-danger text-white' : 'bg-success-subtle text-success border'">
                                   {{ isBomBudgetExceeded(item) ? '⚠️ Exceeds BOM Budget' : '✓ Within Budget' }}
@@ -1175,32 +1150,21 @@
                               <span>{{ getBomExpenseWarningMessage(item) }}</span>
                             </div>
 
-                            <div class="row g-3">
-                              <!-- Dispatched Status Checkbox -->
-                              <div class="col-md-2">
-                                <label class="form-label fs-8 text-secondary mb-1">Gate Pass Dispatch</label>
-                                <div class="d-flex align-items-center gap-2 pt-1">
-                                  <input type="checkbox" class="form-check-input my-0" [(ngModel)]="item.isDispatched" name="exp_disp_{{i}}">
-                                  <span class="small fw-semibold" [class.text-success]="item.isDispatched" [class.text-muted]="!item.isDispatched">
-                                    {{ item.isDispatched ? 'Dispatched' : 'Pending' }}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <!-- Dispatch Date -->
-                              <div class="col-md-2" *ngIf="item.isDispatched">
+                            <div class="d-flex flex-wrap align-items-center gap-3">
+                              <!-- Dispatch Date (Read-Only) -->
+                              <div class="col-md-2" *ngIf="getBomDispatchedQty(item) > 0">
                                 <label class="form-label fs-8 text-secondary mb-1">Dispatch Date</label>
                                 <input type="text" class="form-control form-control-sm font-mono bg-light" [value]="formatDate(item.dispatchDate)" readonly name="ddate_{{i}}">
                               </div>
 
-                              <!-- Drawn Units -->
-                              <div class="col-md-2">
+                              <!-- Units Drawn (Compact) -->
+                              <div style="width: 105px;">
                                 <label class="form-label fs-8 text-secondary mb-1">Units Drawn</label>
-                                <input type="number" class="form-control form-control-sm font-mono text-center" [(ngModel)]="item.dispatchedQty" name="wdrawn_{{i}}" min="0" placeholder="e.g. 100">
+                                <input type="number" class="form-control form-control-sm font-mono text-center" [(ngModel)]="item.dispatchedQty" name="wdrawn_{{i}}" min="0" placeholder="0">
                               </div>
 
                               <!-- Actual Expenses (Read-Only auto-loaded from Client Expenses) -->
-                              <div class="col-md-2">
+                              <div class="col-md-3">
                                 <label class="form-label fs-8 text-secondary mb-1">Actual Expenses (₹) <span class="badge bg-light text-muted border font-mono">Auto-Ledger</span></label>
                                 <input type="number" class="form-control form-control-sm text-end text-danger font-mono fw-bold bg-light" [(ngModel)]="item.allocatedExpenseAmount" readonly name="exp_{{i}}" min="0" placeholder="0" title="Auto-loaded from Client Expenses ledger">
                               </div>
@@ -1212,7 +1176,7 @@
                               </div>
 
                               <!-- Bill / Invoice Ref with Tracking Link -->
-                              <div class="col-md-2">
+                              <div class="col-md-3">
                                 <label class="form-label fs-8 text-secondary mb-1">Bill / GP Ref</label>
                                 <div class="input-group input-group-sm">
                                   <input type="text" class="form-control font-mono bg-light" placeholder="e.g. GP-12" [(ngModel)]="item.invoiceRef" readonly name="inv_{{i}}">
@@ -1324,7 +1288,7 @@
               <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
                 <h4 class="modal-title fw-bold mb-0 text-white">{{ selectedProject.clientName }}</h4>
                 <span class="badge bg-warning text-dark font-mono px-2 py-1">{{ selectedProject.siteId }}</span>
-                <span class="badge bg-light text-dark font-mono px-2 py-1">{{ selectedProject.siteCapacity || 'N/A' }} kW</span>
+                <span class="badge bg-light text-dark font-mono px-2 py-1">{{ formatCapacity(selectedProject.siteCapacity) }}</span>
                 <span class="badge bg-white-subtle text-white border border-white-50 px-2 py-1">{{ selectedProject.siteType }}</span>
               </div>
               <div class="text-light opacity-75 small d-flex flex-wrap gap-2 align-items-center">
@@ -1555,7 +1519,7 @@
                       </tr>
                       <tr class="border-bottom">
                         <td class="text-muted fw-semibold">Site Capacity</td>
-                        <td class="fw-bold text-teal" style="color: #0f766e;">{{ selectedProject.siteCapacity || '-' }}</td>
+                        <td class="fw-bold text-teal" style="color: #0f766e;">{{ formatCapacity(selectedProject.siteCapacity) }}</td>
                       </tr>
                       <tr class="border-bottom">
                         <td class="text-muted fw-semibold">Site Type</td>
@@ -1658,7 +1622,7 @@
                 <span class="badge bg-warning text-dark font-mono px-2 py-1 fw-bold shadow-xs">{{ activePaymentProject.siteId }}</span>
               </div>
               <div class="d-flex align-items-center gap-2 flex-wrap text-white-50 small">
-                <span class="meta-pill"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>{{ activePaymentProject.siteCapacity }} kW &bull; {{ activePaymentProject.siteType }}</span>
+                <span class="meta-pill"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>{{ formatCapacity(activePaymentProject.siteCapacity) }} &bull; {{ activePaymentProject.siteType }}</span>
                 <span class="meta-pill" *ngIf="activePaymentProject.location"><i class="bi bi-geo-alt-fill text-info me-1"></i>{{ activePaymentProject.location }}</span>
                 <span class="meta-pill text-white-50">&bull; Client Payment Ledger & Installments</span>
               </div>
@@ -1750,7 +1714,7 @@
                       <span class="badge bg-secondary-subtle text-secondary">{{ idx + 1 }}</span>
                     </td>
                     <td class="fw-semibold text-dark font-mono small">
-                      {{ p.formattedDate || toDisplayDate(p.paymentDate) }}
+                      {{ toDisplayDate(p.formattedDate || p.paymentDate) }}
                     </td>
                     <td>
                       <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono fw-bold">{{ p.siteId }}</span>

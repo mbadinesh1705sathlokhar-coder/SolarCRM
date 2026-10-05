@@ -221,6 +221,12 @@ async function seedMasterListsIfEmpty() {
                 items: defaultHandlers
             },
             {
+                title: 'Engineer',
+                category: 'Office',
+                description: 'Site Engineers and Project Execution Engineers',
+                items: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
+            },
+            {
                 title: 'Call Status',
                 category: 'Activity',
                 description: 'Lifecycle status options for logging and managing sales & client calls',

@@ -9,6 +9,11 @@ export interface FormRow {
   value: string;
 }
 
+export interface ColumnMappingRow {
+  sectionId: string;
+  columnKey: string;
+}
+
 export interface ConfigurableColumnDef {
   key: string;              // Unique key
   columnName: string;       // Display name of the column in that module
@@ -68,6 +73,7 @@ export class AddListComponent implements OnInit {
   // Hierarchical Selection State
   selectedSectionId = '';
   selectedColumnKey = '';
+  mappingRows: ColumnMappingRow[] = [];
   isCustomColumn = false;
 
   // Form State
@@ -246,11 +252,11 @@ export class AddListComponent implements OnInit {
         },
         {
           key: 'leads-order-by',
-          columnName: 'Order By',
-          listTitle: 'Order_By',
+          columnName: 'Engineer',
+          listTitle: 'Engineer',
           category: 'Projects',
-          description: 'Originating reference or booking authority',
-          defaultOptions: ['Dinesh Kumar', 'Office', 'Self']
+          description: 'Assigned site engineer or originating reference authority',
+          defaultOptions: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
         }
       ]
     },
@@ -397,6 +403,14 @@ export class AddListComponent implements OnInit {
           category: 'Finances',
           description: 'Payment settlement and banking methods',
           defaultOptions: ['Bank Transfer / NEFT', 'Bank Transfer / IMPS', 'Cheque / DD', 'UPI', 'Bank Deposit']
+        },
+        {
+          key: 'proj-engineer',
+          columnName: 'Engineer',
+          listTitle: 'Engineer',
+          category: 'Projects',
+          description: 'Site Engineer / Project Manager assigned to the awarded project',
+          defaultOptions: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
         }
       ]
     },
@@ -432,6 +446,14 @@ export class AddListComponent implements OnInit {
           category: 'Finances',
           description: 'Payment closing tolerance threshold (in ₹) to consider client accounts Fully Paid (e.g. 100, 10, 50, 500)',
           defaultOptions: ['100', '10', '50', '500']
+        },
+        {
+          key: 'ledger-engineer',
+          columnName: 'Engineer',
+          listTitle: 'Engineer',
+          category: 'Finances',
+          description: 'Engineer responsible for client account payments',
+          defaultOptions: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
         }
       ]
     },
@@ -442,6 +464,14 @@ export class AddListComponent implements OnInit {
       icon: 'bi-receipt',
       badgeColor: '#dc2626',
       columns: [
+        {
+          key: 'expense-engineer',
+          columnName: 'Engineer',
+          listTitle: 'Engineer',
+          category: 'Finances',
+          description: 'Site engineer claiming or managing site expenses',
+          defaultOptions: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
+        },
         {
           key: 'expense-payment-through',
           columnName: 'Payment Through',
@@ -520,9 +550,150 @@ export class AddListComponent implements OnInit {
 
     // 4. Inventory Group
     {
+      id: 'inventory-indent',
+      group: 'Inventory',
+      title: 'Indent',
+      icon: 'bi-file-earmark-text',
+      badgeColor: '#0f766e',
+      columns: [
+        {
+          key: 'indent-engineer',
+          columnName: 'Site Engineer',
+          listTitle: 'Engineer',
+          category: 'Inventory',
+          description: 'Site engineer handling material requisitions and Indents',
+          defaultOptions: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
+        },
+        {
+          key: 'indent-materials',
+          columnName: 'Material / Stock Categories',
+          listTitle: 'Materials',
+          category: 'Inventory',
+          description: 'Materials catalog for indent requisitions',
+          defaultOptions: ['Cable Tray Materials', 'Cables', 'Civil Work Labour', 'Consumables', 'DB Boxes', 'Earthing Materials', 'Expo / Event Expenses', 'Labour/Manpower', 'Lead Acid Batteries', 'Lightning Arrestors', 'Lithium Batteries', 'Material Transport', 'Panles Cleaning Liquid', 'Petrol Cliam', 'Rental Tools', 'Solar CEIG Works', 'Solar I&C Works', 'Solar Inverters', 'Solar Meters', 'Solar MMS', 'Solar Panels', 'TATA SPG Package', 'Walkway / Hand Rails', 'Zero Export Device', 'Tools Asset', 'Safety Certificates']
+        },
+        {
+          key: 'indent-uom',
+          columnName: 'UOM Measurements',
+          listTitle: 'UOM measurements',
+          category: 'Inventory',
+          description: 'Units of measurement for indent items',
+          defaultOptions: ['Nos', 'Meter', 'Sets', 'Kg', 'Watts', 'Pcs', 'Pair', 'Box', 'Packet', 'Coil', 'Trip', 'Lot', 'Sqft', 'Sqmm', 'Rmtr']
+        }
+      ]
+    },
+    {
+      id: 'inventory-warehouse',
+      group: 'Inventory',
+      title: 'Warehouse',
+      icon: 'bi-box-seam',
+      badgeColor: '#0f766e',
+      columns: [
+        {
+          key: 'wh-engineer',
+          columnName: 'Site Engineer',
+          listTitle: 'Engineer',
+          category: 'Inventory',
+          description: 'Warehouse storekeeper / Site Engineer handling inventory dispatch',
+          defaultOptions: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
+        },
+        {
+          key: 'wh-materials',
+          columnName: 'Material / Stock Categories',
+          listTitle: 'Materials',
+          category: 'Inventory',
+          description: 'Warehouse stock items catalog',
+          defaultOptions: ['Cable Tray Materials', 'Cables', 'Civil Work Labour', 'Consumables', 'DB Boxes', 'Earthing Materials', 'Expo / Event Expenses', 'Labour/Manpower', 'Lead Acid Batteries', 'Lightning Arrestors', 'Lithium Batteries', 'Material Transport', 'Panles Cleaning Liquid', 'Petrol Cliam', 'Rental Tools', 'Solar CEIG Works', 'Solar I&C Works', 'Solar Inverters', 'Solar Meters', 'Solar MMS', 'Solar Panels', 'TATA SPG Package', 'Walkway / Hand Rails', 'Zero Export Device', 'Tools Asset', 'Safety Certificates']
+        },
+        {
+          key: 'wh-uom',
+          columnName: 'UOM Measurements',
+          listTitle: 'UOM measurements',
+          category: 'Inventory',
+          description: 'Units of measurement for warehouse stock',
+          defaultOptions: ['Nos', 'Meter', 'Sets', 'Kg', 'Watts', 'Pcs', 'Pair', 'Box', 'Packet', 'Coil', 'Trip', 'Lot', 'Sqft', 'Sqmm', 'Rmtr']
+        }
+      ]
+    },
+    {
+      id: 'inventory-gatepass',
+      group: 'Inventory',
+      title: 'Gate Pass',
+      icon: 'bi-pass',
+      badgeColor: '#0f766e',
+      columns: [
+        {
+          key: 'gp-engineer',
+          columnName: 'Site Engineer',
+          listTitle: 'Engineer',
+          category: 'Inventory',
+          description: 'Site engineer issuing gate pass dispatch',
+          defaultOptions: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
+        },
+        {
+          key: 'gp-materials',
+          columnName: 'Material / Stock Categories',
+          listTitle: 'Materials',
+          category: 'Inventory',
+          description: 'Materials for gate pass transit',
+          defaultOptions: ['Cable Tray Materials', 'Cables', 'Civil Work Labour', 'Consumables', 'DB Boxes', 'Earthing Materials', 'Expo / Event Expenses', 'Labour/Manpower', 'Lead Acid Batteries', 'Lightning Arrestors', 'Lithium Batteries', 'Material Transport', 'Panles Cleaning Liquid', 'Petrol Cliam', 'Rental Tools', 'Solar CEIG Works', 'Solar I&C Works', 'Solar Inverters', 'Solar Meters', 'Solar MMS', 'Solar Panels', 'TATA SPG Package', 'Walkway / Hand Rails', 'Zero Export Device', 'Tools Asset', 'Safety Certificates']
+        }
+      ]
+    },
+    {
+      id: 'inventory-cart',
+      group: 'Inventory',
+      title: 'Add to cart',
+      icon: 'bi-cart3',
+      badgeColor: '#0f766e',
+      columns: [
+        {
+          key: 'cart-engineer',
+          columnName: 'Site Engineer',
+          listTitle: 'Engineer',
+          category: 'Inventory',
+          description: 'Site engineer requisitioning materials in cart',
+          defaultOptions: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
+        },
+        {
+          key: 'cart-materials',
+          columnName: 'Material / Stock Categories',
+          listTitle: 'Materials',
+          category: 'Inventory',
+          description: 'Cart material items',
+          defaultOptions: ['Cable Tray Materials', 'Cables', 'Civil Work Labour', 'Consumables', 'DB Boxes', 'Earthing Materials', 'Expo / Event Expenses', 'Labour/Manpower', 'Lead Acid Batteries', 'Lightning Arrestors', 'Lithium Batteries', 'Material Transport', 'Panles Cleaning Liquid', 'Petrol Cliam', 'Rental Tools', 'Solar CEIG Works', 'Solar I&C Works', 'Solar Inverters', 'Solar Meters', 'Solar MMS', 'Solar Panels', 'TATA SPG Package', 'Walkway / Hand Rails', 'Zero Export Device', 'Tools Asset', 'Safety Certificates']
+        }
+      ]
+    },
+    {
+      id: 'inventory-bom',
+      group: 'Inventory',
+      title: 'Bill of Materials (BOM)',
+      icon: 'bi-diagram-3-fill',
+      badgeColor: '#0f766e',
+      columns: [
+        {
+          key: 'bom-materials-group',
+          columnName: 'Bill of Materials (BOM)',
+          listTitle: 'BOM',
+          category: 'Inventory',
+          description: 'Material Groups (Cables, Panels, Inverters, Civil & Miscellaneous, Consumables, Earthing Protection, Module Mounting Structures, Tata SPG Package, Waree) for BOM Cost Sheet allocation',
+          defaultOptions: ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree']
+        },
+        {
+          key: 'bom-uom',
+          columnName: 'UOM Measurements',
+          listTitle: 'UOM measurements',
+          category: 'Inventory',
+          description: 'Units of measurement for BOM items',
+          defaultOptions: ['Nos', 'Meter', 'Sets', 'Kg', 'Watts', 'Pcs', 'Pair', 'Box', 'Packet', 'Coil', 'Trip', 'Lot', 'Sqft', 'Sqmm', 'Rmtr']
+        }
+      ]
+    },
+    {
       id: 'inventory-all',
       group: 'Inventory',
-      title: 'Inventory & BOM (Materials Group, Warehouse, Indent)',
+      title: 'Inventory & BOM (All Modules)',
       icon: 'bi-box-seam',
       badgeColor: '#0f766e',
       columns: [
@@ -531,7 +702,7 @@ export class AddListComponent implements OnInit {
           columnName: 'Bill of Materials (BOM)',
           listTitle: 'BOM',
           category: 'Inventory',
-          description: 'Material Groups (Cables, Panels, Inverters, Civil & Miscellaneous, Consumables, Earthing Protection, Module Mounting Structures, Tata SPG Package, Waree) for BOM Cost Sheet allocation',
+          description: 'Material Groups for BOM Cost Sheet allocation',
           defaultOptions: ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree']
         },
         {
@@ -539,7 +710,7 @@ export class AddListComponent implements OnInit {
           columnName: 'Material / Stock Categories',
           listTitle: 'Materials',
           category: 'Inventory',
-          description: 'Complete materials, consumables and tools catalog for Indent, Warehouse, Gate Pass and Cart',
+          description: 'Complete materials catalog',
           defaultOptions: ['Cable Tray Materials', 'Cables', 'Civil Work Labour', 'Consumables', 'DB Boxes', 'Earthing Materials', 'Expo / Event Expenses', 'Labour/Manpower', 'Lead Acid Batteries', 'Lightning Arrestors', 'Lithium Batteries', 'Material Transport', 'Panles Cleaning Liquid', 'Petrol Cliam', 'Rental Tools', 'Solar CEIG Works', 'Solar I&C Works', 'Solar Inverters', 'Solar Meters', 'Solar MMS', 'Solar Panels', 'TATA SPG Package', 'Walkway / Hand Rails', 'Zero Export Device', 'Tools Asset', 'Safety Certificates']
         },
         {
@@ -547,8 +718,16 @@ export class AddListComponent implements OnInit {
           columnName: 'UOM Measurements',
           listTitle: 'UOM measurements',
           category: 'Inventory',
-          description: 'Units of measurement (UOM) for inventory items, BOM specifications, warehouse materials, and procurement (e.g. Nos, Meter, Sets, Kg, Watts, Pcs, etc.)',
+          description: 'Units of measurement',
           defaultOptions: ['Nos', 'Meter', 'Sets', 'Kg', 'Watts', 'Pcs', 'Pair', 'Box', 'Packet', 'Coil', 'Trip', 'Lot', 'Sqft', 'Sqmm', 'Rmtr']
+        },
+        {
+          key: 'inv-engineer',
+          columnName: 'Site Engineer',
+          listTitle: 'Engineer',
+          category: 'Inventory',
+          description: 'Site engineer handling Inventory',
+          defaultOptions: ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']
         }
       ]
     },
@@ -633,30 +812,44 @@ export class AddListComponent implements OnInit {
     return this.sidebarSections.find(s => s.id === this.selectedSectionId);
   }
 
-  // Reverse mapping helper for table display
-  getMappedInfo(list: MasterList): { sectionTitle: string; columnName: string; icon: string; badgeColor: string } {
+  // Reverse multi-mapping helper for table display
+  getAllMappedInfo(list: MasterList): { sectionTitle: string; columnName: string; icon: string; badgeColor: string }[] {
     const norm = (s: string) => (s || '').toLowerCase().replace(/[\s_-]+/g, '');
     const listNorm = norm(list.title);
+    const results: { sectionTitle: string; columnName: string; icon: string; badgeColor: string }[] = [];
+    const seenSecs = new Set<string>();
 
     for (const sec of this.sidebarSections) {
       for (const col of sec.columns) {
-        if (norm(col.listTitle) === listNorm) {
-          return {
-            sectionTitle: `${sec.title}`,
-            columnName: col.columnName,
-            icon: sec.icon,
-            badgeColor: sec.badgeColor
-          };
+        if (norm(col.listTitle) === listNorm || norm(col.columnName) === listNorm) {
+          if (!seenSecs.has(sec.title)) {
+            seenSecs.add(sec.title);
+            results.push({
+              sectionTitle: `${sec.title}`,
+              columnName: col.columnName,
+              icon: sec.icon,
+              badgeColor: sec.badgeColor
+            });
+          }
         }
       }
     }
 
-    return {
-      sectionTitle: list.category || 'General',
-      columnName: list.title,
-      icon: 'bi-tag',
-      badgeColor: '#64748b'
-    };
+    if (results.length === 0) {
+      results.push({
+        sectionTitle: list.category || 'General',
+        columnName: list.title,
+        icon: 'bi-tag',
+        badgeColor: '#64748b'
+      });
+    }
+
+    return results;
+  }
+
+  getMappedInfo(list: MasterList): { sectionTitle: string; columnName: string; icon: string; badgeColor: string } {
+    const all = this.getAllMappedInfo(list);
+    return all[0];
   }
 
   get categoryFilterCounts(): { [key: string]: number } {
@@ -688,77 +881,231 @@ export class AddListComponent implements OnInit {
     return this.lists.reduce((sum, l) => sum + (l.items?.length || 0), 0);
   }
 
-  onSectionChange(): void {
-    if (this.selectedSectionId === 'custom') {
+  // Sub-modal state for Custom Section & Column Mapping
+  isCustomMappingModalOpen = false;
+  customSectionSelect = '';
+  customSectionInput = '';
+  customColumnSelect = '';
+  customColumnInput = '';
+  customCategoryInput = 'General';
+  customDescriptionInput = '';
+
+  get subModalAvailableColumns(): ConfigurableColumnDef[] {
+    if (!this.customSectionSelect || this.customSectionSelect === '__NEW_SECTION__') {
+      const allCols: ConfigurableColumnDef[] = [];
+      const seenKeys = new Set<string>();
+      for (const sec of this.sidebarSections) {
+        for (const c of sec.columns) {
+          if (!seenKeys.has(c.columnName)) {
+            seenKeys.add(c.columnName);
+            allCols.push(c);
+          }
+        }
+      }
+      return allCols;
+    }
+    const sec = this.sidebarSections.find(s => s.id === this.customSectionSelect);
+    return sec ? sec.columns : [];
+  }
+
+  openCustomMappingModal(): void {
+    this.customSectionSelect = (this.selectedSectionId && this.selectedSectionId !== 'custom') ? this.selectedSectionId : '';
+    const initialSec = this.sidebarSections.find(s => s.id === this.customSectionSelect);
+    this.customSectionInput = initialSec ? initialSec.title : '';
+    
+    this.customColumnSelect = (this.selectedColumnKey && this.selectedColumnKey !== '__CUSTOM__') ? this.selectedColumnKey : '';
+    const initialCol = this.availableColumns.find(c => c.key === this.customColumnSelect);
+    this.customColumnInput = initialCol ? initialCol.columnName : '';
+
+    this.customCategoryInput = initialSec?.group || this.selectedSection?.group || 'General';
+    this.customDescriptionInput = '';
+    this.isCustomMappingModalOpen = true;
+  }
+
+  onSubModalSectionSelectChange(): void {
+    if (this.customSectionSelect === '__NEW_SECTION__') {
+      this.customSectionInput = '';
+    } else {
+      const sec = this.sidebarSections.find(s => s.id === this.customSectionSelect);
+      if (sec) {
+        this.customSectionInput = sec.title;
+        if (sec.group) this.customCategoryInput = sec.group;
+      }
+    }
+    this.customColumnSelect = '';
+    this.customColumnInput = '';
+  }
+
+  onSubModalColumnSelectChange(): void {
+    if (this.customColumnSelect === '__NEW_COLUMN__') {
+      this.customColumnInput = '';
+    } else {
+      const col = this.subModalAvailableColumns.find(c => c.key === this.customColumnSelect || c.columnName === this.customColumnSelect);
+      if (col) {
+        this.customColumnInput = col.columnName;
+      } else {
+        this.customColumnInput = this.customColumnSelect;
+      }
+    }
+  }
+
+  getAvailableColumnsForSection(sectionId: string): ConfigurableColumnDef[] {
+    const section = this.sidebarSections.find(s => s.id === sectionId);
+    return section ? section.columns : [];
+  }
+
+  addMappingRow(): void {
+    const defaultSecId = this.sidebarSections.length > 0 ? this.sidebarSections[0].id : 'custom';
+    const cols = this.getAvailableColumnsForSection(defaultSecId);
+    const defaultColKey = cols.length > 0 ? cols[0].key : '__CUSTOM__';
+    this.mappingRows.push({ sectionId: defaultSecId, columnKey: defaultColKey });
+    this.checkIfBomMaterialsMode();
+  }
+
+  removeMappingRow(index: number): void {
+    if (this.mappingRows.length > 1) {
+      this.mappingRows.splice(index, 1);
+      this.checkIfBomMaterialsMode();
+    }
+  }
+
+  onMappingRowSectionChange(idx: number): void {
+    const row = this.mappingRows[idx];
+    if (!row) return;
+    if (row.sectionId === 'custom') {
+      row.columnKey = '__CUSTOM__';
       this.isCustomColumn = true;
-      this.selectedColumnKey = '__CUSTOM__';
-      this.formTitle = '';
-      this.formCategory = 'General';
-      this.formDescription = '';
-      this.formRows = [{ value: '' }];
-      this.configNoticeText = 'Define a custom column title and add your desired options.';
-      this.configNoticeType = 'new';
+    } else {
+      const cols = this.getAvailableColumnsForSection(row.sectionId);
+      if (cols.length > 0) {
+        row.columnKey = cols[0].key;
+      } else {
+        row.columnKey = '__CUSTOM__';
+      }
+    }
+    this.checkIfBomMaterialsMode();
+  }
+
+  onMappingRowColumnChange(idx: number): void {
+    const row = this.mappingRows[idx];
+    if (row && row.columnKey === '__CUSTOM__') {
+      this.isCustomColumn = true;
+    }
+    this.checkIfBomMaterialsMode();
+  }
+
+  detectMappingsForList(list: MasterList): ColumnMappingRow[] {
+    const norm = (s: string) => (s || '').toLowerCase().replace(/[\s_-]+/g, '');
+    const listNorm = norm(list.title);
+    const rows: ColumnMappingRow[] = [];
+    const seen = new Set<string>();
+
+    for (const sec of this.sidebarSections) {
+      for (const col of sec.columns) {
+        if (norm(col.listTitle) === listNorm || norm(col.columnName) === listNorm || (listNorm === 'bom' && (col.key.includes('materials') || col.key.includes('bom')))) {
+          const comboKey = `${sec.id}:${col.key}`;
+          if (!seen.has(comboKey)) {
+            seen.add(comboKey);
+            rows.push({ sectionId: sec.id, columnKey: col.key });
+          }
+        }
+      }
+    }
+
+    if (rows.length === 0) {
+      rows.push({ sectionId: 'sales-awarded', columnKey: 'proj-materials-group' });
+    }
+
+    return rows;
+  }
+
+  closeCustomMappingModal(): void {
+    this.isCustomMappingModalOpen = false;
+  }
+
+  saveCustomMapping(): void {
+    let secTitle = (this.customSectionInput || '').trim();
+    if (!secTitle && this.customSectionSelect && this.customSectionSelect !== '__NEW_SECTION__') {
+      const sec = this.sidebarSections.find(s => s.id === this.customSectionSelect);
+      if (sec) secTitle = sec.title;
+    }
+
+    let colTitle = (this.customColumnInput || '').trim();
+    if (!colTitle && this.customColumnSelect && this.customColumnSelect !== '__NEW_COLUMN__') {
+      const col = this.subModalAvailableColumns.find(c => c.key === this.customColumnSelect || c.columnName === this.customColumnSelect);
+      if (col) colTitle = col.columnName;
+      else colTitle = this.customColumnSelect;
+    }
+
+    const cat = this.customCategoryInput || 'General';
+
+    if (!secTitle) {
+      this.showToast('Please select or type a Section Name (Side Menu Bar).', 'danger');
       return;
     }
 
-    this.isCustomColumn = false;
-    this.selectedColumnKey = '';
-    const section = this.selectedSection;
-    if (section && section.columns.length > 0) {
-      this.selectedColumnKey = section.columns[0].key;
-      this.onColumnChange();
-    } else {
-      this.configNoticeText = '';
-      this.configNoticeType = '';
+    if (!colTitle) {
+      this.showToast('Please select or type a Column Name.', 'danger');
+      return;
+    }
+
+    // 1. Find or create Section in sidebarSections
+    let section = this.sidebarSections.find(s => s.title.toLowerCase() === secTitle.toLowerCase() || s.id === this.customSectionSelect);
+    if (!section) {
+      const sectionId = 'custom-sec-' + Date.now();
+      section = {
+        id: sectionId,
+        group: cat,
+        title: secTitle,
+        icon: 'bi-gear-wide-connected',
+        badgeColor: '#0284c7',
+        columns: []
+      };
+      // Insert section before the final fallback "custom" section
+      const customIdx = this.sidebarSections.findIndex(s => s.id === 'custom');
+      if (customIdx >= 0) {
+        this.sidebarSections.splice(customIdx, 0, section);
+      } else {
+        this.sidebarSections.push(section);
+      }
+    }
+
+    // 2. Find or create Column in section
+    let col = section.columns.find(c => c.columnName.toLowerCase() === colTitle.toLowerCase() || c.listTitle.toLowerCase() === colTitle.toLowerCase() || c.key === this.customColumnSelect);
+    if (!col) {
+      const colKey = 'custom-col-' + Date.now();
+      col = {
+        key: colKey,
+        columnName: colTitle,
+        listTitle: this.formTitle || colTitle,
+        category: cat,
+        description: (this.customDescriptionInput || '').trim() || `${colTitle} under ${secTitle} section`,
+        defaultOptions: ['Option 1']
+      };
+      section.columns.push(col);
+    }
+
+    // 3. Add to mappingRows instead of replacing single row!
+    const existingIdx = this.mappingRows.findIndex(r => r.sectionId === section!.id && r.columnKey === col!.key);
+    if (existingIdx < 0) {
+      this.mappingRows.push({ sectionId: section.id, columnKey: col.key });
+    }
+
+    this.closeCustomMappingModal();
+    this.showToast(`Added custom mapping "${section.title} → ${col.columnName}"`, 'success');
+    this.checkIfBomMaterialsMode();
+  }
+
+  onSectionChange(): void {
+    if (this.mappingRows.length > 0) {
+      this.onMappingRowSectionChange(0);
     }
   }
 
   onColumnChange(): void {
-    if (this.selectedColumnKey === '__CUSTOM__') {
-      this.isCustomColumn = true;
-      this.formTitle = '';
-      this.formCategory = this.selectedSection?.group || 'General';
-      this.formDescription = '';
-      this.formRows = [{ value: '' }];
-      this.configNoticeText = 'Create a custom column for this section and specify options.';
-      this.configNoticeType = 'new';
-      this.isEditMode = false;
-      this.editingId = null;
-      return;
+    if (this.mappingRows.length > 0) {
+      this.onMappingRowColumnChange(0);
     }
-
-    this.isCustomColumn = false;
-    const col = this.availableColumns.find(c => c.key === this.selectedColumnKey);
-    if (!col) return;
-
-    const norm = (s: string) => (s || '').toLowerCase().replace(/[\s_-]+/g, '');
-    const targetNorm = norm(col.listTitle);
-    const existingList = this.lists.find(l => norm(l.title) === targetNorm);
-
-    if (existingList) {
-      this.isEditMode = true;
-      this.editingId = existingList.id || null;
-      this.formTitle = existingList.title;
-      this.formCategory = existingList.category || col.category;
-      this.formDescription = existingList.description || col.description;
-      if (existingList.items && existingList.items.length > 0) {
-        this.formRows = existingList.items.map(it => ({ value: it }));
-      } else {
-        this.formRows = [{ value: '' }];
-      }
-      this.configNoticeText = `✓ Existing configuration loaded with ${this.formRows.length} options. You can edit, add, or delete options below.`;
-      this.configNoticeType = 'existing';
-    } else {
-      this.isEditMode = false;
-      this.editingId = null;
-      this.formTitle = col.listTitle;
-      this.formCategory = col.category;
-      this.formDescription = col.description;
-      this.formRows = col.defaultOptions.map(it => ({ value: it }));
-      this.configNoticeText = `✨ New configuration for this column. Pre-populated with ${this.formRows.length} standard options. You can customize them before saving.`;
-      this.configNoticeType = 'new';
-    }
-    this.checkIfBomMaterialsMode();
   }
 
   openAddModal(): void {
@@ -768,9 +1115,13 @@ export class AddListComponent implements OnInit {
     }
     this.isEditMode = false;
     this.editingId = null;
-    this.selectedSectionId = 'activity-calls'; // Default to Calls as requested by the user
+    this.formTitle = '';
+    this.formCategory = 'Activity';
+    this.formDescription = '';
+    this.mappingRows = [{ sectionId: 'sales-awarded', columnKey: 'proj-materials-group' }];
     this.isCustomColumn = false;
-    this.onSectionChange();
+    this.formRows = [{ value: '' }];
+    this.configNoticeText = '';
     this.isModalOpen = true;
   }
 
@@ -785,29 +1136,7 @@ export class AddListComponent implements OnInit {
     this.formCategory = list.category || 'General';
     this.formDescription = list.description || '';
 
-    // Reverse lookup section and column
-    const norm = (s: string) => (s || '').toLowerCase().replace(/[\s_-]+/g, '');
-    const listNorm = norm(list.title);
-    let matched = false;
-
-    for (const sec of this.sidebarSections) {
-      for (const col of sec.columns) {
-        if (norm(col.listTitle) === listNorm) {
-          this.selectedSectionId = sec.id;
-          this.selectedColumnKey = col.key;
-          this.isCustomColumn = false;
-          matched = true;
-          break;
-        }
-      }
-      if (matched) break;
-    }
-
-    if (!matched) {
-      this.selectedSectionId = 'custom';
-      this.selectedColumnKey = '__CUSTOM__';
-      this.isCustomColumn = true;
-    }
+    this.mappingRows = this.detectMappingsForList(list);
 
     if (list.items && list.items.length > 0) {
       this.formRows = list.items.map(it => ({ value: it }));
@@ -815,7 +1144,7 @@ export class AddListComponent implements OnInit {
       this.formRows = [{ value: '' }];
     }
 
-    this.configNoticeText = `Editing list "${list.title}" with ${this.formRows.length} configured options.`;
+    this.configNoticeText = `Editing list "${list.title}" with ${this.formRows.length} configured options across ${this.mappingRows.length} mapped sections.`;
     this.configNoticeType = 'existing';
     this.checkIfBomMaterialsMode();
     this.isModalOpen = true;
@@ -985,8 +1314,11 @@ export class AddListComponent implements OnInit {
 
   checkIfBomMaterialsMode(): void {
     const titleNorm = (this.formTitle || '').toLowerCase().trim();
-    const keyNorm = (this.selectedColumnKey || '').toLowerCase().trim();
-    this.isBomMaterialsMode = (titleNorm === 'bom' || titleNorm === 'materials_' || keyNorm === 'inv-materials-group' || keyNorm === 'proj-materials-group');
+    const hasBomRow = this.mappingRows.some(r => {
+      const keyNorm = (r.columnKey || '').toLowerCase().trim();
+      return keyNorm === 'inv-materials-group' || keyNorm === 'proj-materials-group' || keyNorm === 'bom-materials-group' || keyNorm === 'indent-materials';
+    });
+    this.isBomMaterialsMode = (titleNorm === 'bom' || titleNorm === 'materials_' || titleNorm === 'material group' || titleNorm.includes('bom') || hasBomRow);
     if (this.isBomMaterialsMode) {
       this.loadBomMaterialsData();
     }
@@ -996,6 +1328,7 @@ export class AddListComponent implements OnInit {
     this.isModalOpen = false;
     this.editingId = null;
     this.formRows = [{ value: '' }];
+    this.mappingRows = [];
     this.selectedSectionId = '';
     this.selectedColumnKey = '';
     this.configNoticeText = '';

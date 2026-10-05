@@ -136,7 +136,6 @@
             <th style="width: 50px;" class="text-center">#</th>
             <th style="min-width: 200px;">Configuration List Title</th>
             <th style="min-width: 210px;">Mapped Section & Column</th>
-            <th style="width: 110px;">Category</th>
             <th style="width: 90px;" class="text-center">Options</th>
             <th style="min-width: 280px;">Configured Options Preview</th>
             <th style="width: 140px;" class="text-center">Actions</th>
@@ -144,13 +143,13 @@
         </thead>
         <tbody>
           <tr *ngIf="loading">
-            <td colspan="7" class="text-center py-5 text-muted">
+            <td colspan="6" class="text-center py-5 text-muted">
               <div class="spinner-border spinner-border-sm text-primary me-2"></div>
               Loading master configuration lists...
             </td>
           </tr>
           <tr *ngIf="!loading && filteredLists.length === 0">
-            <td colspan="7" class="text-center py-5 text-muted">
+            <td colspan="6" class="text-center py-5 text-muted">
               <i class="bi bi-card-checklist fs-2 d-block mb-2 text-secondary"></i>
               No configuration lists found matching your search. Click <strong>Add List</strong> to create one.
             </td>
@@ -179,24 +178,18 @@
             </td>
             <!-- Mapped Section & Column -->
             <td>
-              <span class="badge bg-light text-dark border px-2.5 py-1.5 d-inline-flex align-items-center gap-1.5" style="font-size: 0.76rem;">
-                <i class="bi" [ngClass]="getMappedInfo(l).icon" [style.color]="getMappedInfo(l).badgeColor"></i>
-                <span class="text-secondary">{{ getMappedInfo(l).sectionTitle }}</span>
-                <span class="text-muted">›</span>
-                <strong class="text-dark">{{ getMappedInfo(l).columnName }}</strong>
-              </span>
+              <div class="d-flex flex-wrap gap-1 align-items-center">
+                <span *ngFor="let m of getAllMappedInfo(l)" 
+                      class="badge bg-light text-dark border px-2 py-1 d-inline-flex align-items-center gap-1 shadow-2xs" 
+                      style="font-size: 0.74rem;">
+                  <i class="bi" [ngClass]="m.icon" [style.color]="m.badgeColor"></i>
+                  <span class="text-secondary">{{ m.sectionTitle }}</span>
+                  <span class="text-muted">›</span>
+                  <strong class="text-dark">{{ m.columnName }}</strong>
+                </span>
+              </div>
             </td>
-            <!-- Category -->
-            <td>
-              <span class="badge" [ngClass]="{
-                'bg-info-subtle text-info border border-info-subtle': l.category === 'Projects',
-                'bg-success-subtle text-success border border-success-subtle': l.category === 'Inventory',
-                'bg-warning-subtle text-warning-emphasis border border-warning-subtle': l.category === 'Finances',
-                'bg-primary-subtle text-primary border border-primary-subtle': l.category === 'Billing',
-                'bg-danger-subtle text-danger border border-danger-subtle': l.category === 'Activity',
-                'bg-secondary-subtle text-secondary border': !l.category || l.category === 'General' || l.category === 'Office'
-              }">{{ l.category || 'General' }}</span>
-            </td>
+            <!-- Count -->
             <!-- Count -->
             <td class="text-center font-mono fw-bold text-dark">
               <span class="badge bg-light text-dark border px-2.5 py-1">
@@ -251,78 +244,94 @@
 
       <form (ngSubmit)="saveList()">
         <div class="modal-body p-4 bg-light" style="max-height: 75vh; overflow-y: auto;">
-          <!-- 1. Cascading Section & Column Selector -->
+          <!-- 1. Cascading Multi-Row Section & Column Selector -->
           <div class="bg-white p-3 rounded-3 border mb-3 shadow-xs">
-            <h6 class="fw-bold text-dark mb-2 text-uppercase tracking-wider" style="font-size: 0.8rem;">
-              <i class="bi bi-diagram-3 me-1 text-primary"></i>Column Mapping
-            </h6>
+            <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom flex-wrap gap-2">
+              <h6 class="fw-bold text-dark mb-0 text-uppercase tracking-wider" style="font-size: 0.8rem;">
+                <i class="bi bi-diagram-3 me-1 text-primary"></i>Column Mappings ({{ mappingRows.length }})
+              </h6>
+              <div class="d-flex align-items-center gap-1.5">
+                <button type="button" 
+                        class="btn btn-sm btn-outline-success fw-semibold d-inline-flex align-items-center gap-1 shadow-xs px-2.5 py-1 rounded-2" 
+                        style="font-size: 0.78rem;" 
+                        (click)="addMappingRow()"
+                        title="Add another section and column mapping row">
+                  <i class="bi bi-plus-lg"></i> Add Mapping Row
+                </button>
+                <button type="button" 
+                        class="btn btn-sm btn-outline-primary fw-semibold d-inline-flex align-items-center gap-1 shadow-xs px-2.5 py-1 rounded-2" 
+                        style="font-size: 0.78rem;" 
+                        (click)="openCustomMappingModal()"
+                        title="Create a new custom section or column mapping">
+                  <i class="bi bi-plus-circle"></i> Add Custom Mapping
+                </button>
+              </div>
+            </div>
+
+            <!-- Dynamic Mapping Rows List -->
+            <div class="d-flex flex-column gap-2 mb-3">
+              <div *ngFor="let mRow of mappingRows; let idx = index" class="p-2.5 rounded-2 border bg-light-subtle shadow-2xs">
+                <div class="d-flex justify-content-between align-items-center mb-1.5">
+                  <span class="badge bg-secondary-subtle text-secondary border font-mono small" style="font-size: 0.72rem;">
+                    Mapping #{{ idx + 1 }}
+                  </span>
+                  <button *ngIf="mappingRows.length > 1" 
+                          type="button" 
+                          class="btn btn-link text-danger p-0 border-0 text-decoration-none shadow-none small d-flex align-items-center gap-1" 
+                          style="font-size: 0.75rem;" 
+                          (click)="removeMappingRow(idx)" 
+                          title="Remove this mapping row">
+                    <i class="bi bi-trash-fill"></i> Remove
+                  </button>
+                </div>
+
+                <div class="row g-2">
+                  <!-- Dropdown 1: Section / Side Menu Bar -->
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.76rem;">
+                      Select Section (Side Menu Bar) <span class="text-danger">*</span>
+                    </label>
+
+                    <select class="form-select form-select-sm shadow-sm fw-semibold"
+                            [(ngModel)]="mRow.sectionId"
+                            (change)="onMappingRowSectionChange(idx)"
+                            [name]="'selectedSectionId_' + idx"
+                            required>
+                      <option value="" disabled>-- Select Section from Sidebar --</option>
+                      <ng-container *ngFor="let sec of sidebarSections">
+                        <option *ngIf="sec.id !== 'custom'" [value]="sec.id">
+                          {{ sec.group ? (sec.group + ': ') : '' }}{{ sec.title }}
+                        </option>
+                      </ng-container>
+                      <option value="custom">➕ Custom Column / Standalone List</option>
+                    </select>
+                  </div>
+
+                  <!-- Dropdown 2: Configurable Column Name -->
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.76rem;">
+                      Select Column Name <span class="text-danger">*</span>
+                    </label>
+
+                    <select class="form-select form-select-sm shadow-sm fw-semibold"
+                            [(ngModel)]="mRow.columnKey"
+                            (change)="onMappingRowColumnChange(idx)"
+                            [name]="'selectedColumnKey_' + idx"
+                            [disabled]="!mRow.sectionId || mRow.sectionId === 'custom'"
+                            required>
+                      <option value="" disabled>-- Select Column --</option>
+                      <option *ngFor="let col of getAvailableColumnsForSection(mRow.sectionId)" [value]="col.key">
+                        {{ col.columnName }} ({{ col.listTitle }})
+                      </option>
+                      <option value="__CUSTOM__">+ Define Custom / New Column for this section...</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="row g-3">
-              <!-- Dropdown 1: Section / Side Menu Bar -->
-              <div class="col-md-6">
-                <label class="form-label small fw-bold text-dark mb-1">
-                  1. Select Section (Side Menu Bar) <span class="text-danger">*</span>
-                </label>
-                <select class="form-select form-select-sm shadow-sm fw-semibold"
-                        [(ngModel)]="selectedSectionId"
-                        (change)="onSectionChange()"
-                        name="selectedSectionId"
-                        required>
-                  <option value="" disabled>-- Select Section from Sidebar --</option>
-                  <optgroup label="CRM: Activity">
-                    <option value="activity-calls">📞 Activity → Calls</option>
-                    <option value="activity-meetings">📅 Activity → Meetings</option>
-                    <option value="activity-tasks">📋 Activity → Tasks</option>
-                    <option value="activity-siteplan">📍 Activity → Site Plan</option>
-                  </optgroup>
-                  <optgroup label="CRM: Sales">
-                    <option value="sales-campaigns">📢 Sales → Campaigns</option>
-                    <option value="sales-leads">👥 Sales → Leads</option>
-                    <option value="sales-oppurtunity">⚡ Sales → Oppurtunities</option>
-                    <option value="sales-awarded">🏢 Sales → Awarded sites (Project Master)</option>
-                  </optgroup>
-                  <optgroup label="CRM: Finances">
-                    <option value="finance-payment">💰 Finances → Client Payment Ledger</option>
-                    <option value="finance-expense">🧾 Finances → Expenses Ledger</option>
-                  </optgroup>
-                  <optgroup label="CRM: Inventory">
-                    <option value="inventory-all">📦 Inventory → Indent / Warehouse / Gate Pass / Cart</option>
-                  </optgroup>
-                  <optgroup label="ACCOUNT: Office">
-                    <option value="office-employees">👤 Office → Employees</option>
-                    <option value="office-vendors">🚚 Office → Vendor List</option>
-                  </optgroup>
-                  <optgroup label="Custom Configuration">
-                    <option value="custom">➕ Custom Column / Standalone List</option>
-                  </optgroup>
-                </select>
-                <small class="text-muted" style="font-size: 0.72rem;">
-                  Maps to the navigation modules on the left sidebar
-                </small>
-              </div>
-
-              <!-- Dropdown 2: Configurable Column Name -->
-              <div class="col-md-6">
-                <label class="form-label small fw-bold text-dark mb-1">
-                  2. Select Column Name <span class="text-danger">*</span>
-                </label>
-                <select class="form-select form-select-sm shadow-sm fw-semibold"
-                        [(ngModel)]="selectedColumnKey"
-                        (change)="onColumnChange()"
-                        name="selectedColumnKey"
-                        [disabled]="!selectedSectionId || selectedSectionId === 'custom'"
-                        required>
-                  <option value="" disabled>-- Select Column --</option>
-                  <option *ngFor="let col of availableColumns" [value]="col.key">
-                    {{ col.columnName }} ({{ col.listTitle }})
-                  </option>
-                  <option value="__CUSTOM__">+ Define Custom / New Column for this section...</option>
-                </select>
-                <small class="text-muted" style="font-size: 0.72rem;">
-                  Displays configurable dropdown columns for the chosen section
-                </small>
-              </div>
-
-              <!-- Custom Column Input if selected -->
+              <!-- Custom Column Input if selected in any row -->
               <div class="col-md-7" *ngIf="isCustomColumn">
                 <label class="form-label small fw-bold text-dark mb-1">
                   Custom Column / List Title <span class="text-danger">*</span>
@@ -344,16 +353,6 @@
                 <input type="text" class="form-control form-control-sm shadow-sm"
                        placeholder="Where this column configuration is used across the system..."
                        [(ngModel)]="formDescription" name="formDescription">
-              </div>
-
-              <!-- Notice Banner -->
-              <div class="col-12" *ngIf="configNoticeText">
-                <div class="alert py-2 px-3 small d-flex align-items-center gap-2 mb-0"
-                     [class.alert-success]="configNoticeType === 'existing'"
-                     [class.alert-info]="configNoticeType === 'new'">
-                  <i class="bi" [class.bi-check-circle-fill]="configNoticeType === 'existing'" [class.bi-stars]="configNoticeType === 'new'"></i>
-                  <span>{{ configNoticeText }}</span>
-                </div>
               </div>
             </div>
           </div>
@@ -465,21 +464,10 @@
 
           <!-- 2B. Standard Dynamic Descriptions Section (Add / Edit / Delete Options for non-BOM lists) -->
           <div class="bg-white p-3 rounded-3 border shadow-xs" *ngIf="!isBomMaterialsMode">
-            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
-              <div>
-                <h6 class="fw-bold text-dark mb-0 text-uppercase tracking-wider" style="font-size: 0.84rem;">
-                  CONFIGURED OPTIONS / VALUES
-                </h6>
-                <small class="text-muted" style="font-size: 0.74rem;">
-                  Add, edit, or remove the selectable options for this column. Click <strong>+ Add New</strong> to append rows.
-                </small>
-              </div>
-              <!-- Green + Add New Button -->
-              <button type="button" 
-                      class="btn btn-sm btn-outline-success fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1.5 rounded-2"
-                      (click)="addDescriptionRow()">
-                <i class="bi bi-plus-lg"></i> Add New Option
-              </button>
+            <div class="mb-3 pb-2 border-bottom">
+              <h6 class="fw-bold text-dark mb-0 text-uppercase tracking-wider" style="font-size: 0.84rem;">
+                CONFIGURED OPTIONS / VALUES
+              </h6>
             </div>
 
             <!-- Loop table / rows -->
@@ -549,6 +537,92 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- SECONDARY POPUP MODAL: ADD CUSTOM SECTION & COLUMN       -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block" *ngIf="isCustomMappingModalOpen" tabindex="-1" style="z-index: 1080; background: rgba(0, 0, 0, 0.45);">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header bg-dark text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-plus-circle text-warning"></i>
+          Add Custom Section &amp; Column Mapping
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeCustomMappingModal()"></button>
+      </div>
+
+      <div class="modal-body p-4 bg-light">
+        <!-- Field 1: Section Name Dropdown -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-dark mb-1">
+            1. Section Name (Side Menu Bar) <span class="text-danger">*</span>
+          </label>
+          <select class="form-select form-select-sm shadow-sm fw-semibold"
+                  [(ngModel)]="customSectionSelect"
+                  (change)="onSubModalSectionSelectChange()"
+                  name="customSectionSelect">
+            <option value="" disabled>-- Select Section from Sidebar --</option>
+            <ng-container *ngFor="let sec of sidebarSections">
+              <option *ngIf="sec.id !== 'custom'" [value]="sec.id">
+                {{ sec.group ? (sec.group + ': ') : '' }}{{ sec.title }}
+              </option>
+            </ng-container>
+            <option value="__NEW_SECTION__">➕ Type New Section Name...</option>
+          </select>
+
+          <!-- Input if creating new section -->
+          <input *ngIf="customSectionSelect === '__NEW_SECTION__'" 
+                 type="text" 
+                 class="form-control form-control-sm mt-2 shadow-sm fw-semibold" 
+                 placeholder="Type new Section Name (e.g. Engineers, Operations)..." 
+                 [(ngModel)]="customSectionInput" 
+                 name="customSectionInput">
+        </div>
+
+        <!-- Field 2: Column Name Dropdown -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-dark mb-1">
+            2. Column Name <span class="text-danger">*</span>
+          </label>
+          <select class="form-select form-select-sm shadow-sm fw-semibold"
+                  [(ngModel)]="customColumnSelect"
+                  (change)="onSubModalColumnSelectChange()"
+                  name="customColumnSelect">
+            <option value="" disabled>-- Select Column Name --</option>
+            <option *ngFor="let col of subModalAvailableColumns" [value]="col.key">
+              {{ col.columnName }} ({{ col.listTitle }})
+            </option>
+            <option value="__NEW_COLUMN__">➕ Type New Column Name...</option>
+          </select>
+
+          <!-- Input if creating new column -->
+          <input *ngIf="customColumnSelect === '__NEW_COLUMN__'" 
+                 type="text" 
+                 class="form-control form-control-sm mt-2 shadow-sm fw-semibold" 
+                 placeholder="Type new Column Name (e.g. Site Engineer, QC Status)..." 
+                 [(ngModel)]="customColumnInput" 
+                 name="customColumnInput">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-dark mb-1">Notes / Description (Optional)</label>
+          <input type="text" class="form-control form-control-sm shadow-sm" placeholder="Optional notes..." [(ngModel)]="customDescriptionInput" name="customDescriptionInput">
+        </div>
+      </div>
+
+      <div class="modal-footer bg-white py-2.5 px-4 d-flex justify-content-between align-items-center">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeCustomMappingModal()">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-sm btn-primary px-4 fw-semibold shadow-sm" (click)="saveCustomMapping()">
+          <i class="bi bi-check2 me-1"></i>Save &amp; Apply Mapping
+        </button>
+      </div>
     </div>
   </div>
 </div>

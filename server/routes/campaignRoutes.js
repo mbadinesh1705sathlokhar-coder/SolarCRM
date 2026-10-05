@@ -17,6 +17,7 @@ router.delete('/leads/:id', campaignController.deleteCampaignLead);
 // Campaign Expenses
 router.get('/all-expenses', campaignController.getAllCampaignExpenses);
 router.post('/all-expenses', campaignController.createExpoExpense);
+router.delete('/all-expenses', campaignController.deleteAllCampaignExpenses);
 router.post('/expenses', campaignController.createExpoExpense);
 router.get('/:campaignId/expenses', campaignController.getCampaignExpenses);
 router.post('/:campaignId/expenses', campaignController.createCampaignExpense);

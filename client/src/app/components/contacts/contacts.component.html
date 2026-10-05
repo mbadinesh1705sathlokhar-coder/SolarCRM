@@ -368,11 +368,24 @@
         </div>
 
         <div class="d-flex align-items-center gap-2">
+          <input #excelFileInput type="file" accept=".xlsx,.xls,.csv" (change)="onExcelUploadSelected($event)" class="d-none">
+          <button *ngIf="isAdmin()" class="btn btn-sm btn-outline-success shadow-sm d-flex align-items-center gap-1.5"
+                  (click)="triggerExcelImport()"
+                  title="Upload Excel spreadsheet">
+            <i class="bi bi-file-earmark-arrow-up-fill text-success"></i>
+            <span class="fw-semibold">Upload</span>
+          </button>
           <button class="btn btn-sm btn-outline-danger shadow-sm d-flex align-items-center gap-1.5"
-                  (click)="exportCallsToPdf()"
-                  title="Export Sales Call logs to PDF">
-            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-            <span class="fw-semibold">Export PDF</span>
+                  (click)="exportBothCallsPdfAndExcel()"
+                  title="Export PDF & Excel">
+            <i class="bi bi-file-earmark-arrow-down-fill text-danger"></i>
+            <span class="fw-semibold">Export</span>
+          </button>
+          <button *ngIf="isAdmin() && calls.length > 0" class="btn btn-sm btn-outline-secondary shadow-sm d-flex align-items-center gap-1.5"
+                  (click)="clearAllCalls()"
+                  title="Clear all calls to re-upload cleanly">
+            <i class="bi bi-trash3 text-muted"></i>
+            <span class="fw-semibold">Clear All</span>
           </button>
           <button *ngIf="canAdd()" class="btn btn-sm btn-primary px-3 shadow-sm d-flex align-items-center gap-1" 
                   style="background-color: #db2777; border-color: #db2777;"
@@ -488,11 +501,23 @@
         </div>
 
         <div class="d-flex align-items-center gap-2">
+          <button *ngIf="isAdmin()" class="btn btn-sm btn-outline-success shadow-sm d-flex align-items-center gap-1.5"
+                  (click)="triggerExcelImport()"
+                  title="Upload Excel spreadsheet">
+            <i class="bi bi-file-earmark-arrow-up-fill text-success"></i>
+            <span class="fw-semibold">Upload</span>
+          </button>
           <button class="btn btn-sm btn-outline-danger shadow-sm d-flex align-items-center gap-1.5"
-                  (click)="exportTasksToPdf()"
-                  title="Export Tasks to PDF">
-            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-            <span class="fw-semibold">Export PDF</span>
+                  (click)="exportBothTasksPdfAndExcel()"
+                  title="Export PDF & Excel">
+            <i class="bi bi-file-earmark-arrow-down-fill text-danger"></i>
+            <span class="fw-semibold">Export</span>
+          </button>
+          <button *ngIf="isAdmin() && tasks.length > 0" class="btn btn-sm btn-outline-secondary shadow-sm d-flex align-items-center gap-1.5"
+                  (click)="clearAllTasks()"
+                  title="Clear all tasks to re-upload cleanly">
+            <i class="bi bi-trash3 text-muted"></i>
+            <span class="fw-semibold">Clear All</span>
           </button>
           <button *ngIf="canAdd()" class="btn btn-sm btn-primary px-3 shadow-sm d-flex align-items-center gap-1" 
                   style="background-color: #0f766e; border-color: #0f766e;"

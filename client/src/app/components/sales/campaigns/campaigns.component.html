@@ -76,10 +76,15 @@
         </div>
         <div class="d-flex align-items-center gap-2">
           <span class="small text-muted me-2">Showing <strong>{{ filteredCampaigns.length }}</strong> campaigns</span>
-          <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-1.5 d-flex align-items-center gap-1.5"
-                  (click)="exportCampaignsPdf()" title="Download Campaigns Summary PDF">
-            <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+          <button class="btn btn-sm btn-outline-success fw-semibold shadow-sm px-3 py-1.5 d-flex align-items-center gap-1.5"
+                  (click)="triggerExcelImport()" title="Upload Excel spreadsheet">
+            <i class="bi bi-file-earmark-arrow-up-fill text-success"></i> Upload
           </button>
+          <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-1.5 d-flex align-items-center gap-1.5"
+                  (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
+            <i class="bi bi-download text-danger"></i> Export
+          </button>
+          <input #excelFileInput type="file" accept=".xlsx,.xls,.csv" (change)="onExcelUploadSelected($event)" class="d-none">
           <button *ngIf="canAdd()" class="btn btn-sm btn-primary fw-semibold shadow-sm px-3 py-1.5 d-flex align-items-center gap-1"
                   style="background-color: #0f766e; border-color: #0f766e;"
                   (click)="openAddCampaignModal()">

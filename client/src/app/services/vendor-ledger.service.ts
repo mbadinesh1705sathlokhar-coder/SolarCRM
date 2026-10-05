@@ -105,4 +105,8 @@ export class VendorLedgerService {
   deletePayment(vendorId: number, paymentId: number): Observable<{ success: boolean; message: string }> {
     return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/${vendorId}/payments/${paymentId}`);
   }
+
+  clearAllVendors(): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/all`);
+  }
 }

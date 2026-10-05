@@ -43,10 +43,19 @@
 
     <!-- Top Action -->
     <div class="d-flex align-items-center gap-2">
-      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
-              (click)="exportGatePassPdf()" title="Download Material Gate Pass PDF">
-        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      <button *ngIf="isAdmin()" class="btn btn-sm btn-outline-success fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="triggerExcelImport()" title="Upload Excel spreadsheet">
+        <i class="bi bi-file-earmark-arrow-up-fill text-success"></i> Upload
       </button>
+      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
+        <i class="bi bi-download text-danger"></i> Export
+      </button>
+      <button *ngIf="isAdmin() && gatePasses.length > 0" class="btn btn-sm btn-outline-secondary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="clearAllGatePasses()" title="Clear all gate passes to re-upload cleanly">
+        <i class="bi bi-trash3 text-muted"></i> Clear All
+      </button>
+      <input #excelFileInput type="file" accept=".xlsx,.xls,.csv" (change)="onExcelUploadSelected($event)" class="d-none">
       <button class="btn btn-sm btn-warning text-dark fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
               *ngIf="canAdd()"
               (click)="openAddModal()">
@@ -304,7 +313,7 @@
                               [(ngModel)]="m.materialName" 
                               [name]="'mat_name_' + i"
                               required>
-                        <option *ngFor="let opt of stockMaterialOptions" [value]="opt">{{ opt }}</option>
+                        <option *ngFor="let opt of availableMaterialOptions" [value]="opt">{{ opt }}</option>
                       </select>
                     </td>
 

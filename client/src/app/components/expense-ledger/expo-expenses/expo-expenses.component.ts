@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -64,6 +64,10 @@ export class ExpoExpensesComponent implements OnInit {
     this.loadCampaigns();
     this.loadExpenses();
     this.loadEmployees();
+  }
+
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
   }
 
   canAdd(): boolean {
@@ -402,47 +406,163 @@ export class ExpoExpensesComponent implements OnInit {
     this.showToast('PDF downloaded successfully!', 'info');
   }
 
+  exportToExcel(): void {
+    const list = this.filteredExpenses;
+    if (list.length === 0) return;
+    const headers = ['#', 'Date', 'Expo Name', 'Descriptions', 'Paid By', 'Amount (₹)'];
+    const rows = list.map((e, idx) => [
+      idx + 1,
+      `"${this.toDisplayDate(e.expenseDate)}"`,
+      `"${e.campaignName || ''}"`,
+      `"${e.purpose || ''}"`,
+      `"${e.paidBy || 'OFFICE'}"`,
+      e.amount || 0
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Expo_Expenses_Ledger_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportPdf();
+    setTimeout(() => {
+      this.exportToExcel();
+    }, 450);
+  }
+
+  @ViewChild('excelFileInput') excelFileInput!: ElementRef<HTMLInputElement>;
+
+  triggerExcelImport(): void {
+    if (this.excelFileInput) {
+      this.excelFileInput.nativeElement.click();
+    }
+  }
+
+  onExcelUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      this.showToast(`Excel file "${file.name}" uploaded successfully!`, 'success');
+      input.value = '';
+    }
+  }
+
+  normalizeToIsoDate(val: any): string {
+    if (!val) return new Date().toISOString().substring(0, 10);
+    if (val instanceof Date) {
+      if (isNaN(val.getTime())) return new Date().toISOString().substring(0, 10);
+      const yyyy = val.getFullYear();
+      const mm = String(val.getMonth() + 1).padStart(2, '0');
+      const dd = String(val.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    if (typeof val === 'number' || (typeof val === 'string' && /^\d{5}(\.\d+)?$/.test(val.trim()))) {
+      const num = typeof val === 'number' ? val : parseFloat(val.trim());
+      if (num > 10000 && num < 100000) {
+        const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
+        if (!isNaN(jsDate.getTime())) {
+          const yyyy = jsDate.getUTCFullYear();
+          const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+          const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd}`;
+        }
+      }
+    }
+
+    const str = String(val).trim().replace(/[T\s].*$/, '');
+    if (!str) return new Date().toISOString().substring(0, 10);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return str;
+    }
+
+    if (str.includes('-') || str.includes('/') || str.includes('.')) {
+      const isSlash = str.includes('/');
+      const parts = str.split(/[-/.]/).map(p => p.trim());
+
+      if (parts.length === 3) {
+        let p0 = parseInt(parts[0], 10);
+        let p1 = parseInt(parts[1], 10);
+        let p2 = parseInt(parts[2], 10);
+
+        if (!isNaN(p0) && !isNaN(p1) && !isNaN(p2)) {
+          let year = p2;
+          let month = 0;
+          let day = 0;
+
+          if (p0 > 1000) {
+            year = p0;
+            if (p1 > 12) { month = p2; day = p1; }
+            else { month = p1; day = p2; }
+          } else {
+            if (year < 100) year += 2000;
+
+            if (isSlash) {
+              // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
+              if (p0 > 12 && p1 <= 12) {
+                day = p0;
+                month = p1;
+              } else {
+                month = p0;
+                day = p1;
+              }
+            } else {
+              // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
+              if (p1 > 12 && p0 <= 12) {
+                month = p0;
+                day = p1;
+              } else {
+                day = p0;
+                month = p1;
+              }
+            }
+          }
+
+          if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            const yStr = String(year);
+            const mStr = String(month).padStart(2, '0');
+            const dStr = String(day).padStart(2, '0');
+            return `${yStr}-${mStr}-${dStr}`;
+          }
+        }
+      }
+    }
+
+    const dObj = new Date(str);
+    if (!isNaN(dObj.getTime())) {
+      const yyyy = dObj.getFullYear();
+      const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(dObj.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return new Date().toISOString().substring(0, 10);
+  }
+
   // --- DATE HELPERS ---
-  toDisplayDate(isoStr: string | undefined): string {
+  toDisplayDate(isoStr: string | undefined | null): string {
     if (!isoStr) return '';
-    const cleanStr = String(isoStr).trim().substring(0, 10).replace(/[/.]/g, '-');
-    if (cleanStr.includes('-')) {
-      const parts = cleanStr.split('-');
-      if (parts.length === 3 && parts[0].length === 4) {
-        const yyyy = parts[0];
-        const mm = parts[1].padStart(2, '0');
-        const dd = parts[2].padStart(2, '0');
-        return `${dd}-${mm}-${yyyy}`;
-      }
-      if (parts.length === 3 && parts[2].length === 4) {
-        const dd = parts[0].padStart(2, '0');
-        const mm = parts[1].padStart(2, '0');
-        const yyyy = parts[2];
-        return `${dd}-${mm}-${yyyy}`;
-      }
+    const iso = this.normalizeToIsoDate(isoStr);
+    if (!iso || iso.length < 10) return String(isoStr).trim();
+    const parts = iso.substring(0, 10).split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      const yyyy = parts[0];
+      const mm = parts[1].padStart(2, '0');
+      const dd = parts[2].padStart(2, '0');
+      return `${dd}-${mm}-${yyyy}`;
     }
     return String(isoStr).trim();
   }
 
   toIsoDate(inputStr: string | undefined): string {
     if (!inputStr) return new Date().toISOString().slice(0, 10);
-    const cleanStr = String(inputStr).trim().substring(0, 10).replace(/[/.]/g, '-');
-    if (cleanStr.includes('-')) {
-      const parts = cleanStr.split('-');
-      if (parts.length === 3 && parts[2].length === 4) {
-        const dd = parts[0].padStart(2, '0');
-        const mm = parts[1].padStart(2, '0');
-        const yyyy = parts[2];
-        return `${yyyy}-${mm}-${dd}`;
-      }
-      if (parts.length === 3 && parts[0].length === 4) {
-        const yyyy = parts[0];
-        const mm = parts[1].padStart(2, '0');
-        const dd = parts[2].padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
-      }
-    }
-    return cleanStr;
+    return this.normalizeToIsoDate(inputStr);
   }
 
   getTodayDisplayDate(): string {
@@ -488,5 +608,19 @@ export class ExpoExpensesComponent implements OnInit {
       this.toastMessage = '';
       this.cdr.markForCheck();
     }, 3500);
+  }
+
+  clearAllExpoExpenses(): void {
+    if (confirm('Are you sure you want to clear ALL expo expense records? This will delete all current expo expenses so you can upload a clean Excel file.')) {
+      this.campaignService.clearAllExpoExpenses().subscribe({
+        next: () => {
+          this.showToast('All expo expense records cleared successfully.', 'success');
+          this.loadExpenses();
+        },
+        error: (err) => {
+          this.showToast('Failed to clear records: ' + (err?.message || 'Error'), 'danger');
+        }
+      });
+    }
   }
 }

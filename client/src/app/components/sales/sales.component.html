@@ -65,18 +65,18 @@
         <input type="file" #excelFileInput (change)="onBulkExcelUpload($event)" accept=".xlsx, .xls, .csv" style="display: none;">
         <button *ngIf="isAdmin() || canAdd()" 
                 type="button" 
-                class="btn btn-outline-success btn-sm shadow-xs p-1 d-flex align-items-center justify-content-center excel-btn" 
-                style="height: 34px; width: 34px; border-color: #16a34a; background-color: #ffffff;" 
+                class="btn btn-outline-success btn-sm fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5" 
                 (click)="excelFileInput.click()" 
-                title="Bulk Import Sales Data from Excel (.xlsx, .csv)">
-          <img src="excel-icon.png" alt="Import Excel" style="width: 20px; height: 22px; object-fit: contain;">
+                title="Upload Excel spreadsheet">
+          <i class="bi bi-file-earmark-arrow-up-fill text-success"></i>
+          <span>Upload</span>
         </button>
 
         <button class="btn btn-outline-danger btn-sm fw-semibold shadow-sm d-flex align-items-center gap-1.5 px-3 py-2"
-                (click)="exportSalesPdf()"
-                [title]="activeTab === 'leads' ? 'Download Leads PDF Report' : 'Download Opportunities PDF Report'">
-          <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-          <span>PDF</span>
+                (click)="exportBothPdfAndExcel()"
+                title="Export PDF & Excel">
+          <i class="bi bi-file-earmark-arrow-down-fill text-danger"></i>
+          <span>Export</span>
         </button>
         <button *ngIf="activeTab === 'leads' && canAdd()" class="btn btn-primary btn-sm fw-semibold shadow-sm d-flex align-items-center gap-2 px-3 py-2" style="background-color: #0f766e; border-color: #0f766e;" (click)="openAddModal()">
           <i class="bi bi-plus-lg"></i>
@@ -539,7 +539,7 @@
       </div>
 
       <!-- 4) No. of PO/WO Card -->
-      <div class="col-12 col-sm-6 col-xl-3">
+      <div class="col-12 col-sm-6 col-xl-4">
         <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-warning"
              [class.opacity-75]="!activeDashboardRecord"
              (click)="activeDashboardRecord && openWeeklyDetailModal(activeDashboardRecord, 'powo')"
@@ -566,6 +566,96 @@
           </div>
         </div>
       </div>
+
+      <!-- 5) Gatepasses Card -->
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-teal"
+             style="border-color: #0d9488 !important;"
+             [class.opacity-75]="!activeDashboardRecord"
+             (click)="activeDashboardRecord && openWeeklyDetailModal(activeDashboardRecord, 'gatepass')"
+             title="Click to view gatepasses issued">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Gatepasses Issued
+              </div>
+              <div class="metric-number fw-bold my-1 font-mono" style="color: #0d9488;">
+                {{ activeDashboardRecord ? activeDashboardRecord.gatePassCount : 0 }} Passes
+              </div>
+              <div class="small text-muted" style="font-size: 0.72rem;">
+                Material Dispatch Passes
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #ccfbf1; color: #0d9488;">
+              <i class="bi bi-ticket-perforated-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #0d9488; font-size: 0.74rem;">
+            <span>{{ activeDashboardRecord ? 'View Gatepasses' : 'Pick dates above' }}</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6) Material Indents Card -->
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-purple"
+             style="border-color: #9333ea !important;"
+             [class.opacity-75]="!activeDashboardRecord"
+             (click)="activeDashboardRecord && openWeeklyDetailModal(activeDashboardRecord, 'indent')"
+             title="Click to view material indents">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Material Indents
+              </div>
+              <div class="metric-number fw-bold my-1 font-mono" style="color: #9333ea;">
+                {{ activeDashboardRecord ? activeDashboardRecord.indentCount : 0 }} Indents
+              </div>
+              <div class="small text-muted" style="font-size: 0.72rem;">
+                Requisitions Requested
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #f3e8ff; color: #9333ea;">
+              <i class="bi bi-journal-text fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #9333ea; font-size: 0.74rem;">
+            <span>{{ activeDashboardRecord ? 'View Indents' : 'Pick dates above' }}</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7) Add to Cart Orders Card -->
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card metric-card border-0 shadow-sm rounded-3 h-100 cursor-pointer border-start border-4 border-rose"
+             style="border-color: #e11d48 !important;"
+             [class.opacity-75]="!activeDashboardRecord"
+             (click)="activeDashboardRecord && openWeeklyDetailModal(activeDashboardRecord, 'cart')"
+             title="Click to view add to cart material requests">
+          <div class="card-body p-3.5 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                Add to Cart Orders
+              </div>
+              <div class="metric-number fw-bold my-1 font-mono" style="color: #e11d48;">
+                {{ activeDashboardRecord ? activeDashboardRecord.cartCount : 0 }} Items
+              </div>
+              <div class="small text-muted" style="font-size: 0.72rem;">
+                Material Procurement Cart
+              </div>
+            </div>
+            <div class="metric-icon-box" style="background-color: #ffe4e6; color: #e11d48;">
+              <i class="bi bi-cart-check-fill fs-4"></i>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 pb-2.5 px-3.5 d-flex align-items-center justify-content-between small" style="color: #e11d48; font-size: 0.74rem;">
+            <span>{{ activeDashboardRecord ? 'View Cart Orders' : 'Pick dates above' }}</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Complete Breakdown Table -->
@@ -585,23 +675,26 @@
         <table class="table table-hover align-middle mb-0 custom-table">
           <thead class="table-light text-uppercase fs-8 text-secondary border-bottom">
             <tr>
-              <th style="width: 250px;" class="text-center">Week Range</th>
-              <th class="text-center" style="width: 170px;">Total Awarded Sites</th>
-              <th class="text-end" style="width: 200px;">Awarded Value</th>
-              <th class="text-end" style="width: 220px;">Client Payment Received</th>
-              <th class="text-center" style="width: 140px;">No. of PO/WO</th>
+              <th style="width: 200px;" class="text-center">Week Range</th>
+              <th class="text-center" style="width: 130px;">Awarded Sites</th>
+              <th class="text-end" style="width: 170px;">Awarded Value</th>
+              <th class="text-end" style="width: 180px;">Client Payment</th>
+              <th class="text-center" style="width: 100px;">PO/WO</th>
+              <th class="text-center" style="width: 100px;">Gatepass</th>
+              <th class="text-center" style="width: 100px;">Indents</th>
+              <th class="text-center" style="width: 100px;">Cart Orders</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="dashboardLoading">
-              <td colspan="5" class="text-center py-5">
+              <td colspan="8" class="text-center py-5">
                 <div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
                 <span class="text-muted">Loading sales performance data...</span>
               </td>
             </tr>
             <!-- Empty state when no dates picked -->
             <tr *ngIf="!dashboardLoading && (!dashboardFromDate || !dashboardToDate)">
-              <td colspan="5" class="text-center py-5">
+              <td colspan="8" class="text-center py-5">
                 <div class="py-4">
                   <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle p-3 mb-2 border">
                     <i class="bi bi-calendar3-range fs-2 text-primary"></i>
@@ -613,7 +706,7 @@
             </tr>
             <!-- Empty state when dates picked but 0 matching records -->
             <tr *ngIf="!dashboardLoading && dashboardFromDate && dashboardToDate && filteredWeeklyRecords.length === 0">
-              <td colspan="5" class="text-center py-5">
+              <td colspan="8" class="text-center py-5">
                 <div class="py-4">
                   <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle p-3 mb-2 border">
                     <i class="bi bi-calendar-x fs-2 text-secondary"></i>
@@ -667,6 +760,30 @@
                 <span *ngIf="w.poWoCount === 0" class="text-muted small">
                   0
                 </span>
+              </td>
+
+              <!-- Gatepass Count -->
+              <td class="text-center font-mono fw-bold fs-7">
+                <span *ngIf="w.gatePassCount > 0" class="badge px-2 py-1 border" style="background-color: #ccfbf1; color: #0d9488; border-color: #99f6e4 !important;">
+                  {{ w.gatePassCount }}
+                </span>
+                <span *ngIf="!w.gatePassCount" class="text-muted small">0</span>
+              </td>
+
+              <!-- Indent Count -->
+              <td class="text-center font-mono fw-bold fs-7">
+                <span *ngIf="w.indentCount > 0" class="badge px-2 py-1 border" style="background-color: #f3e8ff; color: #9333ea; border-color: #e9d5ff !important;">
+                  {{ w.indentCount }}
+                </span>
+                <span *ngIf="!w.indentCount" class="text-muted small">0</span>
+              </td>
+
+              <!-- Cart Count -->
+              <td class="text-center font-mono fw-bold fs-7">
+                <span *ngIf="w.cartCount > 0" class="badge px-2 py-1 border" style="background-color: #ffe4e6; color: #e11d48; border-color: #fecdd3 !important;">
+                  {{ w.cartCount }}
+                </span>
+                <span *ngIf="!w.cartCount" class="text-muted small">0</span>
               </td>
             </tr>
           </tbody>
@@ -723,6 +840,33 @@
                         (click)="weeklyDetailActiveTab = 'powo'">
                   <i class="bi bi-file-earmark-text me-1"></i>
                   PO / WO Vouchers ({{ weeklyDetailRecord.poWoCount }})
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-semibold px-3 py-2 border-0 rounded-top"
+                        [class.active]="weeklyDetailActiveTab === 'gatepass'"
+                        style="color: #0d9488;"
+                        (click)="weeklyDetailActiveTab = 'gatepass'">
+                  <i class="bi bi-ticket-perforated me-1"></i>
+                  Gatepasses ({{ weeklyDetailRecord.gatePassList?.length || 0 }})
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-semibold px-3 py-2 border-0 rounded-top"
+                        [class.active]="weeklyDetailActiveTab === 'indent'"
+                        style="color: #9333ea;"
+                        (click)="weeklyDetailActiveTab = 'indent'">
+                  <i class="bi bi-journal-text me-1"></i>
+                  Indents ({{ weeklyDetailRecord.indentList?.length || 0 }})
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-semibold px-3 py-2 border-0 rounded-top"
+                        [class.active]="weeklyDetailActiveTab === 'cart'"
+                        style="color: #e11d48;"
+                        (click)="weeklyDetailActiveTab = 'cart'">
+                  <i class="bi bi-cart-check me-1"></i>
+                  Cart Orders ({{ weeklyDetailRecord.cartList?.length || 0 }})
                 </button>
               </li>
             </ul>
@@ -811,11 +955,103 @@
                   <tr *ngFor="let exp of weeklyDetailRecord.poWoList">
                     <td class="font-mono small">{{ formatDate(exp.expenseDate) }}</td>
                     <td><span class="badge bg-danger-subtle text-danger font-mono">{{ exp.siteId }}</span></td>
-                    <td class="fw-semibold text-dark">{{ exp.vendorName || '—' }}</td>
+                    <td class="fw-semibold text-dark">{{ exp.vendorName || exp.remarks || '—' }}</td>
                     <td><span class="badge bg-warning-subtle text-warning-emphasis border">{{ exp.paymentThrough }}</span></td>
                     <td>{{ exp.purpose }}</td>
                     <td><span class="badge bg-light text-dark border">{{ exp.billVoucher || '—' }}</span></td>
                     <td class="text-end font-mono fw-bold text-danger">₹ {{ (exp.amount || 0) | number:'1.2-2' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Tab 4: Gatepass -->
+            <div *ngIf="weeklyDetailActiveTab === 'gatepass'">
+              <div *ngIf="!weeklyDetailRecord.gatePassList || weeklyDetailRecord.gatePassList.length === 0" class="text-center py-4 text-muted">
+                <i class="bi bi-ticket-perforated fs-2 d-block mb-1 text-secondary"></i>
+                No gatepasses issued in this week.
+              </div>
+              <table *ngIf="weeklyDetailRecord.gatePassList && weeklyDetailRecord.gatePassList.length > 0" class="table table-hover align-middle mb-0 custom-table bg-white rounded border">
+                <thead class="table-light text-uppercase fs-8 text-secondary">
+                  <tr>
+                    <th>Date</th>
+                    <th>Gatepass #</th>
+                    <th>Client Name</th>
+                    <th>Engineer</th>
+                    <th>Items Count</th>
+                    <th class="text-end">Transport Cost</th>
+                    <th class="text-end">Total Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let gp of weeklyDetailRecord.gatePassList">
+                    <td class="font-mono small">{{ formatDate(gp.gatePassDate) }}</td>
+                    <td><span class="badge px-2 py-1 font-mono border" style="background-color: #ccfbf1; color: #0d9488;">GP-{{ gp.id }}</span></td>
+                    <td class="fw-bold text-dark">{{ gp.clientName }}</td>
+                    <td>{{ gp.siteEngineer || '—' }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ gp.items?.length || 0 }} Items</span></td>
+                    <td class="text-end font-mono">₹ {{ (gp.transportCost || 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-mono fw-bold" style="color: #0d9488;">₹ {{ (gp.totalAmount || 0) | number:'1.2-2' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Tab 5: Indents -->
+            <div *ngIf="weeklyDetailActiveTab === 'indent'">
+              <div *ngIf="!weeklyDetailRecord.indentList || weeklyDetailRecord.indentList.length === 0" class="text-center py-4 text-muted">
+                <i class="bi bi-journal-text fs-2 d-block mb-1 text-secondary"></i>
+                No material indents requested in this week.
+              </div>
+              <table *ngIf="weeklyDetailRecord.indentList && weeklyDetailRecord.indentList.length > 0" class="table table-hover align-middle mb-0 custom-table bg-white rounded border">
+                <thead class="table-light text-uppercase fs-8 text-secondary">
+                  <tr>
+                    <th>Date</th>
+                    <th>Indent No</th>
+                    <th>Client Name</th>
+                    <th>Site Engineer</th>
+                    <th>Materials Requested</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let ind of weeklyDetailRecord.indentList">
+                    <td class="font-mono small">{{ formatDate(ind.indentDate) }}</td>
+                    <td><span class="badge px-2 py-1 font-mono border" style="background-color: #f3e8ff; color: #9333ea;">{{ ind.indentNo }}</span></td>
+                    <td class="fw-bold text-dark">{{ ind.clientName }}</td>
+                    <td>{{ ind.siteEngineer || '—' }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ ind.materials?.length || 0 }} Items</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Tab 6: Cart Orders -->
+            <div *ngIf="weeklyDetailActiveTab === 'cart'">
+              <div *ngIf="!weeklyDetailRecord.cartList || weeklyDetailRecord.cartList.length === 0" class="text-center py-4 text-muted">
+                <i class="bi bi-cart-check fs-2 d-block mb-1 text-secondary"></i>
+                No cart material orders placed in this week.
+              </div>
+              <table *ngIf="weeklyDetailRecord.cartList && weeklyDetailRecord.cartList.length > 0" class="table table-hover align-middle mb-0 custom-table bg-white rounded border">
+                <thead class="table-light text-uppercase fs-8 text-secondary">
+                  <tr>
+                    <th>Order Date</th>
+                    <th>Material</th>
+                    <th>Location / Site</th>
+                    <th>Quantity</th>
+                    <th>Vendor</th>
+                    <th>Procurement Status</th>
+                    <th class="text-end">Total Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let c of weeklyDetailRecord.cartList">
+                    <td class="font-mono small">{{ formatDate(c.orderDate) }}</td>
+                    <td class="fw-bold text-dark">{{ c.material }}</td>
+                    <td class="small">{{ c.clientLocation }}</td>
+                    <td class="font-mono">{{ c.quantity }} {{ c.unit }}</td>
+                    <td>{{ c.vendorName || '—' }}</td>
+                    <td><span class="badge bg-info-subtle text-info border">{{ c.procurementStatus }}</span></td>
+                    <td class="text-end font-mono fw-bold" style="color: #e11d48;">₹ {{ (c.totalAmount || 0) | number:'1.2-2' }}</td>
                   </tr>
                 </tbody>
               </table>

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, NavigationEnd, RouterModule } from '@angular/router';
@@ -10,6 +10,7 @@ import { Meeting, CallLog, TaskItem, MeetingPurpose, CallStatus, TaskPriority, T
 import { Subscription, interval, filter } from 'rxjs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 function formatLocalDate(d: Date): string {
   const year = d.getFullYear();
@@ -1034,6 +1035,10 @@ export class ContactsComponent implements OnInit, OnDestroy {
   }
 
   // --- PERMISSION CHECKS ---
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
+
   canAdd(): boolean {
     return this.authService.canAdd(this.activeTab) || this.authService.canAdd('activity');
   }
@@ -1133,5 +1138,227 @@ export class ContactsComponent implements OnInit, OnDestroy {
     });
 
     doc.save(`Tasks_Report_${new Date().toISOString().substring(0, 10)}.pdf`);
+  }
+
+  exportCallsToExcel(): void {
+    if (!this.filteredCalls || this.filteredCalls.length === 0) {
+      alert('No sales call records available to export to Excel.');
+      return;
+    }
+    const headers = ['S.No', 'Date', 'Time', 'Client / Vendor Name', 'Call Title / Subject', 'Status', 'Discussion / Description', 'Employee / Caller'];
+    const rows = this.filteredCalls.map((c, idx) => [
+      idx + 1,
+      `"${this.formatCallDate(c.date)}"`,
+      `"${this.formatTime12Hour(c.time) || ''}"`,
+      `"${(c.clientVendorName || '').replace(/"/g, '""')}"`,
+      `"${(c.title || '').replace(/"/g, '""')}"`,
+      `"${c.status || ''}"`,
+      `"${(c.description || '').replace(/"/g, '""')}"`,
+      `"${c.callerName || ''}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Sales_Calls_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  exportBothCallsPdfAndExcel(): void {
+    this.exportCallsToPdf();
+    setTimeout(() => {
+      this.exportCallsToExcel();
+    }, 450);
+  }
+
+  exportTasksToExcel(): void {
+    if (!this.filteredTasks || this.filteredTasks.length === 0) {
+      alert('No tasks available to export to Excel.');
+      return;
+    }
+    const headers = ['S.No', 'Task Title', 'Assigned From', 'Assigned To', 'Due Date', 'Priority', 'Status', 'Related Client / Project', 'Description'];
+    const rows = this.filteredTasks.map((t, idx) => [
+      idx + 1,
+      `"${(t.title || '').replace(/"/g, '""')}"`,
+      `"${t.assignedFrom || ''}"`,
+      `"${t.assignedTo || ''}"`,
+      `"${t.dueDate ? this.formatCallDate(t.dueDate) : ''}"`,
+      `"${t.priority || 'Medium'}"`,
+      `"${t.status || 'Pending'}"`,
+      `"${(t.relatedTo || '').replace(/"/g, '""')}"`,
+      `"${(t.description || '').replace(/"/g, '""')}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Tasks_Report_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  exportBothTasksPdfAndExcel(): void {
+    this.exportTasksToPdf();
+    setTimeout(() => {
+      this.exportTasksToExcel();
+    }, 450);
+  }
+
+  @ViewChild('excelFileInput') excelFileInputRef?: ElementRef;
+
+  triggerExcelImport(): void {
+    if (this.excelFileInputRef) {
+      this.excelFileInputRef.nativeElement.click();
+    }
+  }
+
+  onExcelUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!rawRows || rawRows.length === 0) {
+          alert('The uploaded Excel file contains no data rows.');
+          return;
+        }
+
+        const today = new Date().toISOString().substring(0, 10);
+
+        if (this.activeTab === 'calls') {
+          const callsBatch: Partial<CallLog>[] = rawRows.map((row, idx) => {
+            const getVal = (keys: string[]) => {
+              for (const k of keys) {
+                const matchedKey = Object.keys(row).find(rk => rk.toLowerCase().replace(/[^a-z0-9]/g, '') === k.toLowerCase().replace(/[^a-z0-9]/g, ''));
+                if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null) {
+                  return String(row[matchedKey]).trim();
+                }
+              }
+              return '';
+            };
+
+            return {
+              date: getVal(['date', 'call date']) || today,
+              time: getVal(['time', 'call time']) || '10:00',
+              clientVendorName: getVal(['client vendor name', 'client name', 'client', 'name']) || `Client ${idx + 1}`,
+              title: getVal(['call title', 'title', 'subject']) || 'Sales Followup',
+              status: (getVal(['status']) || 'Connected') as CallStatus,
+              description: getVal(['discussion', 'description', 'notes', 'remarks']) || 'Imported via Excel',
+              callerName: getVal(['caller name', 'caller', 'employee']) || 'Employee'
+            };
+          });
+
+          let completed = 0;
+          callsBatch.forEach(c => {
+            this.contactsService.createCall(c as any).subscribe({
+              next: () => {
+                completed++;
+                if (completed === callsBatch.length) {
+                  this.loadCalls();
+                  alert(`Successfully imported ${completed} sales call records from Excel!`);
+                }
+              },
+              error: () => {
+                completed++;
+                if (completed === callsBatch.length) {
+                  this.loadCalls();
+                  alert(`Imported ${completed} call records from Excel.`);
+                }
+              }
+            });
+          });
+        } else if (this.activeTab === 'tasks') {
+          const tasksBatch: Partial<TaskItem>[] = rawRows.map((row, idx) => {
+            const getVal = (keys: string[]) => {
+              for (const k of keys) {
+                const matchedKey = Object.keys(row).find(rk => rk.toLowerCase().replace(/[^a-z0-9]/g, '') === k.toLowerCase().replace(/[^a-z0-9]/g, ''));
+                if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null) {
+                  return String(row[matchedKey]).trim();
+                }
+              }
+              return '';
+            };
+
+            return {
+              title: getVal(['task title', 'title', 'subject']) || `Task ${idx + 1}`,
+              assignedFrom: getVal(['assigned from', 'from', 'creator']) || 'Admin',
+              assignedTo: getVal(['assigned to', 'to', 'assignee']) || 'Employee',
+              dueDate: getVal(['due date', 'due', 'date']) || today,
+              priority: (getVal(['priority']) || 'Medium') as TaskPriority,
+              status: (getVal(['status']) || 'Pending') as TaskStatus,
+              relatedTo: getVal(['related client', 'related project', 'related to']) || 'General',
+              description: getVal(['description', 'notes', 'remarks']) || 'Imported via Excel'
+            };
+          });
+
+          let completed = 0;
+          tasksBatch.forEach(t => {
+            this.contactsService.createTask(t as any).subscribe({
+              next: () => {
+                completed++;
+                if (completed === tasksBatch.length) {
+                  this.loadTasks();
+                  alert(`Successfully imported ${completed} tasks from Excel!`);
+                }
+              },
+              error: () => {
+                completed++;
+                if (completed === tasksBatch.length) {
+                  this.loadTasks();
+                  alert(`Imported ${completed} task records from Excel.`);
+                }
+              }
+            });
+          });
+        }
+
+        input.value = '';
+      } catch (err: any) {
+        console.error('Excel upload error:', err);
+        alert('Failed to parse Excel file: ' + err.message);
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  clearAllCalls(): void {
+    if (confirm('Are you sure you want to clear ALL sales call records? This will delete all current call logs so you can upload a clean Excel file.')) {
+      this.contactsService.clearAllCalls().subscribe({
+        next: () => {
+          alert('All call records cleared successfully.');
+          this.loadCalls();
+        },
+        error: (err) => {
+          alert('Failed to clear records: ' + (err?.message || 'Error'));
+        }
+      });
+    }
+  }
+
+  clearAllTasks(): void {
+    if (confirm('Are you sure you want to clear ALL task records? This will delete all current tasks so you can upload a clean Excel file.')) {
+      this.contactsService.clearAllTasks().subscribe({
+        next: () => {
+          alert('All task records cleared successfully.');
+          this.loadTasks();
+        },
+        error: (err) => {
+          alert('Failed to clear records: ' + (err?.message || 'Error'));
+        }
+      });
+    }
   }
 }

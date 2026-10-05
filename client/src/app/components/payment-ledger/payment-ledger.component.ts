@@ -1,10 +1,12 @@
 import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, HostListener, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { lastValueFrom } from 'rxjs';
 import { ProjectService } from '../../services/project.service';
 import { Project, ClientPayment } from '../../models/project.model';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 import { RouterModule } from '@angular/router';
 import { MasterListService } from '../../services/master-list.service';
@@ -34,6 +36,29 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     const val = Number(p.siteValue) || 0;
     const rec = Number(p.received) || 0;
     return (val - rec) <= (this.closingValueTolerance || 100);
+  }
+
+  formatCapacity(val: string | undefined | null): string {
+    if (!val) return '3 kW';
+    const str = String(val).trim();
+    if (!str) return '3 kW';
+    if (str.toLowerCase().includes('mw')) return str;
+    const cleaned = str.replace(/\s*kw\s*/gi, '').trim();
+    return cleaned ? `${cleaned} kW` : '3 kW';
+  }
+
+  formatClientName(val: string | undefined | null): string {
+    if (!val) return '';
+    const str = String(val).trim();
+    if (str.includes(':')) {
+      const parts = str.split(':');
+      if (parts.length > 1) {
+        const subParts = parts[1].split(',');
+        if (subParts.length >= 2) return subParts[1].trim();
+        return subParts[0].trim();
+      }
+    }
+    return str;
   }
 
   paymentModeOptions: string[] = [
@@ -106,10 +131,296 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
 
   alertMessage: { text: string; type: 'success' | 'danger' } | null = null;
 
+  // --- EXCEL UPLOAD MODAL STATE ---
+  isExcelModalOpen = false;
+  excelRawRows: any[] = [];
+  excelHeaders: string[] = [];
+  excelMapping = {
+    clientName: '',
+    siteId: '',
+    siteValue: '',
+    received: '',
+    orderBy: '',
+    paymentDate: '',
+    paymentMode: '',
+    amount: ''
+  };
+
   ngOnInit(): void {
     this.loadProjects();
     this.loadPayments();
     this.loadClosingTolerance();
+    this.loadEngineers();
+  }
+
+  loadEngineers(): void {
+    this.masterListService.getList('Engineer').subscribe({
+      next: (res: any) => {
+        if (res?.data?.items && res.data.items.length > 0) {
+          const set = new Set<string>([...res.data.items, 'K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH']);
+          this.orderByOptions = Array.from(set).sort((a, b) => a.localeCompare(b));
+        }
+      }
+    });
+  }
+
+  normalizeToIsoDate(val: any): string {
+    if (!val) return new Date().toISOString().substring(0, 10);
+    if (val instanceof Date) {
+      if (isNaN(val.getTime())) return new Date().toISOString().substring(0, 10);
+      const yyyy = val.getFullYear();
+      const mm = String(val.getMonth() + 1).padStart(2, '0');
+      const dd = String(val.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    if (typeof val === 'number' || (typeof val === 'string' && /^\d{5}(\.\d+)?$/.test(val.trim()))) {
+      const num = typeof val === 'number' ? val : parseFloat(val.trim());
+      if (num > 10000 && num < 100000) {
+        const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
+        if (!isNaN(jsDate.getTime())) {
+          const yyyy = jsDate.getUTCFullYear();
+          const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+          const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd}`;
+        }
+      }
+    }
+
+    const str = String(val).trim().replace(/[T\s].*$/, '');
+    if (!str) return new Date().toISOString().substring(0, 10);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return str;
+    }
+
+    if (str.includes('-') || str.includes('/') || str.includes('.')) {
+      const isSlash = str.includes('/');
+      const parts = str.split(/[-/.]/).map(p => p.trim());
+
+      if (parts.length === 3) {
+        let p0 = parseInt(parts[0], 10);
+        let p1 = parseInt(parts[1], 10);
+        let p2 = parseInt(parts[2], 10);
+
+        if (!isNaN(p0) && !isNaN(p1) && !isNaN(p2)) {
+          let year = p2;
+          let month = 0;
+          let day = 0;
+
+          if (p0 > 1000) {
+            year = p0;
+            if (p1 > 12) { month = p2; day = p1; }
+            else { month = p1; day = p2; }
+          } else {
+            if (year < 100) year += 2000;
+
+            if (isSlash) {
+              // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
+              if (p0 > 12 && p1 <= 12) {
+                day = p0;
+                month = p1;
+              } else {
+                month = p0;
+                day = p1;
+              }
+            } else {
+              // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
+              if (p1 > 12 && p0 <= 12) {
+                month = p0;
+                day = p1;
+              } else {
+                day = p0;
+                month = p1;
+              }
+            }
+          }
+
+          if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            const yStr = String(year);
+            const mStr = String(month).padStart(2, '0');
+            const dStr = String(day).padStart(2, '0');
+            return `${yStr}-${mStr}-${dStr}`;
+          }
+        }
+      }
+    }
+
+    const dObj = new Date(str);
+    if (!isNaN(dObj.getTime())) {
+      const yyyy = dObj.getFullYear();
+      const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(dObj.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return new Date().toISOString().substring(0, 10);
+  }
+
+  onExcelFileSelected(event: any): void {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawArrayRows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+        if (!rawArrayRows || rawArrayRows.length === 0) {
+          this.showAlert('Selected Excel file is empty', 'danger');
+          return;
+        }
+
+        let headerRowIndex = -1;
+        for (let i = 0; i < Math.min(10, rawArrayRows.length); i++) {
+          const rowStr = rawArrayRows[i].join(' ').toLowerCase();
+          if (rowStr.includes('date') || rowStr.includes('site') || rowStr.includes('client') || rowStr.includes('payment') || rowStr.includes('amount') || rowStr.includes('received')) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        const startIdx = headerRowIndex !== -1 ? headerRowIndex + 1 : 0;
+        const headerCells = headerRowIndex !== -1 ? rawArrayRows[headerRowIndex].map((c: any) => String(c || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '')) : [];
+
+        const findColIndex = (keywords: string[]) => {
+          if (headerCells.length === 0) return -1;
+          for (const kw of keywords) {
+            const idx = headerCells.findIndex((h: string) => h.includes(kw));
+            if (idx !== -1) return idx;
+          }
+          return -1;
+        };
+
+        const colIdx = {
+          date: findColIndex(['date', 'paymentdate']),
+          clientSiteName: findColIndex(['clientsitename', 'sitename', 'client']),
+          siteId: findColIndex(['siteid', 'projectid', 'site', 'id']),
+          paymentMode: findColIndex(['paymentmode', 'mode', 'type', 'channel']),
+          remarks: findColIndex(['remarks', 'installment', 'notes', 'comments']),
+          amount: findColIndex(['paymentreceived', 'received', 'amount', 'paid'])
+        };
+
+        const parseNumStr = (valStr: any) => {
+          if (!valStr) return 0;
+          const str = String(valStr).trim();
+          if (!str) return 0;
+          return parseFloat(str.replace(/[^0-9.-]/g, '')) || 0;
+        };
+
+        const paymentsBatch: Partial<ClientPayment>[] = [];
+
+        for (let r = startIdx; r < rawArrayRows.length; r++) {
+          const arrRow = rawArrayRows[r];
+          if (!arrRow || arrRow.length === 0 || arrRow.every((cell: any) => cell === undefined || cell === null || String(cell).trim() === '')) {
+            continue;
+          }
+
+          const getValByCol = (cIndex: number, fallbacks: number[]) => {
+            if (cIndex !== -1 && arrRow[cIndex] !== undefined && arrRow[cIndex] !== null && String(arrRow[cIndex]).trim() !== '') {
+              return String(arrRow[cIndex]).trim();
+            }
+            for (const fb of fallbacks) {
+              if (arrRow[fb] !== undefined && arrRow[fb] !== null && String(arrRow[fb]).trim() !== '') {
+                return String(arrRow[fb]).trim();
+              }
+            }
+            return '';
+          };
+
+          let rawDate = getValByCol(colIdx.date, [0]);
+          let clientSiteName = getValByCol(colIdx.clientSiteName, [1]);
+          let siteId = getValByCol(colIdx.siteId, [2, 1]);
+          let paymentMode = getValByCol(colIdx.paymentMode, [3]);
+          let remarks = getValByCol(colIdx.remarks, [4]);
+          let amountStr = getValByCol(colIdx.amount, [5]);
+
+          for (let c = 0; c < arrRow.length; c++) {
+            const cellStr = String(arrRow[c] || '').trim();
+            if (!cellStr) continue;
+
+            if (!siteId && /^SP\d+/i.test(cellStr)) {
+              siteId = cellStr.toUpperCase();
+            }
+            if (!rawDate && (/^\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}$/.test(cellStr) || /^\d{5}$/.test(cellStr))) {
+              rawDate = cellStr;
+            }
+          }
+
+          if (siteId && /^SP\d+/i.test(siteId)) {
+            const m = siteId.match(/^SP\d+/i);
+            if (m) siteId = m[0].toUpperCase();
+          }
+
+          const amount = parseNumStr(amountStr);
+          if (!siteId && !clientSiteName) continue;
+          if (amount <= 0) continue;
+
+          if (siteId.toLowerCase().includes('site') || clientSiteName.toLowerCase().includes('client') || remarks.toLowerCase().includes('remarks')) {
+            continue;
+          }
+
+          if (!siteId) siteId = `SP${400 + r}`;
+
+          const isoDate = this.normalizeToIsoDate(rawDate);
+          const mop = this.deriveMoPFromDate(rawDate);
+          const clientName = this.formatClientName(clientSiteName) || `Client ${siteId}`;
+
+          paymentsBatch.push({
+            paymentDate: isoDate,
+            mop: mop || 'Current',
+            siteId: siteId.toUpperCase(),
+            clientName: clientName,
+            clientSiteName: clientSiteName || `${siteId} : ${clientName}`,
+            amount: amount,
+            paymentMode: paymentMode || 'Bank Transfer / NEFT',
+            remarks: remarks || 'Payment Inflow'
+          });
+        }
+
+        if (paymentsBatch.length === 0) {
+          this.showAlert('No valid payment transaction rows found in Excel sheet.', 'danger');
+          return;
+        }
+
+        this.showAlert(`Importing ${paymentsBatch.length} client payment records from Excel...`, 'success');
+
+        let successCount = 0;
+        for (const pay of paymentsBatch) {
+          try {
+            await lastValueFrom(this.projectService.createPayment(pay));
+            successCount++;
+          } catch (err) {
+            console.error(`Error uploading payment for ${pay.siteId}:`, err);
+          }
+        }
+
+        this.loadProjects();
+        this.loadPayments();
+        this.showAlert(`Successfully uploaded all ${successCount} client payment transaction records from Excel!`, 'success');
+        event.target.value = '';
+      } catch (err: any) {
+        console.error('Error parsing Excel payment file:', err);
+        this.showAlert('Failed to read Excel file: ' + err.message, 'danger');
+        event.target.value = '';
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  closeExcelModal(): void {
+    this.isExcelModalOpen = false;
+    this.excelRawRows = [];
+    this.excelHeaders = [];
+  }
+
+  confirmImportExcel(): void {
+    this.closeExcelModal();
   }
 
   loadClosingTolerance(): void {
@@ -358,23 +669,16 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   // Format Helper: Converts yyyy-mm-dd to dd-mm-yyyy
-  toDisplayDate(isoStr: string | undefined): string {
+  toDisplayDate(isoStr: string | undefined | null): string {
     if (!isoStr) return '';
-    const cleanStr = String(isoStr).trim().substring(0, 10).replace(/[/.]/g, '-');
-    if (cleanStr.includes('-')) {
-      const parts = cleanStr.split('-');
-      if (parts.length === 3 && parts[0].length === 4) {
-        const yyyy = parts[0];
-        const mm = parts[1].padStart(2, '0');
-        const dd = parts[2].padStart(2, '0');
-        return `${dd}-${mm}-${yyyy}`;
-      }
-      if (parts.length === 3 && parts[2].length === 4) {
-        const dd = parts[0].padStart(2, '0');
-        const mm = parts[1].padStart(2, '0');
-        const yyyy = parts[2];
-        return `${dd}-${mm}-${yyyy}`;
-      }
+    const iso = this.normalizeToIsoDate(isoStr);
+    if (!iso || iso.length < 10) return String(isoStr).trim();
+    const parts = iso.substring(0, 10).split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      const yyyy = parts[0];
+      const mm = parts[1].padStart(2, '0');
+      const dd = parts[2].padStart(2, '0');
+      return `${dd}-${mm}-${yyyy}`;
     }
     return String(isoStr).trim();
   }
@@ -382,23 +686,7 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   // Format Helper: Converts dd-mm-yyyy or date picker to yyyy-mm-dd
   toIsoDate(inputStr: string | undefined): string {
     if (!inputStr) return new Date().toISOString().slice(0, 10);
-    const cleanStr = String(inputStr).trim().substring(0, 10).replace(/[/.]/g, '-');
-    if (cleanStr.includes('-')) {
-      const parts = cleanStr.split('-');
-      if (parts.length === 3 && parts[2].length === 4) {
-        const dd = parts[0].padStart(2, '0');
-        const mm = parts[1].padStart(2, '0');
-        const yyyy = parts[2];
-        return `${yyyy}-${mm}-${dd}`;
-      }
-      if (parts.length === 3 && parts[0].length === 4) {
-        const yyyy = parts[0];
-        const mm = parts[1].padStart(2, '0');
-        const dd = parts[2].padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
-      }
-    }
-    return cleanStr;
+    return this.normalizeToIsoDate(inputStr);
   }
 
   // Format Helper: Get today formatted as dd-mm-yyyy
@@ -935,6 +1223,40 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     this.showAlert('Client Payment Ledger PDF generated successfully!', 'success');
   }
 
+  exportToExcel(): void {
+    if (!this.filteredClients || this.filteredClients.length === 0) {
+      this.showAlert('No client records available to export to Excel', 'danger');
+      return;
+    }
+    const headers = ['S.No', 'Site ID', 'Client Name', 'Location', 'Site Value (INR)', 'Received (INR)', 'Due Amount (INR)', 'Status'];
+    const rows = this.filteredClients.map((c, i) => [
+      i + 1,
+      `"${c.siteId || ''}"`,
+      `"${(c.clientName || '').replace(/"/g, '""')}"`,
+      `"${(c.location || '').replace(/"/g, '""')}"`,
+      c.siteValue || 0,
+      c.received || 0,
+      c.due || 0,
+      `"${this.isFullyPaid(c) ? 'Fully Paid' : 'Due Recoverable'}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Client_Payment_Ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    this.showAlert('Excel/CSV downloaded successfully!', 'success');
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportAllClientsPdf();
+    setTimeout(() => {
+      this.exportToExcel();
+    }, 450);
+  }
+
   exportClientStatementPdf(): void {
     if (!this.selectedProjectRef) return;
     const c = this.selectedProjectRef;
@@ -1028,6 +1350,10 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   // --- PERMISSION CHECKS ---
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
+
   canAdd(): boolean {
     return this.authService.canAdd('payment-ledger') || this.authService.canAdd('finance');
   }
@@ -1038,5 +1364,20 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
 
   canDelete(): boolean {
     return this.authService.canDelete('payment-ledger') || this.authService.canDelete('finance');
+  }
+
+  clearAllClientPayments(): void {
+    if (confirm('Are you sure you want to clear ALL client payment records? This will delete all current payment records so you can upload a clean Excel file.')) {
+      this.projectService.clearAllClientPayments().subscribe({
+        next: () => {
+          this.showAlert('All client payment records cleared successfully.', 'success');
+          this.loadProjects();
+          this.loadPayments();
+        },
+        error: (err: any) => {
+          this.showAlert('Failed to clear records: ' + (err?.message || 'Error'), 'danger');
+        }
+      });
+    }
   }
 }

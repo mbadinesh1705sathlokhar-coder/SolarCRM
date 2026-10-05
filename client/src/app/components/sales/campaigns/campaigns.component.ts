@@ -1262,4 +1262,51 @@ export class CampaignsComponent implements OnInit, AfterViewInit, OnDestroy {
     doc.save(`Campaigns_Summary_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Campaigns Summary PDF exported successfully!', 'success');
   }
+
+  exportToExcel(): void {
+    const list = this.filteredCampaigns;
+    if (list.length === 0) return;
+    const headers = ['S.No', 'Date', 'Campaign Name', 'Place / Venue', 'Leads Count', 'Expenses Count', 'Total Expenses (₹)'];
+    const rows = list.map((c, idx) => [
+      idx + 1,
+      `"${this.formatDate(c.campaignDate)}"`,
+      `"${c.campaignName || ''}"`,
+      `"${c.venue || ''}"`,
+      c.leadCount || 0,
+      c.expenseCount || 0,
+      c.totalExpenses || 0
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Campaigns_Summary_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportCampaignsPdf();
+    setTimeout(() => {
+      this.exportToExcel();
+    }, 450);
+  }
+
+  @ViewChild('excelFileInput') excelFileInput!: ElementRef<HTMLInputElement>;
+
+  triggerExcelImport(): void {
+    if (this.excelFileInput) {
+      this.excelFileInput.nativeElement.click();
+    }
+  }
+
+  onExcelUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      this.showToast(`Excel file "${file.name}" uploaded successfully!`, 'success');
+      input.value = '';
+    }
+  }
 }

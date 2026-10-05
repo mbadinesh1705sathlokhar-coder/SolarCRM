@@ -296,4 +296,20 @@ export class InventoryService {
   deleteCartItem(id: number): Observable<{ success: boolean; message: string }> {
     return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/cart/${id}`);
   }
+
+  clearAllIndents(): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/indents/all`);
+  }
+
+  clearAllWarehouse(): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/warehouse/all`);
+  }
+
+  clearAllGatePasses(): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/gate-pass/all`);
+  }
+
+  clearAllCart(): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/cart/all`);
+  }
 }

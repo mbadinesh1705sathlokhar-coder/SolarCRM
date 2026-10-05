@@ -15,3 +15,33 @@
     <router-outlet></router-outlet>
   </main>
 </ng-template>
+
+<!-- LOGOUT CONFIRMATION POPUP MODAL -->
+<div class="modal fade show d-block" *ngIf="authService.isLogoutModalOpen()" tabindex="-1" style="z-index: 1099; background: rgba(0, 0, 0, 0.55);">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-danger text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-box-arrow-right fs-5"></i>
+          Confirm Logout
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="authService.cancelLogout()"></button>
+      </div>
+      <div class="modal-body p-4 text-center bg-light">
+        <div class="mb-3 text-danger">
+          <i class="bi bi-exclamation-circle-fill display-5"></i>
+        </div>
+        <h6 class="fw-bold text-dark mb-1">Are you sure you want to log out?</h6>
+        <p class="text-muted small mb-0">You will need to sign in again to access SolarCRM workspace.</p>
+      </div>
+      <div class="modal-footer bg-white py-2.5 px-4 d-flex justify-content-between align-items-center">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3.5 rounded-2 fw-semibold" (click)="authService.cancelLogout()">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-sm btn-danger px-4 rounded-2 fw-semibold shadow-sm d-flex align-items-center gap-1.5" (click)="authService.proceedLogout()">
+          <i class="bi bi-box-arrow-right"></i> Yes, Logout
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

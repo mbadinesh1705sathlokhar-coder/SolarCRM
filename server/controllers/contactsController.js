@@ -255,18 +255,48 @@ const deleteTask = async (req, res) => {
     }
 };
 
+const clearAllMeetings = async (req, res) => {
+    try {
+        await Meeting.destroy({ where: {} });
+        res.status(200).json({ message: 'All meetings cleared successfully' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to clear meetings', details: err.message });
+    }
+};
+
+const clearAllCalls = async (req, res) => {
+    try {
+        await CallLog.destroy({ where: {} });
+        res.status(200).json({ message: 'All calls cleared successfully' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to clear calls', details: err.message });
+    }
+};
+
+const clearAllTasks = async (req, res) => {
+    try {
+        await TaskItem.destroy({ where: {} });
+        res.status(200).json({ message: 'All tasks cleared successfully' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to clear tasks', details: err.message });
+    }
+};
+
 module.exports = {
     seedContactsIfEmpty,
     getMeetings,
     createMeeting,
     updateMeeting,
     deleteMeeting,
+    clearAllMeetings,
     getCalls,
     createCall,
     updateCall,
     deleteCall,
+    clearAllCalls,
     getTasks,
     createTask,
     updateTask,
-    deleteTask
+    deleteTask,
+    clearAllTasks
 };

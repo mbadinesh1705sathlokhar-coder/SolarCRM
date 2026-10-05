@@ -1,9 +1,11 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, HostListener, ViewChild, ElementRef, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { lastValueFrom } from 'rxjs';
 import Chart from 'chart.js/auto';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { ProjectService } from '../../services/project.service';
 import { Project, SummaryMetrics, ClientPayment, BomItem } from '../../models/project.model';
 
@@ -208,16 +210,31 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
           this.paymentModeOptions = findItems('Payment Mode', this.paymentModeOptions);
           this.uomOptions = findItems('UOM measurements', findItems('UOM', this.uomOptions));
 
+          const engineerItems = findItems('Engineer', findItems('Order_By', ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']));
+          if (engineerItems && engineerItems.length > 0) {
+            const currentLabels = this.orderByOptions.map(o => o.label);
+            const combined = Array.from(new Set([...engineerItems, ...currentLabels]));
+            this.orderByOptions = combined.map(lbl => ({ label: lbl, selected: true }));
+          }
+
+          const excludedGroups = new Set([
+            'mc4', 'mc4 connector', 'lugs', 'bucket', 'structure',
+            'earthing & lightning', 'fasteners & hardware'
+          ]);
+
           const dbMatGroups = findItems('BOM', findItems('Material Group', findItems('Materials_', [])));
           if (dbMatGroups && dbMatGroups.length > 0) {
             dbMatGroups.forEach(gName => {
-              const exists = this.materialGroupsList.some(m => m.group.toLowerCase().trim() === gName.toLowerCase().trim());
-              if (!exists) {
-                this.materialGroupsList.push({
-                  group: gName,
-                  defaultUom: 'Nos',
-                  specifications: [`${gName} Standard Spec`]
-                });
+              const cleanG = (gName || '').trim();
+              if (cleanG && !excludedGroups.has(cleanG.toLowerCase())) {
+                const exists = this.materialGroupsList.some(m => m.group.toLowerCase().trim() === cleanG.toLowerCase());
+                if (!exists) {
+                  this.materialGroupsList.push({
+                    group: cleanG,
+                    defaultUom: 'Nos',
+                    specifications: [`${cleanG} Standard Spec`]
+                  });
+                }
               }
             });
           }
@@ -456,12 +473,8 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   getBomDispatchStatus(item: BomItem): 'full' | 'part' | 'none' {
     const planned = Number(item.plannedQty) || 0;
     const dispatched = Number(item.dispatchedQty !== undefined ? item.dispatchedQty : item.warehouseUnitsDrawn) || 0;
-    if (dispatched >= planned && planned > 0) return 'full';
+    if (planned > 0 && dispatched >= planned) return 'full';
     if (dispatched > 0 && dispatched < planned) return 'part';
-    if (item.isDispatched) {
-      if (dispatched > 0 && dispatched < planned) return 'part';
-      return 'full';
-    }
     return 'none';
   }
 
@@ -1370,13 +1383,8 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   }
 
   formatDate(dateStr?: string): string {
-    if (!dateStr) return '-';
-    const clean = dateStr.substring(0, 10);
-    const parts = clean.split('-');
-    if (parts.length === 3 && parts[0].length === 4) {
-      return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    }
-    return clean;
+    if (!dateStr || dateStr === '-') return '-';
+    return this.toDisplayDate(dateStr) || '-';
   }
 
   openEditModal(project: Project): void {
@@ -1634,6 +1642,316 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
         this.cdr.markForCheck();
       }, 4000);
     }
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportToPdf();
+    setTimeout(() => {
+      this.exportToCsv();
+    }, 450);
+  }
+
+  @ViewChild('excelFileInput') excelFileInput!: ElementRef<HTMLInputElement>;
+
+  triggerExcelImport(): void {
+    if (this.excelFileInput) {
+      this.excelFileInput.nativeElement.click();
+    }
+  }
+
+  formatCapacity(val: string | undefined | null): string {
+    if (!val) return '3 kW';
+    const str = String(val).trim();
+    if (!str) return '3 kW';
+    if (str.toLowerCase().includes('mw')) return str;
+    const cleaned = str.replace(/\s*kw\s*/gi, '').trim();
+    return cleaned ? `${cleaned} kW` : '3 kW';
+  }
+
+  normalizeToIsoDate(val: any): string {
+    if (!val) return new Date().toISOString().substring(0, 10);
+    if (val instanceof Date) {
+      if (isNaN(val.getTime())) return new Date().toISOString().substring(0, 10);
+      const yyyy = val.getFullYear();
+      const mm = String(val.getMonth() + 1).padStart(2, '0');
+      const dd = String(val.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    if (typeof val === 'number' || (typeof val === 'string' && /^\d{5}(\.\d+)?$/.test(val.trim()))) {
+      const num = typeof val === 'number' ? val : parseFloat(val.trim());
+      if (num > 10000 && num < 100000) {
+        const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
+        if (!isNaN(jsDate.getTime())) {
+          const yyyy = jsDate.getUTCFullYear();
+          const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+          const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd}`;
+        }
+      }
+    }
+
+    const str = String(val).trim().replace(/[T\s].*$/, '');
+    if (!str) return new Date().toISOString().substring(0, 10);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return str;
+    }
+
+    if (str.includes('-') || str.includes('/') || str.includes('.')) {
+      const isSlash = str.includes('/');
+      const parts = str.split(/[-/.]/).map(p => p.trim());
+
+      if (parts.length === 3) {
+        let p0 = parseInt(parts[0], 10);
+        let p1 = parseInt(parts[1], 10);
+        let p2 = parseInt(parts[2], 10);
+
+        if (!isNaN(p0) && !isNaN(p1) && !isNaN(p2)) {
+          let year = p2;
+          let month = 0;
+          let day = 0;
+
+          if (p0 > 1000) {
+            year = p0;
+            if (p1 > 12) { month = p2; day = p1; }
+            else { month = p1; day = p2; }
+          } else {
+            if (year < 100) year += 2000;
+
+            if (isSlash) {
+              // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
+              if (p0 > 12 && p1 <= 12) {
+                day = p0;
+                month = p1;
+              } else {
+                month = p0;
+                day = p1;
+              }
+            } else {
+              // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
+              if (p1 > 12 && p0 <= 12) {
+                month = p0;
+                day = p1;
+              } else {
+                day = p0;
+                month = p1;
+              }
+            }
+          }
+
+          if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            const yStr = String(year);
+            const mStr = String(month).padStart(2, '0');
+            const dStr = String(day).padStart(2, '0');
+            return `${yStr}-${mStr}-${dStr}`;
+          }
+        }
+      }
+    }
+
+    const dObj = new Date(str);
+    if (!isNaN(dObj.getTime())) {
+      const yyyy = dObj.getFullYear();
+      const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(dObj.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return new Date().toISOString().substring(0, 10);
+  }
+
+  onExcelUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        const rawArrayRows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+        if (!rawArrayRows || rawArrayRows.length === 0) {
+          this.showToast('The uploaded Excel file contains no data rows.', 'error');
+          return;
+        }
+
+        let headerRowIndex = -1;
+        for (let i = 0; i < Math.min(10, rawArrayRows.length); i++) {
+          const rowStr = rawArrayRows[i].join(' ').toLowerCase();
+          if (rowStr.includes('site') || rowStr.includes('client') || rowStr.includes('awarded') || rowStr.includes('capacity') || rowStr.includes('location')) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        const startIdx = headerRowIndex !== -1 ? headerRowIndex + 1 : 0;
+        const headerCells = headerRowIndex !== -1 ? rawArrayRows[headerRowIndex].map((c: any) => String(c || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '')) : [];
+
+        const findColIndex = (keywords: string[]) => {
+          if (headerCells.length === 0) return -1;
+          for (const kw of keywords) {
+            const idx = headerCells.findIndex((h: string) => h.includes(kw));
+            if (idx !== -1) return idx;
+          }
+          return -1;
+        };
+
+        const colIdx = {
+          awardedDate: findColIndex(['awardeddate', 'awarded', 'date']),
+          siteId: findColIndex(['siteid', 'projectid', 'site', 'id']),
+          clientName: findColIndex(['clientname', 'client', 'customer', 'name']),
+          location: findColIndex(['location', 'city']),
+          contactNo: findColIndex(['contactno', 'contact', 'phone', 'mobile']),
+          siteCapacity: findColIndex(['sitecapacity', 'capacity', 'kw']),
+          siteValue: findColIndex(['sitevalue', 'contractvalue', 'value', 'amount', 'price']),
+          siteType: findColIndex(['sitetype', 'type']),
+          systemType: findColIndex(['systemtype']),
+          siteCategory: findColIndex(['sitecategory', 'category']),
+          clientType: findColIndex(['clienttype']),
+          saleType: findColIndex(['saletype']),
+          orderBy: findColIndex(['orderby', 'engineer', 'siteengineer', 'manager']),
+          received: findColIndex(['received', 'paid']),
+          siteExpenses: findColIndex(['siteexpenses', 'expenses', 'expense']),
+          address: findColIndex(['address'])
+        };
+
+        const parseNumStr = (valStr: any) => {
+          if (!valStr) return 0;
+          const str = String(valStr).trim();
+          if (!str) return 0;
+          return parseFloat(str.replace(/[^0-9.-]/g, '')) || 0;
+        };
+
+        const parseBoolVal = (strVal: any) => {
+          const s = String(strVal || '').toLowerCase().trim();
+          return s === 'true' || s === 'yes' || s === '1' || s === 'checked';
+        };
+
+        const projectsBatch: Partial<Project>[] = [];
+
+        for (let r = startIdx; r < rawArrayRows.length; r++) {
+          const arrRow = rawArrayRows[r];
+          if (!arrRow || arrRow.length === 0 || arrRow.every((cell: any) => cell === undefined || cell === null || String(cell).trim() === '')) {
+            continue;
+          }
+
+          const getValByCol = (cIndex: number, fallbacks: number[]) => {
+            if (cIndex !== -1 && arrRow[cIndex] !== undefined && arrRow[cIndex] !== null && String(arrRow[cIndex]).trim() !== '') {
+              return String(arrRow[cIndex]).trim();
+            }
+            for (const fb of fallbacks) {
+              if (arrRow[fb] !== undefined && arrRow[fb] !== null && String(arrRow[fb]).trim() !== '') {
+                return String(arrRow[fb]).trim();
+              }
+            }
+            return '';
+          };
+
+          let rawDate = getValByCol(colIdx.awardedDate, [0]);
+          let siteId = getValByCol(colIdx.siteId, [1]);
+          let clientName = getValByCol(colIdx.clientName, [2]);
+          let location = getValByCol(colIdx.location, [3]);
+          let contactNo = getValByCol(colIdx.contactNo, [4]);
+          let siteCapacity = getValByCol(colIdx.siteCapacity, [5]);
+          let siteValueStr = getValByCol(colIdx.siteValue, [6]);
+          let siteType = getValByCol(colIdx.siteType, [7]);
+          let systemType = getValByCol(colIdx.systemType, [8]);
+          let siteCategory = getValByCol(colIdx.siteCategory, [9]);
+          let clientType = getValByCol(colIdx.clientType, [10]);
+          let saleType = getValByCol(colIdx.saleType, [11]);
+          let orderBy = getValByCol(colIdx.orderBy, [12]);
+          let receivedStr = getValByCol(colIdx.received, [13]);
+          let siteExpensesStr = getValByCol(colIdx.siteExpenses, [14]);
+          let address = getValByCol(colIdx.address, [26]);
+
+          for (let c = 0; c < arrRow.length; c++) {
+            const cellStr = String(arrRow[c] || '').trim();
+            if (!cellStr) continue;
+
+            if (!siteId && /^SP\d+/i.test(cellStr)) {
+              siteId = cellStr.toUpperCase();
+            }
+            if (!rawDate && (/^\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}$/.test(cellStr) || /^\d{5}$/.test(cellStr))) {
+              rawDate = cellStr;
+            }
+            if (!contactNo && /^\d{10}$/.test(cellStr.replace(/\s+/g, ''))) {
+              contactNo = cellStr;
+            }
+          }
+
+          if (!siteId && !clientName) continue;
+
+          if (siteId.toLowerCase().includes('site') || clientName.toLowerCase().includes('client') || clientName.toLowerCase().includes('name')) {
+            continue;
+          }
+
+          if (!siteId) siteId = `SP${400 + r}`;
+          if (!clientName) clientName = `Client ${siteId}`;
+
+          const awardedDateIso = this.normalizeToIsoDate(rawDate);
+          const formattedCapacity = this.formatCapacity(siteCapacity);
+
+          projectsBatch.push({
+            awardedDate: awardedDateIso,
+            siteId: siteId.toUpperCase(),
+            clientName,
+            location: location || 'Chennai',
+            contactNo: contactNo || '',
+            emailId: '',
+            address: address || location,
+            siteCapacity: formattedCapacity,
+            siteValue: parseNumStr(siteValueStr),
+            siteType: siteType || 'Residential',
+            systemType: systemType || 'Ongrid',
+            siteCategory: siteCategory || 'TATA SPG',
+            clientType: clientType || 'Individual',
+            saleType: saleType || 'B2C',
+            orderBy: orderBy || 'K SATHISH',
+            received: parseNumStr(receivedStr),
+            siteExpenses: parseNumStr(siteExpensesStr),
+            materialsSupply: parseBoolVal(arrRow[17]),
+            installation: parseBoolVal(arrRow[18]),
+            ebProcess: parseBoolVal(arrRow[19]),
+            documents: parseBoolVal(arrRow[20]),
+            warranty: parseBoolVal(arrRow[21]),
+            handedOver: parseBoolVal(arrRow[22])
+          });
+        }
+
+        if (projectsBatch.length === 0) {
+          this.showToast('No valid project rows found in Excel sheet.', 'error');
+          return;
+        }
+
+        this.showToast(`Importing ${projectsBatch.length} site records from Excel...`, 'success');
+
+        let successCount = 0;
+        for (const proj of projectsBatch) {
+          try {
+            await lastValueFrom(this.projectService.createProject(proj));
+            successCount++;
+          } catch (err) {
+            console.error(`Error uploading site ${proj.siteId}:`, err);
+          }
+        }
+
+        this.loadData();
+        this.showToast(`Successfully uploaded ${successCount} of ${projectsBatch.length} site records from Excel!`, 'success');
+        input.value = '';
+      } catch (err: any) {
+        console.error('Excel upload error:', err);
+        this.showToast('Failed to parse Excel file: ' + err.message, 'error');
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
   }
 
   // Export to CSV
@@ -2178,28 +2496,23 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   // --- DEDICATED CLIENT PAYMENT LEDGER METHODS ---
 
   // Format Helper: Converts yyyy-mm-dd to dd-mm-yyyy
-  toDisplayDate(isoStr: string | undefined): string {
+  toDisplayDate(isoStr: string | undefined | null): string {
     if (!isoStr) return '';
-    const trimmed = String(isoStr).trim();
-    if (trimmed.includes('-')) {
-      const parts = trimmed.split('-');
-      if (parts.length === 3 && parts[0].length === 4) {
-        return `${parts[2]}-${parts[1]}-${parts[0]}`;
-      }
+    const iso = this.normalizeToIsoDate(isoStr);
+    if (!iso || iso.length < 10) return String(isoStr).trim();
+    const parts = iso.substring(0, 10).split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      const yyyy = parts[0];
+      const mm = parts[1].padStart(2, '0');
+      const dd = parts[2].padStart(2, '0');
+      return `${dd}-${mm}-${yyyy}`;
     }
-    return trimmed;
+    return String(isoStr).trim();
   }
 
   toIsoDate(inputStr: string | undefined): string {
     if (!inputStr) return new Date().toISOString().slice(0, 10);
-    const trimmed = String(inputStr).trim();
-    if (trimmed.includes('-')) {
-      const parts = trimmed.split('-');
-      if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
-        return `${parts[2]}-${parts[1]}-${parts[0]}`;
-      }
-    }
-    return trimmed;
+    return this.normalizeToIsoDate(inputStr);
   }
 
   getTodayDisplayDate(): string {

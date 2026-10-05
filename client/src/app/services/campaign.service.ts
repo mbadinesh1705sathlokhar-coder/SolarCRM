@@ -139,4 +139,8 @@ export class CampaignService {
   deleteCampaignExpense(id: number): Observable<{ success: boolean; message: string }> {
     return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/expenses/${id}`);
   }
+
+  clearAllExpoExpenses(): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/all-expenses`);
+  }
 }

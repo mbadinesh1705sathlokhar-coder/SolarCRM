@@ -444,12 +444,25 @@ async function deleteVendorPayment(req, res) {
     }
 }
 
+async function deleteAllVendors(req, res) {
+    try {
+        await VendorPayment.destroy({ where: {} });
+        await VendorPoWo.destroy({ where: {} });
+        await OfficeVendor.destroy({ where: {} });
+        res.json({ success: true, message: 'All vendor records cleared successfully' });
+    } catch (err) {
+        console.error('Error clearing vendors:', err);
+        res.status(500).json({ success: false, message: 'Failed to clear vendors' });
+    }
+}
+
 module.exports = {
     getAllVendors,
     getVendorWithLedger,
     createVendor,
     updateVendor,
     deleteVendor,
+    deleteAllVendors,
     getVendorPoWos,
     createVendorPoWo,
     updateVendorPoWo,

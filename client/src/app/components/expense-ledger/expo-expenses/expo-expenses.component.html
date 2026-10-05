@@ -102,9 +102,20 @@
 
         <!-- Buttons & Actions -->
         <div class="d-flex align-items-center gap-2 ms-auto text-nowrap">
-          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportPdf()" title="Export Expo Expenses Ledger as PDF">
-            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-            <span>PDF</span>
+          <button *ngIf="isAdmin()" class="btn btn-outline-success d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="triggerExcelImport()" title="Upload Excel spreadsheet">
+            <i class="bi bi-file-earmark-arrow-up-fill text-success"></i>
+            <span>Upload</span>
+          </button>
+          <input #excelFileInput type="file" accept=".xlsx,.xls,.csv" (change)="onExcelUploadSelected($event)" class="d-none">
+
+          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
+            <i class="bi bi-file-earmark-arrow-down-fill text-danger"></i>
+            <span>Export</span>
+          </button>
+
+          <button *ngIf="isAdmin() && expenses.length > 0" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="clearAllExpoExpenses()" title="Clear all expo expenses to re-upload cleanly">
+            <i class="bi bi-trash3 text-muted"></i>
+            <span>Clear All</span>
           </button>
         </div>
       </div>

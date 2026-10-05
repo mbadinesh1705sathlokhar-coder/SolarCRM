@@ -372,7 +372,19 @@ export class AuthService {
     }
   }
 
-  logout(): void {
+  isLogoutModalOpenSignal = signal<boolean>(false);
+  isLogoutModalOpen = this.isLogoutModalOpenSignal.asReadonly();
+
+  confirmLogout(): void {
+    this.isLogoutModalOpenSignal.set(true);
+  }
+
+  cancelLogout(): void {
+    this.isLogoutModalOpenSignal.set(false);
+  }
+
+  proceedLogout(): void {
+    this.isLogoutModalOpenSignal.set(false);
     this.currentUserSignal.set(null);
     try {
       localStorage.removeItem(this.STORAGE_KEY);
@@ -380,5 +392,9 @@ export class AuthService {
       console.error('Failed to clear user session:', e);
     }
     this.router.navigate(['/login']);
+  }
+
+  logout(): void {
+    this.confirmLogout();
   }
 }

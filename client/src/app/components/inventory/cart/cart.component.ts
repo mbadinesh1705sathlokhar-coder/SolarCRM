@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -9,6 +9,7 @@ import { MasterListService } from '../../../services/master-list.service';
 import { AuthService } from '../../../services/auth.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 export interface CartRowItem {
   material: string;
@@ -32,6 +33,10 @@ export class CartComponent implements OnInit {
   private masterListService = inject(MasterListService);
   public authService = inject(AuthService);
   private cdr = inject(ChangeDetectorRef);
+
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
 
   canAdd(): boolean {
     return this.authService.canAdd('inventory');
@@ -77,6 +82,7 @@ export class CartComponent implements OnInit {
   toastType: 'success' | 'danger' | 'info' = 'success';
 
   // Dropdown options
+  projectsList: any[] = [];
   materialOptions: string[] = [...INVENTORY_MATERIALS];
   clientLocationOptions: string[] = [];
   vendorOptions: string[] = [];
@@ -108,10 +114,41 @@ export class CartComponent implements OnInit {
     });
   }
 
+  get availableMaterialOptions(): string[] {
+    if (this.cartForm.clientLocation || this.cartRows.some(r => r.clientLocation)) {
+      const targetClient = this.cartForm.clientLocation || (this.cartRows.find(r => r.clientLocation)?.clientLocation || '');
+      const selectedProj = this.projectsList.find(p => 
+        targetClient.toLowerCase().includes((p.clientName || '').toLowerCase().trim()) ||
+        targetClient.toLowerCase().includes((p.siteId || '').toLowerCase().trim())
+      );
+      if (selectedProj && selectedProj.bomItems) {
+        let itemsArr: any[] = [];
+        if (typeof selectedProj.bomItems === 'string') {
+          try { itemsArr = JSON.parse(selectedProj.bomItems); } catch(e) {}
+        } else if (Array.isArray(selectedProj.bomItems)) {
+          itemsArr = selectedProj.bomItems;
+        }
+
+        if (itemsArr.length > 0) {
+          const bomOpts = itemsArr.map(b => {
+            const grp = b.materialGroup || '';
+            const sub = b.categoryType || '';
+            const spec = b.specification || '';
+            const parts = [grp, sub, spec].filter(Boolean);
+            return parts.join(' - ') || grp || spec;
+          });
+          return Array.from(new Set(bomOpts));
+        }
+      }
+    }
+    return this.materialOptions;
+  }
+
   loadAwardedSites(): void {
     this.projectService.getProjects().subscribe({
       next: (res) => {
         if (res.success && res.data?.length > 0) {
+          this.projectsList = res.data;
           this.clientLocationOptions = res.data.map(p => 
             `${p.siteId} : ${p.clientName}${p.location ? ' (' + p.location + ')' : ''}`
           );
@@ -408,5 +445,151 @@ export class CartComponent implements OnInit {
 
     doc.save(`Procurement_Cart_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Procurement Cart PDF exported successfully!', 'success');
+  }
+
+  exportToExcel(): void {
+    const list = this.filteredCartItems;
+    if (list.length === 0) return;
+    const headers = ['S.No', 'Order Date', 'Material Name', 'Client / Site Location', 'Qty & Unit', 'Assigned Vendor', 'Procurement Status', 'Total (₹)'];
+    const rows = list.map((item, idx) => [
+      idx + 1,
+      `"${this.formatDate(item.orderDate)}"`,
+      `"${item.material || ''}"`,
+      `"${item.clientLocation || ''}"`,
+      `"${item.quantity} ${item.unit}"`,
+      `"${item.vendorName || ''}"`,
+      `"${item.procurementStatus || ''}"`,
+      item.totalAmount || 0
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Procurement_Cart_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportCartPdf();
+    setTimeout(() => {
+      this.exportToExcel();
+    }, 450);
+  }
+
+  @ViewChild('excelFileInput') excelFileInput!: ElementRef<HTMLInputElement>;
+
+  triggerExcelImport(): void {
+    if (this.excelFileInput) {
+      this.excelFileInput.nativeElement.click();
+    }
+  }
+
+  onExcelUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!rawRows || rawRows.length === 0) {
+          this.showToast('The uploaded Excel file contains no data rows.', 'danger');
+          return;
+        }
+
+        const today = new Date().toISOString().substring(0, 10);
+
+        const cartBatch: Partial<CartItem>[] = rawRows.map((row, idx) => {
+          const getVal = (keys: string[]) => {
+            for (const k of keys) {
+              const matchedKey = Object.keys(row).find(rk => rk.toLowerCase().replace(/[^a-z0-9]/g, '') === k.toLowerCase().replace(/[^a-z0-9]/g, ''));
+              if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null) {
+                return String(row[matchedKey]).trim();
+              }
+            }
+            return '';
+          };
+
+          const parseNum = (keys: string[]) => {
+            const valStr = getVal(keys);
+            if (!valStr) return 0;
+            return parseFloat(valStr.replace(/[^0-9.-]/g, '')) || 0;
+          };
+
+          const clientName = getVal(['client name', 'client', 'name']) || 'Client';
+          const siteEngineer = getVal(['site engineer', 'engineer', 'order by']) || 'Site Engineer';
+          const materialName = getVal(['material name', 'material', 'item']) || 'Solar Cables';
+          const quantity = parseNum(['quantity', 'qty']) || 10;
+          const unit = getVal(['unit', 'uom']) || 'Meter';
+
+          return {
+            orderDate: today,
+            clientName,
+            siteEngineer,
+            materials: [
+              {
+                materialName,
+                quantity,
+                unit,
+                status: 'Pending',
+                poWo: false
+              }
+            ]
+          };
+        });
+
+        let completed = 0;
+        this.showToast(`Importing ${cartBatch.length} cart items from Excel...`, 'info');
+
+        cartBatch.forEach(item => {
+          this.inventoryService.createCartItem(item as any).subscribe({
+            next: () => {
+              completed++;
+              if (completed === cartBatch.length) {
+                this.loadCart();
+                this.showToast(`Successfully imported ${completed} cart items from Excel!`, 'success');
+              }
+            },
+            error: () => {
+              completed++;
+              if (completed === cartBatch.length) {
+                this.loadCart();
+                this.showToast(`Imported ${completed} cart items from Excel.`, 'success');
+              }
+            }
+          });
+        });
+
+        input.value = '';
+      } catch (err: any) {
+        console.error('Excel upload error:', err);
+        this.showToast('Failed to parse Excel file: ' + err.message, 'danger');
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  clearAllCart(): void {
+    if (confirm('Are you sure you want to clear ALL cart items? This will delete all current cart items so you can upload a clean Excel file.')) {
+      this.inventoryService.clearAllCart().subscribe({
+        next: () => {
+          this.showToast('All cart items cleared successfully.', 'success');
+          this.loadCart();
+        },
+        error: (err) => {
+          this.showToast('Failed to clear records: ' + (err?.message || 'Error'), 'danger');
+        }
+      });
+    }
   }
 }

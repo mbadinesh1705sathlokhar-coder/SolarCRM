@@ -79,15 +79,26 @@
             <span class="input-group-text bg-white border-end-0 text-muted">
               <i class="bi bi-search"></i>
             </span>
-            <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by Descriptions, Vendor, Paid By, Payment..." [(ngModel)]="searchQuery" (input)="currentPage = 1">
+            <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by Descriptions, Vendor, Paid By, Source..." [(ngModel)]="searchQuery" (input)="currentPage = 1">
           </div>
         </div>
 
         <!-- Buttons & Actions -->
         <div class="d-flex align-items-center gap-2 ms-auto text-nowrap">
-          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportPdf()" title="Export Warehouse Expenses Ledger as PDF">
-            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-            <span>PDF</span>
+          <input type="file" #excelFileInput (change)="onExcelFileSelected($event)" accept=".xlsx, .xls, .csv" style="display:none">
+          <button *ngIf="isAdmin()" class="btn btn-outline-success d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="excelFileInput.click()" title="Upload Excel spreadsheet to import warehouse expenses">
+            <i class="bi bi-file-earmark-arrow-up-fill text-success"></i>
+            <span>Upload</span>
+          </button>
+
+          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
+            <i class="bi bi-file-earmark-arrow-down-fill text-danger"></i>
+            <span>Export</span>
+          </button>
+
+          <button *ngIf="isAdmin() && expenses.length > 0" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="clearAllWarehouseExpenses()" title="Clear all warehouse expenses to re-upload cleanly">
+            <i class="bi bi-trash3 text-muted"></i>
+            <span>Clear All</span>
           </button>
 
           <button *ngIf="canAdd()" class="btn btn-primary d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="openAddModal()" title="Record new Warehouse Expense">
@@ -111,7 +122,7 @@
             <th style="width: 120px;">Invoice No</th>
             <th style="min-width: 200px;">Purpose / Material</th>
             <th style="width: 150px;">Vendor</th>
-            <th style="width: 120px;">Payment</th>
+            <th style="width: 120px;">Source</th>
             <th style="width: 130px;">Paid By</th>
             <th class="text-end" style="width: 140px;">Amount</th>
             <th class="text-center" style="width: 70px;">Actions</th>
@@ -143,23 +154,23 @@
 
             <!-- Date -->
             <td class="fw-semibold text-dark font-mono small text-nowrap">
-              {{ e.formattedDate || toDisplayDate(e.expenseDate) }}
+              {{ toDisplayDate(e.formattedDate || e.expenseDate) }}
             </td>
 
             <!-- PO/WO No. (Shows SOLAR/SWH/PO-xxx etc) -->
             <td class="font-mono small text-nowrap">
-              <span *ngIf="e.referenceNo" class="badge bg-light text-dark border font-mono">
+              <span *ngIf="e.referenceNo && !['P.O','W.O','Petty Cash','Accounts','WAREHOUSE','Not Submitted','Submitted','-'].includes(e.referenceNo)" class="badge bg-light text-dark border font-mono">
                 <i class="bi bi-file-earmark-text me-1 text-primary"></i>{{ e.referenceNo }}
               </span>
-              <span *ngIf="!e.referenceNo" class="text-muted small">—</span>
+              <span *ngIf="!e.referenceNo || ['P.O','W.O','Petty Cash','Accounts','WAREHOUSE','Not Submitted','Submitted','-'].includes(e.referenceNo)" class="text-muted small">—</span>
             </td>
 
-            <!-- Invoice No (Manual entry, empty until user enters) -->
+            <!-- Invoice No -->
             <td class="font-mono small text-nowrap">
-              <span *ngIf="e.invoiceNo" class="badge bg-success-subtle text-success border border-success-subtle font-mono">
+              <span *ngIf="e.invoiceNo && !['Not Submitted','Submitted','P.O','W.O','Petty Cash','WAREHOUSE','-'].includes(e.invoiceNo)" class="badge bg-success-subtle text-success border border-success-subtle font-mono">
                 <i class="bi bi-receipt me-1"></i>{{ e.invoiceNo }}
               </span>
-              <span *ngIf="!e.invoiceNo" class="text-muted small">—</span>
+              <span *ngIf="!e.invoiceNo || ['Not Submitted','Submitted','P.O','W.O','Petty Cash','WAREHOUSE','-'].includes(e.invoiceNo)" class="text-muted small">—</span>
             </td>
 
             <!-- Purpose / Material (Click to edit) -->
@@ -172,7 +183,7 @@
                   <i class="bi bi-box-seam-fill me-1" style="font-size: 0.68rem;"></i>{{ e.purpose || 'Consumables' }}
                   <i class="bi bi-pencil-fill ms-1 opacity-50" style="font-size: 0.6rem;"></i>
                 </span>
-                <div *ngIf="e.remarks" class="text-muted mt-0.5" style="font-size: 0.68rem; line-height: 1.2;">
+                <div *ngIf="e.remarks && e.vendorName && e.remarks !== e.vendorName" class="text-muted mt-0.5" style="font-size: 0.68rem; line-height: 1.2;">
                   {{ e.remarks }}
                 </div>
               </div>
@@ -180,7 +191,7 @@
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold px-2 py-0.5" style="font-size: 0.72rem; letter-spacing: 0.01em;">
                   <i class="bi bi-box-seam-fill me-1" style="font-size: 0.68rem;"></i>{{ e.purpose || 'Consumables' }}
                 </span>
-                <div *ngIf="e.remarks" class="text-muted mt-0.5" style="font-size: 0.68rem; line-height: 1.2;">
+                <div *ngIf="e.remarks && e.vendorName && e.remarks !== e.vendorName" class="text-muted mt-0.5" style="font-size: 0.68rem; line-height: 1.2;">
                   {{ e.remarks }}
                 </div>
               </div>
@@ -188,21 +199,25 @@
 
             <!-- Vendor -->
             <td class="small fw-semibold text-dark">
-              <span *ngIf="e.vendorName" class="badge bg-light text-dark border px-2 py-1">
-                <i class="bi bi-shop text-secondary me-1"></i>{{ e.vendorName }}
+              <span *ngIf="e.vendorName || e.remarks" class="badge bg-light text-dark border px-2 py-1">
+                <i class="bi bi-shop text-secondary me-1"></i>{{ e.vendorName || e.remarks }}
               </span>
-              <span *ngIf="!e.vendorName" class="text-muted small">—</span>
+              <span *ngIf="!e.vendorName && !e.remarks && (e.paidBy === 'Petty Cash' || e.paymentThrough === 'Petty Cash')" class="badge bg-light text-dark border px-2 py-1">
+                <i class="bi bi-shop text-secondary me-1"></i>Petty Cash / Local Vendor
+              </span>
+              <span *ngIf="!e.vendorName && !e.remarks && e.paidBy !== 'Petty Cash' && e.paymentThrough !== 'Petty Cash'" class="text-muted small">—</span>
             </td>
 
-            <!-- Payment -->
+            <!-- Source -->
             <td>
-              <span class="badge" [ngClass]="{
-                'bg-info-subtle text-info border border-info-subtle': e.paymentThrough === 'P.O',
-                'bg-warning-subtle text-warning-emphasis border border-warning-subtle': e.paymentThrough === 'Petty Cash',
-                'bg-success-subtle text-success border border-success-subtle': e.paymentThrough === 'Accounts',
-                'bg-primary-subtle text-primary border border-primary-subtle': e.paymentThrough === 'W.O',
-                'bg-secondary-subtle text-secondary border border-secondary-subtle': !e.paymentThrough
-              }">{{ e.paymentThrough || 'P.O' }}</span>
+              <span class="badge bg-light text-dark border fw-bold px-2 py-1 font-mono">
+                <i *ngIf="getSource(e) === 'Gatepass'" class="bi bi-pass-fill me-1 text-warning"></i>
+                <i *ngIf="getSource(e) === 'P.O'" class="bi bi-file-earmark-text me-1 text-primary"></i>
+                <i *ngIf="getSource(e) === 'W.O'" class="bi bi-briefcase me-1 text-info"></i>
+                <i *ngIf="getSource(e) === 'Petty Cash'" class="bi bi-wallet2 me-1 text-success"></i>
+                <i *ngIf="getSource(e) === 'Accounts'" class="bi bi-bank me-1 text-secondary"></i>
+                {{ getSource(e) }}
+              </span>
             </td>
 
             <!-- Paid by -->
@@ -430,4 +445,126 @@
     </div>
   </div>
 
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: EXCEL IMPORT & MAPPING FOR WAREHOUSE EXPENSES     -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isExcelModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-success text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-file-earmark-excel-fill"></i>
+          Import Warehouse Expenses from Excel (Found {{ excelRawRows.length }} rows)
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeExcelModal()"></button>
+      </div>
+
+      <div class="modal-body p-4 bg-light" style="max-height: 70vh; overflow-y: auto;">
+        <div class="alert alert-info py-2 px-3 mb-3 small d-flex align-items-center gap-2">
+          <i class="bi bi-info-circle-fill fs-5"></i>
+          <div>Select which Excel column maps to each field in Warehouse Expenses. Header names were auto-detected.</div>
+        </div>
+
+        <div class="row g-3 bg-white p-3 rounded border mb-3">
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Expense Date</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.date">
+              <option value="">-- Ignore (Default Today) --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">PO / WO No.</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.referenceNo">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Invoice No.</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.invoiceNo">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Material / Expense Purpose *</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.purpose">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Amount (₹) *</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.amount">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Vendor Name</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.vendor">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Paid By / Mode</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.paidBy">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Generated By / Staff</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.generatedBy">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-12">
+            <label class="form-label small fw-bold">Remarks / Description</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.remarks">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Preview Table -->
+        <h6 class="fw-bold mb-2 text-dark fs-7">Row Preview (First 5 Rows):</h6>
+        <div class="table-responsive bg-white rounded border">
+          <table class="table table-sm table-striped mb-0 small">
+            <thead class="table-dark">
+              <tr>
+                <th>#</th>
+                <th>Purpose / Material</th>
+                <th>Amount</th>
+                <th>Vendor</th>
+                <th>Paid By / Engineer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of excelRawRows.slice(0, 5); let idx = index">
+                <td>{{ idx + 1 }}</td>
+                <td>{{ excelMapping.purpose ? r[excelMapping.purpose] : '-' }}</td>
+                <td>₹ {{ (excelMapping.amount ? r[excelMapping.amount] : 0) | number:'1.2-2' }}</td>
+                <td>{{ excelMapping.vendor ? r[excelMapping.vendor] : '-' }}</td>
+                <td>{{ excelMapping.paidBy ? r[excelMapping.paidBy] : '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-white border-top py-2.5 px-4 d-flex justify-content-between">
+        <button type="button" class="btn btn-light border btn-sm px-4" (click)="closeExcelModal()">Cancel</button>
+        <button type="button" class="btn btn-success btn-sm px-4 fw-bold" (click)="confirmImportExcel()">
+          <i class="bi bi-check-lg me-1"></i> Import {{ excelRawRows.length }} Records
+        </button>
+      </div>
+    </div>
+  </div>
 </div>

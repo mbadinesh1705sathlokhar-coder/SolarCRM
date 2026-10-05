@@ -73,10 +73,10 @@
           </div>
         </div>
 
-        <!-- Order By / Engineer Filter -->
+        <!-- Engineer Filter -->
         <div style="min-width: 200px;">
           <select class="form-select" [(ngModel)]="orderByFilter" (change)="onOrderByFilterChange()">
-            <option value="All">All Engineers (Order By)</option>
+            <option value="All">All Engineers</option>
             <option *ngFor="let opt of orderByOptions" [value]="opt">{{ opt }}</option>
           </select>
         </div>
@@ -90,14 +90,22 @@
           </select>
         </div>
 
-        <!-- Export PDF button & Record counter text -->
-        <div class="d-flex align-items-center gap-3 ms-auto text-nowrap">
-          <div class="text-muted small text-nowrap d-none d-sm-block">
-            Showing <strong>{{ paginatedClients.length }}</strong> of <strong>{{ filteredClients.length }}</strong> Clients
-          </div>
-          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportAllClientsPdf()" title="Export unique clients payment ledger as PDF">
-            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-            <span>Export PDF</span>
+        <!-- Excel Upload & Export PDF button & Record counter text -->
+        <div class="d-flex align-items-center gap-2 ms-auto text-nowrap">
+          <input type="file" #excelFileInput (change)="onExcelFileSelected($event)" accept=".xlsx, .xls, .csv" style="display:none">
+          <button *ngIf="isAdmin()" class="btn btn-outline-success d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="excelFileInput.click()" title="Upload Excel spreadsheet to import client payments">
+            <i class="bi bi-file-earmark-arrow-up-fill text-success"></i>
+            <span>Upload</span>
+          </button>
+
+          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
+            <i class="bi bi-file-earmark-arrow-down-fill text-danger"></i>
+            <span>Export</span>
+          </button>
+
+          <button *ngIf="isAdmin() && payments.length > 0" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="clearAllClientPayments()" title="Clear all client payments to re-upload cleanly">
+            <i class="bi bi-trash3 text-muted"></i>
+            <span>Clear All</span>
           </button>
         </div>
       </div>
@@ -148,9 +156,9 @@
             </td>
             <td class="text-dark fw-bold">
               <a href="javascript:void(0)" class="text-decoration-none text-dark hover-primary" (click)="openClientPaymentModal(c.siteId)">
-                <i class="bi bi-person-fill text-teal me-1"></i>{{ c.clientName }}
+                <i class="bi bi-person-fill text-teal me-1"></i>{{ formatClientName(c.clientName) }}
               </a>
-              <div class="small text-muted fw-normal" style="font-size: 0.72rem;">{{ c.siteCapacity }} kW &bull; {{ c.siteType }}</div>
+              <div class="small text-muted fw-normal" style="font-size: 0.72rem;">{{ formatCapacity(c.siteCapacity) }} &bull; {{ c.siteType }}</div>
             </td>
             <td class="text-secondary small">
               <i class="bi bi-geo-alt me-1 text-muted"></i>{{ c.location || 'Chennai' }}
@@ -386,11 +394,11 @@
             </div>
             <div>
               <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                <h4 class="modal-title fw-bold mb-0 text-white tracking-tight">{{ selectedProjectRef.clientName }}</h4>
+                <h4 class="modal-title fw-bold mb-0 text-white tracking-tight">{{ formatClientName(selectedProjectRef.clientName) }}</h4>
                 <span class="badge bg-warning text-dark font-mono px-2 py-1 fw-bold shadow-xs">{{ selectedProjectRef.siteId }}</span>
               </div>
               <div class="d-flex align-items-center gap-2 flex-wrap text-white-50 small">
-                <span class="meta-pill"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>{{ selectedProjectRef.siteCapacity }} kW &bull; {{ selectedProjectRef.siteType }}</span>
+                <span class="meta-pill"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>{{ formatCapacity(selectedProjectRef.siteCapacity) }} &bull; {{ selectedProjectRef.siteType }}</span>
                 <span class="meta-pill" *ngIf="selectedProjectRef.location"><i class="bi bi-geo-alt-fill text-info me-1"></i>{{ selectedProjectRef.location }}</span>
                 <span class="meta-pill text-white-50">&bull; Client Payment Ledger</span>
               </div>
@@ -600,7 +608,7 @@
                       <span class="badge bg-secondary-subtle text-secondary">{{ idx + 1 }}</span>
                     </td>
                     <td class="fw-semibold text-dark font-mono small">
-                      {{ p.formattedDate || toDisplayDate(p.paymentDate) }}
+                      {{ toDisplayDate(p.formattedDate || p.paymentDate) }}
                     </td>
                     <td>
                       <a *ngIf="canEdit()" href="javascript:void(0)" (click)="startEditPastRecord(p)" class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono fw-bold text-decoration-none" title="Click Site ID to edit payment">
@@ -644,6 +652,102 @@
           <button type="button" class="btn btn-secondary btn-sm px-4" (click)="closeClientModal()">Close</button>
         </div>
 
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: EXCEL IMPORT & MAPPING                            -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isExcelModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-success text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-file-earmark-excel-fill"></i>
+          Import Client Payments from Excel (Found {{ excelRawRows.length }} rows)
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeExcelModal()"></button>
+      </div>
+
+      <div class="modal-body p-4 bg-light" style="max-height: 70vh; overflow-y: auto;">
+        <div class="alert alert-info py-2 px-3 mb-3 small d-flex align-items-center gap-2">
+          <i class="bi bi-info-circle-fill fs-5"></i>
+          <div>Select which Excel column maps to each field in Client Payment Ledger. Header names were auto-detected.</div>
+        </div>
+
+        <div class="row g-3 bg-white p-3 rounded border mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Client Name Column *</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.clientName">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Site ID Column</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.siteId">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Contract / Site Value (₹)</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.siteValue">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Received Amount (₹)</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.received">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Engineer / Site Manager</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.orderBy">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Preview Table -->
+        <h6 class="fw-bold mb-2 text-dark fs-7">Row Preview (First 5 Rows):</h6>
+        <div class="table-responsive bg-white rounded border">
+          <table class="table table-sm table-striped mb-0 small">
+            <thead class="table-dark">
+              <tr>
+                <th>#</th>
+                <th>Client Name</th>
+                <th>Site ID</th>
+                <th>Site Value</th>
+                <th>Received</th>
+                <th>Engineer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of excelRawRows.slice(0, 5); let idx = index">
+                <td>{{ idx + 1 }}</td>
+                <td>{{ excelMapping.clientName ? r[excelMapping.clientName] : '-' }}</td>
+                <td>{{ excelMapping.siteId ? r[excelMapping.siteId] : '-' }}</td>
+                <td>₹ {{ (excelMapping.siteValue ? r[excelMapping.siteValue] : 0) | number:'1.2-2' }}</td>
+                <td>₹ {{ (excelMapping.received ? r[excelMapping.received] : 0) | number:'1.2-2' }}</td>
+                <td>{{ excelMapping.orderBy ? r[excelMapping.orderBy] : '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-white border-top py-2.5 px-4 d-flex justify-content-between">
+        <button type="button" class="btn btn-light border btn-sm px-4" (click)="closeExcelModal()">Cancel</button>
+        <button type="button" class="btn btn-success btn-sm px-4 fw-bold" (click)="confirmImportExcel()">
+          <i class="bi bi-check-lg me-1"></i> Import {{ excelRawRows.length }} Records
+        </button>
       </div>
     </div>
   </div>

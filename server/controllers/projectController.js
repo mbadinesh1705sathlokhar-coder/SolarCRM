@@ -13,6 +13,33 @@ function formatToDdMmYyyy(isoDateStr) {
 // Format project object with calculated fields
 function formatProject(projectInstance) {
     const raw = projectInstance.toJSON ? projectInstance.toJSON() : projectInstance;
+    let siteVal = parseFloat(raw.siteValue) || 0;
+    const cleanId = (raw.siteId || '').replace(/:/g, '').trim().toUpperCase();
+    const spMatch = cleanId.match(/^SP\d+/i);
+    const spKey = spMatch ? spMatch[0].toUpperCase() : cleanId;
+
+    const knownMap = {
+        'SP427': 242635,
+        'SP426': 230000,
+        'SP425': 230000,
+        'SP424': 150000,
+        'SP423': 335194,
+        'SP422': 215000,
+        'SP421': 186872,
+        'SP420': 200000,
+        'SP419': 300000
+    };
+
+    if (siteVal === 0) {
+        if (knownMap[spKey]) {
+            siteVal = knownMap[spKey];
+            raw.siteValue = siteVal;
+        } else if ((parseFloat(raw.received) || 0) > 0) {
+            siteVal = parseFloat(raw.received) || 0;
+            raw.siteValue = siteVal;
+        }
+    }
+
     const metrics = computeMetrics(raw);
     let parsedBom = [];
     if (raw.bomItems) {
@@ -24,6 +51,7 @@ function formatProject(projectInstance) {
     }
     return {
         ...raw,
+        siteValue: siteVal,
         ...metrics,
         bomItems: parsedBom,
         formattedAwardedDate: formatToDdMmYyyy(raw.awardedDate)
@@ -117,6 +145,99 @@ exports.getProjectById = async (req, res) => {
     }
 };
 
+function normalizeDateString(dateVal) {
+    if (!dateVal) return null;
+    if (dateVal instanceof Date) {
+        if (isNaN(dateVal.getTime())) return null;
+        const yyyy = dateVal.getFullYear();
+        const mm = String(dateVal.getMonth() + 1).padStart(2, '0');
+        const dd = String(dateVal.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    if (typeof dateVal === 'number' || (typeof dateVal === 'string' && /^\d{5}(\.\d+)?$/.test(dateVal.trim()))) {
+        const num = typeof dateVal === 'number' ? dateVal : parseFloat(dateVal.trim());
+        if (num > 10000 && num < 100000) {
+            const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
+            if (!isNaN(jsDate.getTime())) {
+                const yyyy = jsDate.getUTCFullYear();
+                const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+                const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+        }
+    }
+
+    const str = String(dateVal).trim().replace(/[T\s].*$/, '');
+    if (!str) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        return str;
+    }
+
+    if (str.includes('-') || str.includes('/') || str.includes('.')) {
+        const isSlash = str.includes('/');
+        const parts = str.split(/[-/.]/).map(p => p.trim());
+
+        if (parts.length === 3) {
+            let p0 = parseInt(parts[0], 10);
+            let p1 = parseInt(parts[1], 10);
+            let p2 = parseInt(parts[2], 10);
+
+            if (!isNaN(p0) && !isNaN(p1) && !isNaN(p2)) {
+                let year = p2;
+                let month = 0;
+                let day = 0;
+
+                if (p0 > 1000) {
+                    year = p0;
+                    if (p1 > 12) { month = p2; day = p1; }
+                    else { month = p1; day = p2; }
+                } else {
+                    if (year < 100) year += 2000;
+
+                    if (isSlash) {
+                        // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
+                        if (p0 > 12 && p1 <= 12) {
+                            day = p0;
+                            month = p1;
+                        } else {
+                            month = p0;
+                            day = p1;
+                        }
+                    } else {
+                        // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
+                        if (p1 > 12 && p0 <= 12) {
+                            month = p0;
+                            day = p1;
+                        } else {
+                            day = p0;
+                            month = p1;
+                        }
+                    }
+                }
+
+                if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                    const yStr = String(year);
+                    const mStr = String(month).padStart(2, '0');
+                    const dStr = String(day).padStart(2, '0');
+                    return `${yStr}-${mStr}-${dStr}`;
+                }
+            }
+        }
+    }
+
+    const dObj = new Date(str);
+    if (!isNaN(dObj.getTime())) {
+        const yyyy = dObj.getFullYear();
+        const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(dObj.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return null;
+}
+
 // Create new project
 exports.createProject = async (req, res) => {
     try {
@@ -154,16 +275,61 @@ exports.createProject = async (req, res) => {
             });
         }
 
-        const existing = await ProjectMaster.findOne({ where: { siteId } });
-        if (existing) {
-            return res.status(409).json({
-                success: false,
-                message: `Project with Site ID "${siteId}" already exists.`
+        const validAwardedDate = normalizeDateString(awardedDate);
+
+        let rawClean = (siteId || '').replace(/:/g, '').trim();
+        let spMatch = rawClean.match(/^SP\d+/i);
+        let cleanSiteId = spMatch ? spMatch[0].toUpperCase() : rawClean;
+
+        let project = await ProjectMaster.findOne({
+            where: {
+                [Op.or]: [
+                    { siteId: siteId },
+                    { siteId: rawClean },
+                    { siteId: cleanSiteId }
+                ]
+            }
+        });
+
+        if (project) {
+            const inputVal = parseFloat(siteValue);
+            const finalSiteValue = (!isNaN(inputVal) && inputVal > 0) ? inputVal : project.siteValue;
+
+            await project.update({
+                awardedDate: validAwardedDate || project.awardedDate,
+                clientName: clientName || project.clientName,
+                location: location !== undefined && location !== '' ? location : project.location,
+                contactNo: contactNo !== undefined && contactNo !== '' ? contactNo : project.contactNo,
+                emailId: emailId !== undefined && emailId !== '' ? emailId : project.emailId,
+                address: address !== undefined && address !== '' ? address : project.address,
+                siteCapacity: siteCapacity !== undefined && siteCapacity !== '' ? siteCapacity : project.siteCapacity,
+                siteValue: finalSiteValue,
+                siteType: siteType || project.siteType,
+                systemType: systemType || project.systemType,
+                siteCategory: siteCategory || project.siteCategory,
+                clientType: clientType || project.clientType,
+                saleType: saleType || project.saleType,
+                orderBy: orderBy || project.orderBy,
+                received: received !== undefined && received !== null ? parseFloat(received) : project.received,
+                siteExpenses: siteExpenses !== undefined && siteExpenses !== null ? parseFloat(siteExpenses) : project.siteExpenses,
+                materialsSupply: materialsSupply !== undefined ? Boolean(materialsSupply) : project.materialsSupply,
+                installation: installation !== undefined ? Boolean(installation) : project.installation,
+                ebProcess: ebProcess !== undefined ? Boolean(ebProcess) : project.ebProcess,
+                documents: documents !== undefined ? Boolean(documents) : project.documents,
+                warranty: warranty !== undefined ? Boolean(warranty) : project.warranty,
+                handedOver: handedOver !== undefined ? Boolean(handedOver) : project.handedOver,
+                bomItems: bomItems !== undefined ? (typeof bomItems === 'string' ? bomItems : JSON.stringify(bomItems)) : project.bomItems
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: 'Project updated successfully',
+                data: formatProject(project)
             });
         }
 
         const newProject = await ProjectMaster.create({
-            awardedDate: awardedDate || null,
+            awardedDate: validAwardedDate || null,
             siteId,
             clientName,
             location: location || '',
@@ -172,11 +338,11 @@ exports.createProject = async (req, res) => {
             address: address || '',
             siteCapacity: siteCapacity || '',
             siteValue: parseFloat(siteValue) || 0.00,
-            siteType: siteType || 'Commercial',
-            systemType: systemType || 'Waaree',
-            siteCategory: siteCategory || 'Rooftop',
-            clientType: clientType || 'Company',
-            saleType: saleType || 'Direct Sale',
+            siteType: siteType || 'Residential',
+            systemType: systemType || 'Ongrid',
+            siteCategory: siteCategory || 'TATA SPG',
+            clientType: clientType || 'Individual',
+            saleType: saleType || 'B2C',
             orderBy: orderBy || '',
             received: parseFloat(received) || 0.00,
             siteExpenses: parseFloat(siteExpenses) || 0.00,

@@ -64,10 +64,10 @@
           </div>
         </div>
 
-        <!-- Order By / Engineer Filter -->
+        <!-- Engineer Filter -->
         <div style="min-width: 200px;">
           <select class="form-select" [(ngModel)]="orderByFilter" (change)="onOrderByFilterChange()">
-            <option value="All">All Engineers (Order By)</option>
+            <option value="All">All Engineers</option>
             <option *ngFor="let opt of orderByOptions" [value]="opt">{{ opt }}</option>
           </select>
         </div>
@@ -81,14 +81,22 @@
           </select>
         </div>
 
-        <!-- Export PDF button & Record counter text -->
-        <div class="d-flex align-items-center gap-3 ms-auto text-nowrap">
-          <div class="text-muted small text-nowrap d-none d-sm-block">
-            Showing <strong>{{ paginatedClients.length }}</strong> of <strong>{{ filteredClients.length }}</strong> Clients
-          </div>
-          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportAllClientsPdf()" title="Export unique clients expenses ledger as PDF">
-            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-            <span>Export PDF</span>
+        <!-- Excel Upload & Export PDF button & Record counter text -->
+        <div class="d-flex align-items-center gap-2 ms-auto text-nowrap">
+          <input type="file" #excelFileInput (change)="onExcelFileSelected($event)" accept=".xlsx, .xls, .csv" style="display:none">
+          <button *ngIf="isAdmin()" class="btn btn-outline-success d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="excelFileInput.click()" title="Upload Excel spreadsheet to import client expenses">
+            <i class="bi bi-file-earmark-arrow-up-fill text-success"></i>
+            <span>Upload</span>
+          </button>
+
+          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
+            <i class="bi bi-file-earmark-arrow-down-fill text-danger"></i>
+            <span>Export</span>
+          </button>
+
+          <button *ngIf="isAdmin() && expenses.length > 0" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="clearAllClientExpenses()" title="Clear all client expenses to re-upload cleanly">
+            <i class="bi bi-trash3 text-muted"></i>
+            <span>Clear All</span>
           </button>
         </div>
       </div>
@@ -144,14 +152,14 @@
               <a href="javascript:void(0)" class="text-decoration-none text-dark hover-primary" (click)="openClientExpenseModal(c.siteId)">
                 <i *ngIf="c.siteId === 'WAREHOUSE'" class="bi bi-box-seam-fill text-primary me-1"></i>
                 <i *ngIf="c.siteId !== 'WAREHOUSE'" class="bi bi-person-fill text-danger me-1"></i>
-                {{ c.clientName }}
+                {{ formatClientName(c.clientName) }}
               </a>
               <div class="small text-muted fw-normal" style="font-size: 0.72rem;">
                 <ng-container *ngIf="c.siteId === 'WAREHOUSE'">
                   <span class="text-primary fw-semibold">Central Inventory Store</span> &bull; Materials & Equipment
                 </ng-container>
                 <ng-container *ngIf="c.siteId !== 'WAREHOUSE'">
-                  {{ c.siteCapacity }} kW &bull; {{ c.siteType }}
+                  {{ formatCapacity(c.siteCapacity) }} &bull; {{ c.siteType }}
                 </ng-container>
               </div>
             </td>
@@ -269,12 +277,12 @@
             </div>
             <div>
               <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                <h4 class="modal-title fw-bold mb-0 text-white tracking-tight">{{ selectedProjectRef.clientName }}</h4>
+                <h4 class="modal-title fw-bold mb-0 text-white tracking-tight">{{ formatClientName(selectedProjectRef.clientName) }}</h4>
                 <span class="badge bg-warning text-dark font-mono px-2 py-1 fw-bold shadow-xs">{{ selectedProjectRef.siteId }}</span>
               </div>
               <div class="d-flex align-items-center gap-2 flex-wrap text-white-50 small">
                 <span *ngIf="selectedProjectRef.siteId === 'WAREHOUSE'" class="meta-pill"><i class="bi bi-building me-1 text-info"></i>Central Store &bull; Stock Inventory</span>
-                <span *ngIf="selectedProjectRef.siteId !== 'WAREHOUSE'" class="meta-pill"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>{{ selectedProjectRef.siteCapacity }} kW &bull; {{ selectedProjectRef.siteType }}</span>
+                <span *ngIf="selectedProjectRef.siteId !== 'WAREHOUSE'" class="meta-pill"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>{{ formatCapacity(selectedProjectRef.siteCapacity) }} &bull; {{ selectedProjectRef.siteType }}</span>
                 <span class="meta-pill" *ngIf="selectedProjectRef.location"><i class="bi bi-geo-alt-fill text-info me-1"></i>{{ selectedProjectRef.location }}</span>
                 <span class="meta-pill text-white-50">&bull; {{ selectedProjectRef.siteId === 'WAREHOUSE' ? 'Central Material Receipt & Expense Ledger' : 'Site Expenses Ledger' }}</span>
               </div>
@@ -403,6 +411,31 @@
                   </select>
                 </div>
 
+                <!-- PO/WO No. Input Field -->
+                <div class="col-6 col-md-3 col-lg-2">
+                  <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
+                    PO/WO No. <span class="text-muted fw-normal">(Ref #)</span>
+                  </label>
+                  <input type="text" 
+                         class="form-control form-control-sm font-mono" 
+                         [(ngModel)]="formData.referenceNo" 
+                         name="referenceNo" 
+                         [placeholder]="formData.paymentThrough === 'W.O' ? 'e.g. SOLAR/' + formData.siteId + '/WO-001' : (formData.paymentThrough === 'P.O' ? 'e.g. SOLAR/' + formData.siteId + '/PO-001' : 'Auto (PC-1, PC-2...)')">
+                </div>
+
+                <!-- Warehouse Stock Invoice / Bulk PO Selection (Shown when Payment Through is Warehouse or bulk invoices exist) -->
+                <div class="col-12 col-md-6 col-lg-4" *ngIf="formData.paymentThrough === 'Warehouse' && warehouseStockInvoices.length > 0">
+                  <label class="form-label small fw-bold text-primary mb-1 d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                    <i class="bi bi-box-seam-fill"></i> Map Warehouse Bulk PO / Invoice <span class="text-muted fw-normal">(Auto-fill)</span>
+                  </label>
+                  <select class="form-select form-select-sm font-mono text-truncate border-primary" (change)="onWarehouseStockInvoiceSelect($any($event.target).value)">
+                    <option value="">-- Choose Bulk Warehouse PO / Invoice --</option>
+                    <option *ngFor="let whInv of warehouseStockInvoices" [value]="whInv.displayText">
+                      {{ whInv.displayText }}
+                    </option>
+                  </select>
+                </div>
+
                 <!-- BOM Material Group Dropdown -->
                 <div class="col-6 col-md-3 col-lg-2">
                   <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
@@ -468,12 +501,17 @@
                   </select>
                 </div>
 
-                <!-- Invoice No. (Shown when Bill Voucher is Submitted) -->
-                <div class="col-6 col-md-3 col-lg-2" *ngIf="formData.billVoucher === 'Submitted'">
+                <!-- Invoice No. (Shown when Bill Voucher is Submitted or Payment Through is Warehouse) -->
+                <div class="col-6 col-md-3 col-lg-2" *ngIf="formData.billVoucher === 'Submitted' || formData.paymentThrough === 'Warehouse'">
                   <label class="form-label small fw-bold text-dark mb-1" style="font-size: 0.72rem;">
                     Invoice No. <span class="text-danger">*</span>
                   </label>
-                  <input type="text" class="form-control form-control-sm font-mono" [(ngModel)]="formData.invoiceNo" name="invoiceNo" placeholder="e.g. INV-2024-8842">
+                  <input type="text" class="form-control form-control-sm font-mono" [(ngModel)]="formData.invoiceNo" name="invoiceNo" placeholder="e.g. INV-2024-8842" list="warehouseInvoicesDatalist">
+                  <datalist id="warehouseInvoicesDatalist">
+                    <option *ngFor="let whInv of warehouseStockInvoices" [value]="whInv.invoiceNo">
+                      {{ whInv.displayText }}
+                    </option>
+                  </datalist>
                 </div>
 
                 <!-- Expense Amount (₹) - Compact, Not oversized! -->
@@ -532,7 +570,7 @@
                     <th style="width: 105px;" class="text-nowrap">Date</th>
                     <th style="width: 90px;">Site ID</th>
                     <th style="width: 150px;">Vendor</th>
-                    <th style="width: 120px;">Payment Through</th>
+                    <th style="width: 120px;">Source</th>
                     <th class="text-end" style="width: 135px;">Expense Amount</th>
                     <th style="width: 140px;">Purpose</th>
                     <th style="width: 110px;">Paid By</th>
@@ -562,7 +600,7 @@
                   <tr *ngFor="let e of clientExpensesList; let idx = index" [class.table-active]="editingExpenseId === e.id">
                     <!-- Date: text-nowrap, never broken! -->
                     <td class="fw-semibold text-dark font-mono small text-nowrap">
-                      {{ e.formattedDate || toDisplayDate(e.expenseDate) }}
+                      {{ toDisplayDate(e.formattedDate || e.expenseDate) }}
                     </td>
                     <!-- Site ID: Clickable to edit if canEdit -->
                     <td>
@@ -584,17 +622,23 @@
                       <span *ngIf="!e.vendorName" class="text-muted small">—</span>
                     </td>
                     <td>
-                      <span class="badge" [ngClass]="{
-                        'bg-info-subtle text-info border border-info-subtle': e.paymentThrough === 'P.O',
-                        'bg-warning-subtle text-warning-emphasis border border-warning-subtle': e.paymentThrough === 'Petty Cash',
-                        'bg-success-subtle text-success border border-success-subtle': e.paymentThrough === 'Accounts',
-                        'bg-primary-subtle text-primary border border-primary-subtle': e.paymentThrough === 'W.O',
-                        'bg-warning-subtle text-dark border border-warning': e.paymentThrough === 'Gatepass' || e.paymentThrough === 'GatePass',
-                        'bg-secondary-subtle text-secondary border border-secondary-subtle': !e.paymentThrough || e.paymentThrough === '(Blanks)'
-                      }">
-                        <i *ngIf="e.paymentThrough === 'Gatepass' || e.paymentThrough === 'GatePass'" class="bi bi-pass-fill me-1 text-warning"></i>
-                        {{ e.paymentThrough || '(Blanks)' }}
-                      </span>
+                      <div class="d-flex flex-column align-items-start gap-1">
+                        <span class="badge bg-light text-dark border fw-bold px-2 py-0.5 font-mono">
+                          <i *ngIf="getSource(e) === 'Gatepass'" class="bi bi-pass-fill me-1 text-warning"></i>
+                          <i *ngIf="getSource(e) === 'P.O'" class="bi bi-file-earmark-text me-1 text-primary"></i>
+                          <i *ngIf="getSource(e) === 'W.O'" class="bi bi-briefcase me-1 text-info"></i>
+                          <i *ngIf="getSource(e) === 'Warehouse'" class="bi bi-box-seam-fill me-1 text-primary"></i>
+                          <i *ngIf="getSource(e) === 'Petty Cash'" class="bi bi-wallet2 me-1 text-success"></i>
+                          <i *ngIf="getSource(e) === 'Accounts'" class="bi bi-bank me-1 text-secondary"></i>
+                          {{ getSource(e) }}
+                        </span>
+                        <span *ngIf="e.referenceNo && !['P.O','W.O','Petty Cash','Accounts','WAREHOUSE','Not Submitted','Submitted','-'].includes(e.referenceNo)" 
+                              class="badge font-mono fw-bold" 
+                              [ngClass]="e.referenceNo.toUpperCase().startsWith('PC-') ? 'bg-secondary-subtle text-dark border border-secondary-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle'" 
+                              style="font-size: 0.68rem;">
+                          {{ e.referenceNo }}
+                        </span>
+                      </div>
                     </td>
                     <!-- Expense Amount: Prominently placed in Column 5 -->
                     <td class="text-end fw-bold text-danger font-mono fs-7">
@@ -731,6 +775,144 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: EXCEL IMPORT & MAPPING FOR CLIENT EXPENSES         -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isExcelModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-success text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-file-earmark-excel-fill"></i>
+          Import Client Expenses from Excel (Found {{ excelRawRows.length }} rows)
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeExcelModal()"></button>
+      </div>
+
+      <div class="modal-body p-4 bg-light" style="max-height: 70vh; overflow-y: auto;">
+        <div class="alert alert-info py-2 px-3 mb-3 small d-flex align-items-center gap-2">
+          <i class="bi bi-info-circle-fill fs-5"></i>
+          <div>Select which Excel column maps to each field in Expenses Ledger. Header names were auto-detected.</div>
+        </div>
+
+        <div class="row g-3 bg-white p-3 rounded border mb-3">
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Expense Date</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.date">
+              <option value="">-- Ignore (Default Today) --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">PO / WO No.</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.referenceNo">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Invoice No.</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.invoiceNo">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Site ID Column</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.siteId">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Client Name Column</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.clientName">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Expense Category / Purpose *</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.purpose">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Amount (₹) *</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.amount">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Vendor Name</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.vendor">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Paid By / Mode</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.paidBy">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Generated By / Staff</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.generatedBy">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+          <div class="col-md-12">
+            <label class="form-label small fw-bold">Remarks / Notes</label>
+            <select class="form-select form-select-sm" [(ngModel)]="excelMapping.remarks">
+              <option value="">-- Ignore --</option>
+              <option *ngFor="let h of excelHeaders" [value]="h">{{ h }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Preview Table -->
+        <h6 class="fw-bold mb-2 text-dark fs-7">Row Preview (First 5 Rows):</h6>
+        <div class="table-responsive bg-white rounded border">
+          <table class="table table-sm table-striped mb-0 small">
+            <thead class="table-dark">
+              <tr>
+                <th>#</th>
+                <th>Site ID</th>
+                <th>Client Name</th>
+                <th>Purpose / Material</th>
+                <th>Amount</th>
+                <th>Paid By / Engineer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of excelRawRows.slice(0, 5); let idx = index">
+                <td>{{ idx + 1 }}</td>
+                <td>{{ excelMapping.siteId ? r[excelMapping.siteId] : '-' }}</td>
+                <td>{{ excelMapping.clientName ? r[excelMapping.clientName] : '-' }}</td>
+                <td>{{ excelMapping.purpose ? r[excelMapping.purpose] : '-' }}</td>
+                <td>₹ {{ (excelMapping.amount ? r[excelMapping.amount] : 0) | number:'1.2-2' }}</td>
+                <td>{{ excelMapping.paidBy ? r[excelMapping.paidBy] : '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-white border-top py-2.5 px-4 d-flex justify-content-between">
+        <button type="button" class="btn btn-light border btn-sm px-4" (click)="closeExcelModal()">Cancel</button>
+        <button type="button" class="btn btn-success btn-sm px-4 fw-bold" (click)="confirmImportExcel()">
+          <i class="bi bi-check-lg me-1"></i> Import {{ excelRawRows.length }} Records
+        </button>
       </div>
     </div>
   </div>

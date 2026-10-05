@@ -243,8 +243,29 @@ export class ProjectService {
     );
   }
 
+  clearCache(): void {
+    this.cachedProjects = null;
+    this.cachedMetrics = null;
+    this.cachedPayments = null;
+    this.cachedExpenses = null;
+  }
+
   deleteExpensesBySite(siteId: string): Observable<{ success: boolean; message: string; updatedProject?: any }> {
     const cleanSiteId = encodeURIComponent(siteId.replace(/:/g, '').trim());
-    return this.http.delete<{ success: boolean; message: string; updatedProject?: any }>(`${this.ledgerUrl}/expenses/site/${cleanSiteId}`);
+    return this.http.delete<{ success: boolean; message: string; updatedProject?: any }>(`${this.ledgerUrl}/expenses/site/${cleanSiteId}`).pipe(
+      tap(() => this.clearCache())
+    );
+  }
+
+  clearAllClientExpenses(): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.ledgerUrl}/expenses/site/CLIENT_ALL`).pipe(
+      tap(() => this.clearCache())
+    );
+  }
+
+  clearAllClientPayments(): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.ledgerUrl}/payments/site/ALL_PAYMENTS`).pipe(
+      tap(() => this.clearCache())
+    );
   }
 }

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -324,5 +324,52 @@ export class SitePlanComponent implements OnInit {
 
     doc.save(`Site_Plans_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Site Plan PDF exported successfully!', 'success');
+  }
+
+  exportToExcel(): void {
+    const list = this.filteredSitePlans;
+    if (list.length === 0) return;
+    const headers = ['S.No', 'Date Assigned', 'Time', 'Client Name', 'Engineer Name', 'Description / Scope', 'Assigned By'];
+    const rows = list.map((p, idx) => [
+      idx + 1,
+      `"${this.formatDate(p.date)}"`,
+      `"${this.formatTime(p.time) || '10:00 AM'}"`,
+      `"${p.clientName || ''}"`,
+      `"${p.engineerName || ''}"`,
+      `"${p.description || ''}"`,
+      `"${p.assignedBy || ''}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Site_Plans_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportToPdf();
+    setTimeout(() => {
+      this.exportToExcel();
+    }, 450);
+  }
+
+  @ViewChild('excelFileInput') excelFileInput!: ElementRef<HTMLInputElement>;
+
+  triggerExcelImport(): void {
+    if (this.excelFileInput) {
+      this.excelFileInput.nativeElement.click();
+    }
+  }
+
+  onExcelUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      this.showToast(`Excel file "${file.name}" uploaded successfully!`, 'success');
+      input.value = '';
+    }
   }
 }

@@ -10,6 +10,7 @@ import { OfficeService, Employee } from '../../services/office.service';
 import { AuthService } from '../../services/auth.service';
 import { Project, ClientPayment, SiteExpense } from '../../models/project.model';
 import { SalesLead, LeadStatus, LeadHandler, OPPORTUNITY_STATUS_OPTIONS, OpportunityStatus } from '../../models/sales.model';
+import { InventoryService, GatePass, Indent, CartItem } from '../../services/inventory.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -22,9 +23,15 @@ export interface WeeklySalesRecord {
   awardedValue: number;
   clientPaymentReceived: number;
   poWoCount: number;
+  gatePassCount: number;
+  indentCount: number;
+  cartCount: number;
   awardedProjectsList: Project[];
   paymentsList: ClientPayment[];
   poWoList: SiteExpense[];
+  gatePassList: GatePass[];
+  indentList: Indent[];
+  cartList: CartItem[];
 }
 
 @Component({
@@ -41,6 +48,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   private sitePlanService = inject(SitePlanService);
   private officeService = inject(OfficeService);
   authService = inject(AuthService);
+  private inventoryService = inject(InventoryService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
@@ -70,10 +78,13 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
   dashboardSearchTerm: string = '';
   isWeeklyDetailModalOpen = false;
   weeklyDetailRecord: WeeklySalesRecord | null = null;
-  weeklyDetailActiveTab: 'awarded' | 'payments' | 'powo' = 'awarded';
+  weeklyDetailActiveTab: 'awarded' | 'payments' | 'powo' | 'gatepass' | 'indent' | 'cart' = 'awarded';
   dashboardProjects: Project[] = [];
   dashboardPayments: ClientPayment[] = [];
   dashboardExpenses: SiteExpense[] = [];
+  dashboardGatePasses: GatePass[] = [];
+  dashboardIndents: Indent[] = [];
+  dashboardCartItems: CartItem[] = [];
 
   // Site Visit Planned State
   isSiteVisitModalOpen = false;
@@ -312,15 +323,48 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
                 if (expRes.success && expRes.data) {
                   this.dashboardExpenses = expRes.data;
                 }
-                this.dashboardLoading = false;
-                if (this.dashboardFromDate && this.dashboardToDate) {
-                  this.applyDashboardDateFilter();
-                } else {
-                  this.weeklyRecords = [];
-                  this.selectedWeeklyRecord = null;
-                  this.dashboardOverallRecord = null;
-                }
-                this.cdr.markForCheck();
+                this.inventoryService.getGatePasses().subscribe({
+                  next: (gpRes) => {
+                    if (gpRes.success && gpRes.data) {
+                      this.dashboardGatePasses = gpRes.data;
+                    }
+                    this.inventoryService.getIndents().subscribe({
+                      next: (indRes) => {
+                        if (indRes.success && indRes.data) {
+                          this.dashboardIndents = indRes.data;
+                        }
+                        this.inventoryService.getCartItems().subscribe({
+                          next: (cartRes) => {
+                            if (cartRes.success && cartRes.data) {
+                              this.dashboardCartItems = cartRes.data;
+                            }
+                            this.dashboardLoading = false;
+                            if (this.dashboardFromDate && this.dashboardToDate) {
+                              this.applyDashboardDateFilter();
+                            } else {
+                              this.weeklyRecords = [];
+                              this.selectedWeeklyRecord = null;
+                              this.dashboardOverallRecord = null;
+                            }
+                            this.cdr.markForCheck();
+                          },
+                          error: () => {
+                            this.dashboardLoading = false;
+                            this.cdr.markForCheck();
+                          }
+                        });
+                      },
+                      error: () => {
+                        this.dashboardLoading = false;
+                        this.cdr.markForCheck();
+                      }
+                    });
+                  },
+                  error: () => {
+                    this.dashboardLoading = false;
+                    this.cdr.markForCheck();
+                  }
+                });
               },
               error: () => {
                 this.dashboardLoading = false;
@@ -462,6 +506,21 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
         return d && d >= rangeStart && d <= rangeEnd;
       });
 
+      const gatePassInWeek = this.dashboardGatePasses.filter(gp => {
+        const d = this.parseAnyDate(gp.gatePassDate || gp.createdAt);
+        return d && d >= rangeStart && d <= rangeEnd;
+      });
+
+      const indentInWeek = this.dashboardIndents.filter(ind => {
+        const d = this.parseAnyDate(ind.indentDate || ind.createdAt);
+        return d && d >= rangeStart && d <= rangeEnd;
+      });
+
+      const cartInWeek = this.dashboardCartItems.filter(ci => {
+        const d = this.parseAnyDate(ci.orderDate || ci.createdAt);
+        return d && d >= rangeStart && d <= rangeEnd;
+      });
+
       const singleRec: WeeklySalesRecord = {
         weekLabel,
         startDate: rangeStart,
@@ -470,9 +529,15 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
         awardedValue,
         clientPaymentReceived,
         poWoCount: poWoInWeek.length,
+        gatePassCount: gatePassInWeek.length,
+        indentCount: indentInWeek.length,
+        cartCount: cartInWeek.length,
         awardedProjectsList: awardedInWeek,
         paymentsList: paymentsInWeek,
-        poWoList: poWoInWeek
+        poWoList: poWoInWeek,
+        gatePassList: gatePassInWeek,
+        indentList: indentInWeek,
+        cartList: cartInWeek
       };
 
       records.push(singleRec);
@@ -511,6 +576,21 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
           return d && d >= currentStart && d <= currentEnd;
         });
 
+        const gatePassInWeek = this.dashboardGatePasses.filter(gp => {
+          const d = this.parseAnyDate(gp.gatePassDate || gp.createdAt);
+          return d && d >= currentStart && d <= currentEnd;
+        });
+
+        const indentInWeek = this.dashboardIndents.filter(ind => {
+          const d = this.parseAnyDate(ind.indentDate || ind.createdAt);
+          return d && d >= currentStart && d <= currentEnd;
+        });
+
+        const cartInWeek = this.dashboardCartItems.filter(ci => {
+          const d = this.parseAnyDate(ci.orderDate || ci.createdAt);
+          return d && d >= currentStart && d <= currentEnd;
+        });
+
         records.push({
           weekLabel: wLabel,
           startDate: currentStart,
@@ -519,9 +599,15 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
           awardedValue,
           clientPaymentReceived,
           poWoCount: poWoInWeek.length,
+          gatePassCount: gatePassInWeek.length,
+          indentCount: indentInWeek.length,
+          cartCount: cartInWeek.length,
           awardedProjectsList: awardedInWeek,
           paymentsList: paymentsInWeek,
-          poWoList: poWoInWeek
+          poWoList: poWoInWeek,
+          gatePassList: gatePassInWeek,
+          indentList: indentInWeek,
+          cartList: cartInWeek
         });
 
         currentEnd = new Date(currentStart);
@@ -543,6 +629,21 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
         return d && d >= rangeStart && d <= rangeEnd;
       });
 
+      const allGatePass = this.dashboardGatePasses.filter(gp => {
+        const d = this.parseAnyDate(gp.gatePassDate || gp.createdAt);
+        return d && d >= rangeStart && d <= rangeEnd;
+      });
+
+      const allIndent = this.dashboardIndents.filter(ind => {
+        const d = this.parseAnyDate(ind.indentDate || ind.createdAt);
+        return d && d >= rangeStart && d <= rangeEnd;
+      });
+
+      const allCart = this.dashboardCartItems.filter(ci => {
+        const d = this.parseAnyDate(ci.orderDate || ci.createdAt);
+        return d && d >= rangeStart && d <= rangeEnd;
+      });
+
       const sLabel = `${pad(rangeStart.getDate())}/${pad(rangeStart.getMonth() + 1)}/${rangeStart.getFullYear()}`;
       const eLabel = `${pad(rangeEnd.getDate())}/${pad(rangeEnd.getMonth() + 1)}/${rangeEnd.getFullYear()}`;
 
@@ -554,9 +655,15 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
         awardedValue: allAwarded.reduce((sum, p) => sum + (Number(p.siteValue) || 0), 0),
         clientPaymentReceived: allPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
         poWoCount: allPoWo.length,
+        gatePassCount: allGatePass.length,
+        indentCount: allIndent.length,
+        cartCount: allCart.length,
         awardedProjectsList: allAwarded,
         paymentsList: allPayments,
-        poWoList: allPoWo
+        poWoList: allPoWo,
+        gatePassList: allGatePass,
+        indentList: allIndent,
+        cartList: allCart
       };
 
       this.selectedWeeklyRecord = records[0] || this.dashboardOverallRecord;
@@ -571,7 +678,7 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  openWeeklyDetailModal(w: WeeklySalesRecord, tab: 'awarded' | 'payments' | 'powo' = 'awarded'): void {
+  openWeeklyDetailModal(w: WeeklySalesRecord, tab: 'awarded' | 'payments' | 'powo' | 'gatepass' | 'indent' | 'cart' = 'awarded'): void {
     this.selectedWeeklyRecord = w;
     this.weeklyDetailRecord = w;
     this.weeklyDetailActiveTab = tab;
@@ -612,33 +719,39 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
       w.awardedSitesCount,
       `Rs. ${w.awardedValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       `Rs. ${w.clientPaymentReceived.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      w.poWoCount
+      w.poWoCount,
+      w.gatePassCount || 0,
+      w.indentCount || 0,
+      w.cartCount || 0
     ]);
 
     autoTable(doc, {
       startY: 30,
-      head: [['#', 'Week Range (dd/mm/yyyy - dd/mm/yyyy)', 'Total Awarded Sites', 'Awarded Value', 'Client Payment Received', 'No. of PO/WO']],
+      head: [['#', 'Week Range', 'Awarded Sites', 'Awarded Value', 'Client Payment', 'PO/WO', 'Gatepass', 'Indents', 'Cart Orders']],
       body: rows,
       theme: 'grid',
       headStyles: {
         fillColor: [15, 23, 42],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 9
+        fontSize: 8.5
       },
       bodyStyles: {
-        fontSize: 8.5,
+        fontSize: 8,
         textColor: [30, 41, 59]
       },
       columnStyles: {
-        0: { cellWidth: 12, halign: 'center' },
-        1: { cellWidth: 65, fontStyle: 'bold', halign: 'center' },
-        2: { cellWidth: 40, halign: 'center' },
-        3: { cellWidth: 50, halign: 'right', textColor: [15, 118, 110], fontStyle: 'bold' },
-        4: { cellWidth: 55, halign: 'right', textColor: [21, 128, 61], fontStyle: 'bold' },
-        5: { cellWidth: 35, halign: 'center', textColor: [180, 83, 9] }
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 55, fontStyle: 'bold', halign: 'center' },
+        2: { cellWidth: 28, halign: 'center' },
+        3: { cellWidth: 42, halign: 'right', textColor: [15, 118, 110], fontStyle: 'bold' },
+        4: { cellWidth: 45, halign: 'right', textColor: [21, 128, 61], fontStyle: 'bold' },
+        5: { cellWidth: 24, halign: 'center', textColor: [180, 83, 9] },
+        6: { cellWidth: 24, halign: 'center', textColor: [13, 148, 136] },
+        7: { cellWidth: 24, halign: 'center', textColor: [147, 51, 234] },
+        8: { cellWidth: 24, halign: 'center', textColor: [225, 29, 72] }
       },
-      margin: { left: 14, right: 14 }
+      margin: { left: 10, right: 10 }
     });
 
     doc.save(`Weekly_Sales_Performance_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -1752,6 +1865,75 @@ export class SalesComponent implements OnInit, AfterViewInit, OnDestroy {
 
     doc.save(`Sales_Opportunities_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Sales Opportunities PDF exported successfully!', 'success');
+  }
+
+  exportToExcel(): void {
+    if (this.activeTab === 'leads') {
+      if (!this.leadsList || this.leadsList.length === 0) {
+        this.showToast('No leads available to export to Excel', 'info');
+        return;
+      }
+      const headers = ['S.No', 'Lead ID', 'Lead Date', 'Client Name', 'Contact No', 'Email ID', 'Location', 'Status', 'Lead Handler', 'Remarks'];
+      const rows = this.leadsList.map((l, idx) => [
+        idx + 1,
+        `"${l.leadId || ''}"`,
+        `"${this.formatDate(l.leadDate)}"`,
+        `"${(l.leadName || '').replace(/"/g, '""')}"`,
+        `"${l.leadContact || ''}"`,
+        `"${l.leadEmail || ''}"`,
+        `"${(l.leadLocation || '').replace(/"/g, '""')}"`,
+        `"${l.leadStatus || ''}"`,
+        `"${l.leadHandler || ''}"`,
+        `"${(l.leadRemarks || '').replace(/"/g, '""')}"`
+      ]);
+      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `Sales_Leads_${new Date().toISOString().substring(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      this.showToast('Sales Leads Excel downloaded successfully!', 'success');
+    } else {
+      if (!this.opportunitiesList || this.opportunitiesList.length === 0) {
+        this.showToast('No opportunities available to export to Excel', 'info');
+        return;
+      }
+      const headers = ['S.No', 'Opportunity ID', 'Date', 'Client Name', 'Contact No', 'Location', 'Site Type', 'System Type', 'Site Category', 'Sale Type', 'Client Type', 'Stage / Status', 'Lead Handler', 'Remarks'];
+      const rows = this.opportunitiesList.map((l, idx) => [
+        idx + 1,
+        `"${l.leadId || ''}"`,
+        `"${this.formatDate(l.leadDate)}"`,
+        `"${(l.leadName || '').replace(/"/g, '""')}"`,
+        `"${l.leadContact || ''}"`,
+        `"${(l.leadLocation || '').replace(/"/g, '""')}"`,
+        `"${l.siteType || 'Residential'}"`,
+        `"${l.systemType || 'Ongrid'}"`,
+        `"${l.siteCategory || 'TATA SPG'}"`,
+        `"${l.saleType || 'B2C'}"`,
+        `"${l.clientType || 'Individual'}"`,
+        `"${l.leadStatus || ''}"`,
+        `"${l.leadHandler || ''}"`,
+        `"${(l.leadRemarks || '').replace(/"/g, '""')}"`
+      ]);
+      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `Sales_Opportunities_${new Date().toISOString().substring(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      this.showToast('Sales Opportunities Excel downloaded successfully!', 'success');
+    }
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportSalesPdf();
+    setTimeout(() => {
+      this.exportToExcel();
+    }, 450);
   }
 
   onBulkExcelUpload(event: Event): void {

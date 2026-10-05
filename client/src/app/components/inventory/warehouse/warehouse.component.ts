@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -7,6 +7,7 @@ import { MasterListService } from '../../../services/master-list.service';
 import { AuthService } from '../../../services/auth.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-warehouse',
@@ -20,6 +21,10 @@ export class WarehouseComponent implements OnInit {
   private masterListService = inject(MasterListService);
   public authService = inject(AuthService);
   private cdr = inject(ChangeDetectorRef);
+
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
 
   canAdd(): boolean {
     return this.authService.canAdd('inventory');
@@ -53,7 +58,7 @@ export class WarehouseComponent implements OnInit {
 
   // BOM Material Master Integration
   bomGroupMap: { [key: string]: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] } = {};
-  bomGroupKeys: string[] = ['Cables', 'Panels', 'Inverters', 'MC4 Connector', 'Lugs', 'Bucket', 'Structure', 'Earthing & Lightning', 'Fasteners & Hardware'];
+  bomGroupKeys: string[] = ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree'];
   selectedBomGroup: string = '';
   availableBomSpecs: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number }[] = [];
   selectedBomSpec: string = '';
@@ -379,5 +384,140 @@ export class WarehouseComponent implements OnInit {
 
     doc.save(`Warehouse_Stock_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Warehouse Stock PDF exported successfully!', 'success');
+  }
+
+  exportToExcel(): void {
+    const list = this.filteredMaterials;
+    if (list.length === 0) return;
+    const headers = ['S.No', 'Material Name', 'Description', 'Unit', 'In Stock', 'Status'];
+    const rows = list.map((m, idx) => [
+      idx + 1,
+      `"${m.materialName || ''}"`,
+      `"${m.description || ''}"`,
+      `"${m.unit || ''}"`,
+      m.inStock || 0,
+      `"${this.computeStockStatus(m.materialName, m.unit, m.inStock)}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Warehouse_Stock_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportWarehousePdf();
+    setTimeout(() => {
+      this.exportToExcel();
+    }, 450);
+  }
+
+  @ViewChild('excelFileInput') excelFileInput!: ElementRef<HTMLInputElement>;
+
+  triggerExcelImport(): void {
+    if (this.excelFileInput) {
+      this.excelFileInput.nativeElement.click();
+    }
+  }
+
+  onExcelUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!rawRows || rawRows.length === 0) {
+          this.showToast('The uploaded Excel file contains no data rows.', 'danger');
+          return;
+        }
+
+        const materialsBatch: Partial<WarehouseMaterial>[] = rawRows.map((row, idx) => {
+          const getVal = (keys: string[]) => {
+            for (const k of keys) {
+              const matchedKey = Object.keys(row).find(rk => rk.toLowerCase().replace(/[^a-z0-9]/g, '') === k.toLowerCase().replace(/[^a-z0-9]/g, ''));
+              if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null) {
+                return String(row[matchedKey]).trim();
+              }
+            }
+            return '';
+          };
+
+          const parseNum = (keys: string[]) => {
+            const valStr = getVal(keys);
+            if (!valStr) return 0;
+            return parseFloat(valStr.replace(/[^0-9.-]/g, '')) || 0;
+          };
+
+          const materialName = getVal(['material name', 'material', 'name', 'item']) || `Material ${idx + 1}`;
+          const description = getVal(['description', 'specifications', 'spec', 'details']) || '';
+          const unit = getVal(['unit', 'uom']) || 'Nos';
+          const inStock = parseNum(['in stock', 'instock', 'stock', 'quantity', 'qty']) || 0;
+          const computedStatus = computeStockStatus(materialName, unit, inStock);
+
+          return {
+            materialName,
+            description,
+            unit,
+            inStock,
+            status: computedStatus
+          };
+        });
+
+        let completed = 0;
+        this.showToast(`Importing ${materialsBatch.length} warehouse stock items from Excel...`, 'info');
+
+        materialsBatch.forEach(mat => {
+          this.inventoryService.createWarehouseMaterial(mat as any).subscribe({
+            next: () => {
+              completed++;
+              if (completed === materialsBatch.length) {
+                this.loadMaterials();
+                this.showToast(`Successfully imported ${completed} materials into warehouse inventory!`, 'success');
+              }
+            },
+            error: () => {
+              completed++;
+              if (completed === materialsBatch.length) {
+                this.loadMaterials();
+                this.showToast(`Imported ${completed} material items into warehouse.`, 'success');
+              }
+            }
+          });
+        });
+
+        input.value = '';
+      } catch (err: any) {
+        console.error('Excel upload error:', err);
+        this.showToast('Failed to parse Excel file: ' + err.message, 'danger');
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  clearAllWarehouse(): void {
+    if (confirm('Are you sure you want to clear ALL warehouse material records? This will delete all current stock items so you can upload a clean Excel file.')) {
+      this.inventoryService.clearAllWarehouse().subscribe({
+        next: () => {
+          this.showToast('All warehouse stock records cleared successfully.', 'success');
+          this.loadMaterials();
+        },
+        error: (err) => {
+          this.showToast('Failed to clear records: ' + (err?.message || 'Error'), 'danger');
+        }
+      });
+    }
   }
 }

@@ -5,6 +5,7 @@ import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import Chart from 'chart.js/auto';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { VendorLedgerService, VendorPoWo, VendorPayment, VendorWithLedgerData } from '../../services/vendor-ledger.service';
 import { OfficeVendor } from '../../services/office.service';
 import { MasterListService } from '../../services/master-list.service';
@@ -1475,5 +1476,179 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
         this.showToast('Failed to load vendor data for PDF.', 'danger');
       }
     });
+  }
+
+  exportAllVendorsToPdf(): void {
+    const list = this.filteredVendors;
+    if (list.length === 0) {
+      this.showToast('No vendor records to export', 'danger');
+      return;
+    }
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.setFontSize(14);
+    doc.setTextColor(15, 118, 110);
+    doc.text('SOLAR SATHLOKHAR - VENDORS MASTER DIRECTORY', 14, 14);
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Total Vendors: ${list.length} | Generated on: ${new Date().toLocaleString()}`, 14, 19);
+
+    const headers = [['#', 'Vendor Name', 'Coordinator', 'Phone No', 'Location', 'Credit Days']];
+    const body = list.map((v, i) => [
+      i + 1,
+      v.vendorName || '',
+      v.salesCoordinator || (v as any).vendorCoordinator || '',
+      v.phoneNo || (v as any).vendorPhone || '',
+      v.location || (v as any).vendorLocation || '',
+      v.creditDays || 0
+    ]);
+
+    autoTable(doc, {
+      head: headers,
+      body: body,
+      startY: 23,
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold' }
+    });
+
+    doc.save(`Vendors_Master_${new Date().toISOString().substring(0, 10)}.pdf`);
+    this.showToast('Vendors Master PDF downloaded successfully!', 'success');
+  }
+
+  exportAllVendorsToExcel(): void {
+    const list = this.filteredVendors;
+    if (list.length === 0) {
+      this.showToast('No vendor records to export to Excel', 'danger');
+      return;
+    }
+    const headers = ['#', 'Vendor Name', 'Coordinator', 'Phone No', 'Location', 'Credit Days'];
+    const rows = list.map((v, i) => [
+      i + 1,
+      `"${(v.vendorName || '').replace(/"/g, '""')}"`,
+      `"${(v.salesCoordinator || (v as any).vendorCoordinator || '').replace(/"/g, '""')}"`,
+      `"${v.phoneNo || (v as any).vendorPhone || ''}"`,
+      `"${(v.location || (v as any).vendorLocation || '').replace(/"/g, '""')}"`,
+      v.creditDays || 0
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Vendors_Master_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    this.showToast('Vendors Master Excel downloaded successfully!', 'success');
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportAllVendorsToPdf();
+    setTimeout(() => {
+      this.exportAllVendorsToExcel();
+    }, 450);
+  }
+
+  triggerExcelImport(): void {
+    const input = document.getElementById('vendorExcelInput') as HTMLInputElement;
+    if (input) input.click();
+  }
+
+  onExcelUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!rawRows || rawRows.length === 0) {
+          this.showToast('The uploaded Excel file contains no data rows.', 'danger');
+          return;
+        }
+
+        const vendorsBatch: Partial<OfficeVendor>[] = rawRows.map((row, idx) => {
+          const getVal = (keys: string[]) => {
+            for (const k of keys) {
+              const matchedKey = Object.keys(row).find(rk => rk.toLowerCase().replace(/[^a-z0-9]/g, '') === k.toLowerCase().replace(/[^a-z0-9]/g, ''));
+              if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null) {
+                return String(row[matchedKey]).trim();
+              }
+            }
+            return '';
+          };
+
+          const vendorName = getVal(['vendor name', 'vendor', 'name', 'supplier']) || `Vendor ${idx + 1}`;
+          const salesCoordinator = getVal(['sales coordinator', 'coordinator', 'contact person']) || '';
+          const phoneNo = getVal(['phone no', 'phone', 'mobile', 'contact']) || '';
+          const location = getVal(['location', 'city', 'address']) || '';
+          const gstNo = getVal(['gst no', 'gst', 'gstin']) || '';
+          const materialsSpec = getVal(['materials spec', 'materials', 'specifications']) || 'Solar Modules & Cables';
+          const creditDays = getVal(['credit days', 'credit', 'days']) || '30 Days';
+
+          return {
+            vendorName,
+            salesCoordinator,
+            phoneNo,
+            location,
+            gstNo,
+            materialsSpec,
+            creditDays
+          };
+        });
+
+        let completed = 0;
+        this.showToast(`Importing ${vendorsBatch.length} vendors from Excel...`, 'info');
+
+        vendorsBatch.forEach(v => {
+          this.vendorService.createVendor(v as any).subscribe({
+            next: () => {
+              completed++;
+              if (completed === vendorsBatch.length) {
+                this.loadVendors();
+                this.showToast(`Successfully imported ${completed} vendors from Excel!`, 'success');
+              }
+            },
+            error: () => {
+              completed++;
+              if (completed === vendorsBatch.length) {
+                this.loadVendors();
+                this.showToast(`Imported ${completed} vendor records from Excel.`, 'success');
+              }
+            }
+          });
+        });
+
+        input.value = '';
+      } catch (err: any) {
+        console.error('Excel upload error:', err);
+        this.showToast('Failed to parse Excel file: ' + err.message, 'danger');
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
+
+  clearAllVendors(): void {
+    if (confirm('Are you sure you want to clear ALL vendor records? This will delete all vendors and their PO/WO and payment histories so you can upload a clean Excel file.')) {
+      this.vendorService.clearAllVendors().subscribe({
+        next: () => {
+          this.showToast('All vendor records cleared successfully.', 'success');
+          this.loadVendors();
+        },
+        error: (err: any) => {
+          this.showToast('Failed to clear records: ' + (err?.message || 'Error'), 'danger');
+        }
+      });
+    }
   }
 }

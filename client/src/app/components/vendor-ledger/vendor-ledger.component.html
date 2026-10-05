@@ -67,8 +67,29 @@
                  placeholder="Search vendor name, coordinator, location, materials..." 
                  [(ngModel)]="searchTerm">
         </div>
-        <div class="d-flex align-items-center gap-3">
-          <span class="small text-muted">Total Vendors: <strong class="text-dark">{{ filteredVendors.length }}</strong></span>
+        <div class="d-flex align-items-center gap-2">
+          <input type="file" id="vendorExcelInput" (change)="onExcelUploadSelected($event)" accept=".xlsx, .xls, .csv" class="d-none">
+          <button *ngIf="isAdmin()" class="btn btn-outline-success btn-sm fw-semibold shadow-sm px-3 py-1.5 d-flex align-items-center gap-1.5"
+                  (click)="triggerExcelImport()"
+                  title="Upload Excel spreadsheet">
+            <i class="bi bi-file-earmark-arrow-up-fill text-success"></i>
+            <span>Upload</span>
+          </button>
+
+          <button class="btn btn-outline-danger btn-sm fw-semibold shadow-sm px-3 py-1.5 d-flex align-items-center gap-1.5"
+                  (click)="exportBothPdfAndExcel()"
+                  title="Export PDF & Excel">
+            <i class="bi bi-file-earmark-arrow-down-fill text-danger"></i>
+            <span>Export</span>
+          </button>
+
+          <button *ngIf="isAdmin() && vendors.length > 0" class="btn btn-outline-secondary btn-sm fw-semibold shadow-sm px-3 py-1.5 d-flex align-items-center gap-1.5 text-nowrap"
+                  (click)="clearAllVendors()"
+                  title="Clear all vendor records to re-upload cleanly">
+            <i class="bi bi-trash3 text-muted"></i>
+            <span>Clear All</span>
+          </button>
+
           <button *ngIf="!selectedVendor && authService.isAdmin()" 
                   class="btn btn-primary btn-sm px-3 shadow-xs d-flex align-items-center gap-1.5"
                   style="background-color: #0f766e; border-color: #0f766e;"

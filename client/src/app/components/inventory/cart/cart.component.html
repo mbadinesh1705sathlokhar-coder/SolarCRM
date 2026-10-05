@@ -43,10 +43,19 @@
 
     <!-- Top Action -->
     <div class="d-flex align-items-center gap-2">
-      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
-              (click)="exportCartPdf()" title="Download Procurement Cart PDF">
-        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      <button *ngIf="isAdmin()" class="btn btn-sm btn-outline-success fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="triggerExcelImport()" title="Upload Excel spreadsheet">
+        <i class="bi bi-file-earmark-arrow-up-fill text-success"></i> Upload
       </button>
+      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
+        <i class="bi bi-download text-danger"></i> Export
+      </button>
+      <button *ngIf="isAdmin() && cartItems.length > 0" class="btn btn-sm btn-outline-secondary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="clearAllCart()" title="Clear all cart items to re-upload cleanly">
+        <i class="bi bi-trash3 text-muted"></i> Clear All
+      </button>
+      <input #excelFileInput type="file" accept=".xlsx,.xls,.csv" (change)="onExcelUploadSelected($event)" class="d-none">
       <button class="btn btn-sm btn-primary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
               *ngIf="canAdd()"
               style="background-color: #2563eb; border-color: #2563eb;"
@@ -222,7 +231,7 @@
               <label class="form-label small fw-bold text-dark mb-1">Material <span class="text-danger">*</span></label>
               <select class="form-select shadow-sm" [(ngModel)]="cartForm.material" name="editMaterial" required>
                 <option value="" disabled selected>Select Material</option>
-                <option *ngFor="let m of materialOptions" [value]="m">{{ m }}</option>
+                <option *ngFor="let m of availableMaterialOptions" [value]="m">{{ m }}</option>
                 <option *ngIf="cartForm.material && !materialOptions.includes(cartForm.material)" [value]="cartForm.material">{{ cartForm.material }}</option>
               </select>
             </div>
@@ -328,7 +337,7 @@
                               [name]="'row_mat_' + i"
                               required>
                         <option value="" disabled selected>Select Material</option>
-                        <option *ngFor="let m of materialOptions" [value]="m">{{ m }}</option>
+                        <option *ngFor="let m of availableMaterialOptions" [value]="m">{{ m }}</option>
                         <option *ngIf="row.material && !materialOptions.includes(row.material)" [value]="row.material">{{ row.material }}</option>
                       </select>
                     </td>

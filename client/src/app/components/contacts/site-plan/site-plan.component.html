@@ -61,10 +61,15 @@
           <i class="bi bi-shield-lock me-1 text-primary"></i>
           <span>Records restricted to assignor, assigned engineer, and administrator.</span>
         </div>
-        <button class="btn btn-sm btn-outline-danger shadow-sm d-flex align-items-center gap-1.5" (click)="exportToPdf()" title="Export Site Plans to PDF">
-          <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-          <span class="fw-semibold">Export PDF</span>
+        <button class="btn btn-sm btn-outline-success shadow-sm d-flex align-items-center gap-1.5 fw-semibold" (click)="triggerExcelImport()" title="Upload Excel spreadsheet">
+          <i class="bi bi-file-earmark-arrow-up-fill text-success"></i>
+          <span>Upload</span>
         </button>
+        <button class="btn btn-sm btn-outline-danger shadow-sm d-flex align-items-center gap-1.5 fw-semibold" (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
+          <i class="bi bi-download text-danger"></i>
+          <span>Export</span>
+        </button>
+        <input #excelFileInput type="file" accept=".xlsx,.xls,.csv" (change)="onExcelUploadSelected($event)" class="d-none">
       </div>
     </div>
 

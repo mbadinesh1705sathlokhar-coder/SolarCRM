@@ -856,6 +856,48 @@ async function deleteCartItem(req, res) {
     }
 }
 
+async function deleteAllIndents(req, res) {
+    try {
+        await IndentMaterial.destroy({ where: {} });
+        await Indent.destroy({ where: {} });
+        res.json({ success: true, message: 'All indents cleared successfully' });
+    } catch (err) {
+        console.error('Error clearing indents:', err);
+        res.status(500).json({ success: false, message: 'Failed to clear indents' });
+    }
+}
+
+async function deleteAllWarehouseMaterials(req, res) {
+    try {
+        await WarehouseMaterial.destroy({ where: {} });
+        res.json({ success: true, message: 'All warehouse stock materials cleared successfully' });
+    } catch (err) {
+        console.error('Error clearing warehouse materials:', err);
+        res.status(500).json({ success: false, message: 'Failed to clear warehouse materials' });
+    }
+}
+
+async function deleteAllGatePasses(req, res) {
+    try {
+        await GatePassItem.destroy({ where: {} });
+        await GatePass.destroy({ where: {} });
+        res.json({ success: true, message: 'All gate passes cleared successfully' });
+    } catch (err) {
+        console.error('Error clearing gate passes:', err);
+        res.status(500).json({ success: false, message: 'Failed to clear gate passes' });
+    }
+}
+
+async function deleteAllCartItems(req, res) {
+    try {
+        await CartItem.destroy({ where: {} });
+        res.json({ success: true, message: 'All cart items cleared successfully' });
+    } catch (err) {
+        console.error('Error clearing cart items:', err);
+        res.status(500).json({ success: false, message: 'Failed to clear cart items' });
+    }
+}
+
 // ==========================================
 // 5. SEED DATA GENERATOR
 // ==========================================
@@ -875,21 +917,25 @@ module.exports = {
     createIndent,
     updateIndent,
     deleteIndent,
+    deleteAllIndents,
     // Warehouse
     getAllWarehouseMaterials,
     createWarehouseMaterial,
     updateWarehouseMaterial,
     deleteWarehouseMaterial,
+    deleteAllWarehouseMaterials,
     // Gate Pass
     getAllGatePasses,
     createGatePass,
     updateGatePass,
     deleteGatePass,
+    deleteAllGatePasses,
     // Cart
     getCartItems,
     createCartItem,
     updateCartItem,
     deleteCartItem,
+    deleteAllCartItems,
     // Seed
     seedInventoryIfEmpty
 };

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -9,6 +9,7 @@ import { MasterListService } from '../../../services/master-list.service';
 import { AuthService } from '../../../services/auth.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-indent',
@@ -24,6 +25,10 @@ export class IndentComponent implements OnInit {
   private masterListService = inject(MasterListService);
   public authService = inject(AuthService);
   private cdr = inject(ChangeDetectorRef);
+
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
 
   canAdd(): boolean {
     return this.authService.canAdd('inventory');
@@ -54,6 +59,7 @@ export class IndentComponent implements OnInit {
   toastType: 'success' | 'danger' | 'info' = 'success';
 
   // Dropdown options
+  projectsList: any[] = [];
   engineers: string[] = ['Soundarajan', 'Sathish', 'V Sharath', 'K Karthikeyen', 'S Karthikeyen', 'Rahul', 'Vairamani'];
   clientOptions: string[] = [];
   stockMaterialOptions: string[] = [...INVENTORY_MATERIALS];
@@ -136,10 +142,40 @@ export class IndentComponent implements OnInit {
     });
   }
 
+  get availableMaterialOptions(): string[] {
+    if (this.indentForm.clientName) {
+      const selectedProj = this.projectsList.find(p => 
+        (p.clientName || '').toLowerCase().trim() === this.indentForm.clientName?.toLowerCase().trim() ||
+        (p.siteId || '').toLowerCase().trim() === this.indentForm.clientName?.toLowerCase().trim()
+      );
+      if (selectedProj && selectedProj.bomItems) {
+        let itemsArr: any[] = [];
+        if (typeof selectedProj.bomItems === 'string') {
+          try { itemsArr = JSON.parse(selectedProj.bomItems); } catch(e) {}
+        } else if (Array.isArray(selectedProj.bomItems)) {
+          itemsArr = selectedProj.bomItems;
+        }
+
+        if (itemsArr.length > 0) {
+          const bomOpts = itemsArr.map(b => {
+            const grp = b.materialGroup || '';
+            const sub = b.categoryType || '';
+            const spec = b.specification || '';
+            const parts = [grp, sub, spec].filter(Boolean);
+            return parts.join(' - ') || grp || spec;
+          });
+          return Array.from(new Set(bomOpts));
+        }
+      }
+    }
+    return this.stockMaterialOptions;
+  }
+
   loadAwardedClients(): void {
     this.projectService.getProjects().subscribe({
       next: (res) => {
         if (res.success && res.data?.length > 0) {
+          this.projectsList = res.data;
           const names = res.data.map(p => p.clientName).filter(Boolean);
           this.clientOptions = Array.from(new Set(names));
           this.cdr.markForCheck();
@@ -179,6 +215,15 @@ export class IndentComponent implements OnInit {
   }
 
   loadEngineersFromOffice(): void {
+    this.masterListService.getList('Engineer').subscribe({
+      next: (res: any) => {
+        if (res?.data?.items && res.data.items.length > 0) {
+          this.engineers = Array.from(new Set([...res.data.items, ...this.engineers]));
+          this.cdr.markForCheck();
+        }
+      }
+    });
+
     this.officeService.getEmployees().subscribe({
       next: (res) => {
         if (res.success && res.data?.length > 0) {
@@ -194,7 +239,7 @@ export class IndentComponent implements OnInit {
             .filter(e => isSiteEngineer(e.designation))
             .map(e => e.name);
           if (filtered.length > 0) {
-            this.engineers = Array.from(new Set(filtered));
+            this.engineers = Array.from(new Set([...filtered, ...this.engineers]));
           }
           this.cdr.markForCheck();
         }
@@ -435,5 +480,152 @@ export class IndentComponent implements OnInit {
 
     doc.save(`Material_Indents_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Material Indents PDF exported successfully!', 'success');
+  }
+
+  exportToExcel(): void {
+    const list = this.filteredIndents;
+    if (list.length === 0) return;
+    const headers = ['S.No', 'Indent No', 'Date', 'Site Engineer', 'Client Name', 'Requested Materials'];
+    const rows = list.map((ind, idx) => [
+      idx + 1,
+      `"${ind.indentNo || ''}"`,
+      `"${this.formatDate(ind.indentDate)}"`,
+      `"${ind.siteEngineer || ''}"`,
+      `"${ind.clientName || ''}"`,
+      `"${(ind.materials || []).map(m => m.materialName + ' (' + m.quantity + ' ' + m.unit + ')').join('; ')}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Material_Indents_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  exportBothPdfAndExcel(): void {
+    this.exportIndentPdf();
+    setTimeout(() => {
+      this.exportToExcel();
+    }, 450);
+  }
+
+  @ViewChild('excelFileInput') excelFileInput!: ElementRef<HTMLInputElement>;
+
+  triggerExcelImport(): void {
+    if (this.excelFileInput) {
+      this.excelFileInput.nativeElement.click();
+    }
+  }
+
+  onExcelUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!rawRows || rawRows.length === 0) {
+          this.showToast('The uploaded Excel file contains no data rows.', 'danger');
+          return;
+        }
+
+        const today = new Date().toISOString().substring(0, 10);
+
+        const indentsBatch: Partial<Indent>[] = rawRows.map((row, idx) => {
+          const getVal = (keys: string[]) => {
+            for (const k of keys) {
+              const matchedKey = Object.keys(row).find(rk => rk.toLowerCase().replace(/[^a-z0-9]/g, '') === k.toLowerCase().replace(/[^a-z0-9]/g, ''));
+              if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null) {
+                return String(row[matchedKey]).trim();
+              }
+            }
+            return '';
+          };
+
+          const parseNum = (keys: string[]) => {
+            const valStr = getVal(keys);
+            if (!valStr) return 0;
+            return parseFloat(valStr.replace(/[^0-9.-]/g, '')) || 0;
+          };
+
+          const indentNo = getVal(['indent no', 'indentno', 'indent id', 'id']) || `IND-${100 + idx}`;
+          const indentDate = getVal(['indent date', 'date']) || today;
+          const siteEngineer = getVal(['site engineer', 'engineer', 'order by']) || 'Site Engineer';
+          const clientName = getVal(['client name', 'client', 'name']) || 'Client';
+          const materialName = getVal(['material name', 'material', 'item']) || 'Solar Cables';
+          const quantity = parseNum(['quantity', 'qty']) || 10;
+          const unit = getVal(['unit', 'uom']) || 'Meter';
+
+          return {
+            indentNo,
+            indentDate,
+            siteEngineer,
+            clientName,
+            materials: [
+              {
+                materialName,
+                quantity,
+                unit,
+                status: 'Pending',
+                poWo: false
+              }
+            ]
+          };
+        });
+
+        let completed = 0;
+        this.showToast(`Importing ${indentsBatch.length} indents from Excel...`, 'info');
+
+        indentsBatch.forEach(ind => {
+          this.inventoryService.createIndent(ind).subscribe({
+            next: () => {
+              completed++;
+              if (completed === indentsBatch.length) {
+                this.loadIndents();
+                this.showToast(`Successfully imported ${completed} indents from Excel!`, 'success');
+              }
+            },
+            error: () => {
+              completed++;
+              if (completed === indentsBatch.length) {
+                this.loadIndents();
+                this.showToast(`Imported ${completed} indent records from Excel.`, 'success');
+              }
+            }
+          });
+        });
+
+        input.value = '';
+      } catch (err: any) {
+        console.error('Excel upload error:', err);
+        this.showToast('Failed to parse Excel file: ' + err.message, 'danger');
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  clearAllIndents(): void {
+    if (confirm('Are you sure you want to clear ALL indent records? This will delete all current indents so you can upload a clean Excel file.')) {
+      this.inventoryService.clearAllIndents().subscribe({
+        next: () => {
+          this.showToast('All indent records cleared successfully.', 'success');
+          this.loadIndents();
+        },
+        error: (err) => {
+          this.showToast('Failed to clear records: ' + (err?.message || 'Error'), 'danger');
+        }
+      });
+    }
   }
 }

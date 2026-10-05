@@ -386,6 +386,16 @@ async function deleteCampaignExpense(req, res) {
     }
 }
 
+async function deleteAllCampaignExpenses(req, res) {
+    try {
+        await CampaignExpense.destroy({ where: {} });
+        res.json({ success: true, message: 'All expo expenses cleared successfully' });
+    } catch (err) {
+        console.error('Error clearing campaign expenses:', err);
+        res.status(500).json({ success: false, message: 'Failed to clear campaign expenses' });
+    }
+}
+
 // Seed campaigns if empty
 async function seedCampaignsIfEmpty() {
     try {
@@ -411,5 +421,6 @@ module.exports = {
     createExpoExpense,
     updateCampaignExpense,
     deleteCampaignExpense,
+    deleteAllCampaignExpenses,
     seedCampaignsIfEmpty
 };
