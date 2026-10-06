@@ -12,6 +12,8 @@ import { OfficeService, Employee } from '../../services/office.service';
 import { SalesLead } from '../../models/sales.model';
 import { TaskItem, TaskPriority, TaskStatus, Meeting, CallLog } from '../../models/contacts.model';
 import { Project, ClientPayment, SiteExpense } from '../../models/project.model';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 @Component({
   selector: 'app-home',
@@ -613,6 +615,252 @@ export class HomeComponent implements OnInit {
       (e.billVoucher || '').toLowerCase().includes(q) ||
       (e.paidBy || '').toLowerCase().includes(q)
     );
+  }
+
+  // --- Breakdown PDF Export Logic ---
+  getBreakdownTitle(): string {
+    switch (this.breakdownActiveTab) {
+      case 'awarded': return 'Awarded Sites';
+      case 'payments': return 'Received Client Payments';
+      case 'powo': return 'PO / WO Registered';
+      case 'expenses': return 'Total Site Expenses';
+      default: return 'Metrics Breakdown';
+    }
+  }
+
+  exportBreakdownPdf(): void {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageWidth = 297;
+    const margin = 14;
+    const timeframe = this.fromDateStr ? `${this.formatDate(this.fromDateStr)} to ${this.formatDate(this.toDateStr)}` : 'All Time';
+    const generatedOn = new Date().toLocaleString('en-IN');
+
+    // Brand Header Bar
+    doc.setFillColor(15, 23, 42); // Slate 900
+    doc.rect(0, 0, pageWidth, 22, 'F');
+    doc.setFillColor(234, 88, 12); // Orange Accent Line
+    doc.rect(0, 22, pageWidth, 1.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text('SATHLOKHAR SOLAR - METRICS REPORT', margin, 10);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(203, 213, 225);
+    const reportTitle = this.getBreakdownTitle().toUpperCase();
+    doc.text(`Report: ${reportTitle}   |   Timeframe: ${timeframe}   |   Generated: ${generatedOn}`, margin, 17);
+
+    let headers: string[][] = [];
+    let body: any[][] = [];
+    let headColor = [15, 23, 42];
+
+    if (this.breakdownActiveTab === 'awarded') {
+      headColor = [16, 185, 129]; // Emerald Green
+      headers = [['#', 'Site ID', 'Client Name', 'Awarded Date', 'Capacity', 'Order By', 'Location', 'Site Value (₹)']];
+      body = this.breakdownAwardedList.map((p, idx) => [
+        idx + 1,
+        p.siteId || '—',
+        p.clientName || '—',
+        this.formatDate(p.awardedDate),
+        p.siteCapacity ? `${p.siteCapacity} kW` : '—',
+        p.orderBy || '—',
+        p.location || '—',
+        '₹ ' + (Number(p.siteValue) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]);
+      body.push([
+        '', '', 'Total Awarded Value', '', '', '', `(${this.breakdownAwardedList.length} Sites)`,
+        '₹ ' + this.awardedValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]);
+    } else if (this.breakdownActiveTab === 'payments') {
+      headColor = [124, 58, 237]; // Purple
+      headers = [['#', 'Site ID', 'Client Name', 'Payment Date', 'Payment Mode', 'Reference / MOP', 'Remarks', 'Received Amount (₹)']];
+      body = this.breakdownPaymentsList.map((p, idx) => [
+        idx + 1,
+        p.siteId || '—',
+        p.clientName || '—',
+        this.formatDate(p.paymentDate),
+        p.paymentMode || 'Bank Transfer',
+        p.referenceNo || p.mop || '—',
+        p.remarks || '—',
+        '₹ ' + (Number(p.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]);
+      body.push([
+        '', '', 'Total Received Collections', '', '', '', `(${this.breakdownPaymentsList.length} Receipts)`,
+        '₹ ' + this.receivedValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]);
+    } else if (this.breakdownActiveTab === 'powo') {
+      headColor = [217, 119, 6]; // Amber / Orange
+      headers = [['#', 'Site ID', 'Client / Vendor', 'Expense Date', 'Order Type', 'Bill / Voucher', 'Purpose / Description', 'Amount (₹)']];
+      body = this.breakdownPoWoList.map((e, idx) => [
+        idx + 1,
+        e.siteId || '—',
+        e.vendorName || e.clientName || '—',
+        this.formatDate(e.expenseDate),
+        e.paymentThrough || 'P.O',
+        e.billVoucher || '—',
+        e.purpose || '—',
+        '₹ ' + (Number(e.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]);
+      body.push([
+        '', '', 'Total Registered PO/WO', '', '', '', `(${this.breakdownPoWoList.length} Entries)`,
+        '₹ ' + this.poWoTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]);
+    } else {
+      // Expenses
+      headColor = [220, 38, 38]; // Red
+      headers = [['#', 'Site ID', 'Client / Vendor', 'Expense Date', 'Paid By', 'Bill / Voucher', 'Purpose / Description', 'Expense Amount (₹)']];
+      body = this.breakdownExpensesList.map((e, idx) => [
+        idx + 1,
+        e.siteId || '—',
+        e.vendorName || e.clientName || '—',
+        this.formatDate(e.expenseDate),
+        e.paidBy || '—',
+        e.billVoucher || '—',
+        e.purpose || '—',
+        '₹ ' + (Number(e.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]);
+      body.push([
+        '', '', 'Total Incurred Expenses', '', '', '', `(${this.breakdownExpensesList.length} Vouchers)`,
+        '₹ ' + this.totalExpensesValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]);
+    }
+
+    autoTable(doc, {
+      head: headers,
+      body: body,
+      startY: 28,
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 2.2,
+        overflow: 'linebreak'
+      },
+      headStyles: {
+        fillColor: headColor as any,
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 8.5
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { fontStyle: 'bold', cellWidth: 22 },
+        [headers[0].length - 1]: { halign: 'right', fontStyle: 'bold' }
+      },
+      didParseCell: (data) => {
+        if (data.row.index === body.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [241, 245, 249];
+          data.cell.styles.textColor = [15, 23, 42];
+        }
+      }
+    });
+
+    const safeName = this.getBreakdownTitle().replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`${safeName}_Report_${new Date().toISOString().substring(0, 10)}.pdf`);
+  }
+
+  exportSinglePoWoPdf(e: SiteExpense): void {
+    if (!e) return;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = 210;
+    const margin = 14;
+
+    const isWO = (e.paymentThrough || '').toUpperCase().includes('W');
+    doc.setFillColor(isWO ? 217 : 37, isWO ? 119 : 99, isWO ? 6 : 235);
+    doc.rect(0, 0, pageWidth, 26, 'F');
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 26, pageWidth, 1.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(255, 255, 255);
+    doc.text('SOLAR SATHLOKHAR', margin, 11);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(254, 243, 199);
+    doc.text(`${e.paymentThrough || 'PO'} REGISTERED ORDER VOUCHER`, margin, 17);
+
+    doc.setFontSize(7.5);
+    const voucherRef = `${e.paymentThrough || 'PO'}-${e.siteId || 'VOUCHER'}`;
+    doc.text(`Ref: ${voucherRef}   |   Date: ${this.formatDate(e.expenseDate)}   |   Generated: ${new Date().toLocaleString('en-IN')}`, margin, 22);
+
+    let currentY = 34;
+
+    autoTable(doc, {
+      startY: currentY,
+      theme: 'plain',
+      styles: { fontSize: 8.5, cellPadding: 2 },
+      body: [
+        [
+          { content: 'Order Type:', styles: { fontStyle: 'bold', textColor: [100, 116, 139] } },
+          { content: e.paymentThrough || 'P.O', styles: { fontStyle: 'bold', textColor: [15, 23, 42] } },
+          { content: 'Expense Date:', styles: { fontStyle: 'bold', textColor: [100, 116, 139] } },
+          { content: this.formatDate(e.expenseDate), styles: { fontStyle: 'bold', textColor: [15, 23, 42] } }
+        ],
+        [
+          { content: 'Site ID:', styles: { fontStyle: 'bold', textColor: [100, 116, 139] } },
+          { content: e.siteId || '—', styles: { fontStyle: 'bold', textColor: [37, 99, 235] } },
+          { content: 'Bill / Voucher:', styles: { fontStyle: 'bold', textColor: [100, 116, 139] } },
+          { content: e.billVoucher || 'Not Submitted', styles: { fontStyle: 'bold', textColor: [15, 23, 42] } }
+        ],
+        [
+          { content: 'Vendor / Contractor:', styles: { fontStyle: 'bold', textColor: [100, 116, 139] } },
+          { content: e.vendorName || e.clientName || '—', styles: { fontStyle: 'bold', textColor: [15, 23, 42] } },
+          { content: 'Client Reference:', styles: { fontStyle: 'bold', textColor: [100, 116, 139] } },
+          { content: e.clientName || '—', styles: { fontStyle: 'bold', textColor: [15, 23, 42] } }
+        ]
+      ]
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 6;
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [['#', 'Particulars / Scope of Supply', 'Ref / Voucher', 'Order Value (₹)']],
+      body: [
+        [
+          1,
+          e.purpose || 'Procurement / Work Services for Site ' + (e.siteId || ''),
+          e.billVoucher || e.invoiceNo || '—',
+          '₹ ' + (Number(e.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        ]
+      ],
+      foot: [
+        ['', 'Total Amount Incurred (CR)', '', '₹ ' + (Number(e.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 9.5 },
+      styles: { fontSize: 8.5, cellPadding: 3.5 },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 12 },
+        1: { cellWidth: 105 },
+        2: { cellWidth: 35 },
+        3: { halign: 'right', fontStyle: 'bold', cellWidth: 35 }
+      }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 25;
+
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.line(margin, currentY, margin + 40, currentY);
+    doc.text('Prepared By', margin + 8, currentY + 4);
+
+    doc.line(margin + 65, currentY, margin + 105, currentY);
+    doc.text('Verified By', margin + 74, currentY + 4);
+
+    doc.line(pageWidth - margin - 40, currentY, pageWidth - margin, currentY);
+    doc.text('Authorized Signatory', pageWidth - margin - 35, currentY + 4);
+
+    const safeFile = `PO_WO_${e.siteId || 'Voucher'}_${new Date().toISOString().substring(0, 10)}.pdf`;
+    doc.save(safeFile);
   }
 
   // --- To-Do / Task Management ---

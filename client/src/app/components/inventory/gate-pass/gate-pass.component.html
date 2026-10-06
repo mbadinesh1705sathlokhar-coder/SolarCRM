@@ -108,15 +108,14 @@
           <tr *ngFor="let gp of filteredGatePasses; let i = index">
             <!-- S.No -->
             <td class="text-center font-mono text-muted small fw-bold">{{ i + 1 }}</td>
-            <!-- Date (dd-mm-yyyy) - Clickable to edit if permitted -->
+            <!-- Date (dd-mm-yyyy) - Clickable to edit -->
             <td class="font-mono text-nowrap" style="font-size: 0.82rem;">
-              <a *ngIf="canEdit()" href="javascript:void(0)" 
+              <a href="javascript:void(0)" 
                  class="fw-bold text-dark text-decoration-none hover-link"
                  (click)="openEditModal(gp)" 
-                 title="Click to edit gate pass">
+                 title="Click to view and edit gate pass">
                 {{ formatDate(gp.gatePassDate) }}
               </a>
-              <span *ngIf="!canEdit()">{{ formatDate(gp.gatePassDate) }}</span>
             </td>
             <!-- Unit: Clickable to view all descriptions & materials -->
             <td>
@@ -132,9 +131,14 @@
               <span *ngIf="getGatePassTotal(gp) > 0" class="text-success">₹ {{ getGatePassTotal(gp) | number:'1.2-2' }}</span>
               <span *ngIf="getGatePassTotal(gp) === 0" class="text-muted">—</span>
             </td>
-            <!-- Client Name: Plain text (not clickable, as requested) -->
+            <!-- Client Name: Clickable to edit -->
             <td>
-              <span class="fw-semibold text-dark">{{ gp.clientName }}</span>
+              <a href="javascript:void(0)" 
+                 class="fw-semibold text-dark text-decoration-none hover-link"
+                 (click)="openEditModal(gp)" 
+                 title="Click to view and edit gate pass">
+                {{ gp.clientName }}
+              </a>
             </td>
             <!-- SiteEngineer -->
             <td>
@@ -142,13 +146,12 @@
             </td>
             <!-- Actions: Strictly DELETE button only (no icons) -->
             <td class="text-center">
-              <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
+              <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
                       style="font-size: 0.76rem;"
                       (click)="confirmDelete(gp)"
                       title="Delete Gate Pass">
                 Delete
               </button>
-              <span *ngIf="!canDelete()" class="text-muted small">—</span>
             </td>
           </tr>
         </tbody>
@@ -515,13 +518,6 @@
               Dispatched Descriptions & Materials
             </span>
             <div class="d-flex align-items-center gap-2">
-              <button type="button" 
-                      class="btn btn-xs btn-outline-danger d-inline-flex align-items-center gap-1 py-1 px-2.5 rounded-2 font-mono fw-semibold"
-                      style="font-size: 0.78rem;"
-                      (click)="downloadSingleGatePassPdf(selectedGatePassForView)" 
-                      title="Download Gate Pass PDF">
-                <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
-              </button>
               <span class="badge bg-light text-dark border font-mono">
                 {{ (selectedGatePassForView.items?.length || (selectedGatePassForView.descriptions ? 1 : 0)) }} Items
               </span>
@@ -599,12 +595,6 @@
           Close
         </button>
         <div class="d-flex align-items-center gap-2">
-          <button type="button" 
-                  class="btn btn-sm btn-outline-danger px-3 fw-semibold shadow-sm d-flex align-items-center gap-1.5"
-                  (click)="downloadSingleGatePassPdf(selectedGatePassForView)"
-                  title="Download Gate Pass PDF">
-            <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
-          </button>
           <button type="button" 
                   *ngIf="canEdit()"
                   class="btn btn-sm btn-warning text-dark px-3 fw-semibold shadow-sm d-flex align-items-center gap-1"

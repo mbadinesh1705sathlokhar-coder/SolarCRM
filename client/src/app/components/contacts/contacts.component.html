@@ -271,8 +271,10 @@
                 </span>
               </td>
               <td>
-                <div class="fw-bold text-dark">{{ m.title || m.clientName }}</div>
-                <small class="text-muted" *ngIf="m.clientName && m.title">{{ m.clientName }}</small>
+                <a href="javascript:void(0)" class="fw-bold text-dark text-decoration-none" (click)="openEditMeetingModal(m)" title="Click to view and edit meeting" style="font-size: 0.82rem;">
+                  {{ m.title || m.clientName }}
+                </a>
+                <small class="text-muted d-block" *ngIf="m.clientName && m.title" style="font-size: 0.72rem;">{{ m.clientName }}</small>
               </td>
               <td>
                 <span *ngIf="m.engineer" class="badge bg-info-subtle text-info-emphasis me-1">
@@ -293,10 +295,7 @@
               </td>
               <td class="text-end pe-3" (click)="$event.stopPropagation()">
                 <div class="d-inline-flex gap-1">
-                  <button *ngIf="canEdit()" class="btn btn-sm btn-outline-primary action-icon-btn shadow-none" (click)="openEditMeetingModal(m)" title="Edit Meeting">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteMeeting(m, $event)" title="Delete Meeting">
+                  <button class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteMeeting(m, $event)" title="Delete Meeting">
                     <i class="bi bi-trash3"></i>
                   </button>
                 </div>
@@ -419,18 +418,18 @@
                 <small class="text-muted"><i class="bi bi-clock me-1"></i>{{ formatTime12Hour(call.time) }}</small>
               </td>
               <td>
-                <a *ngIf="canEdit()" href="javascript:void(0)" 
+                <a href="javascript:void(0)" 
                    class="fw-bold text-dark text-decoration-none hover-link"
                    (click)="openEditCallModal(call)"
-                   title="Click to edit call log">
+                   title="Click to view and edit call log"
+                   style="font-size: 0.82rem;">
                   {{ call.clientVendorName }}
                 </a>
-                <span *ngIf="!canEdit()" class="fw-bold text-dark">
-                  {{ call.clientVendorName }}
-                </span>
               </td>
               <td>
-                <span class="fw-semibold text-dark">{{ call.title }}</span>
+                <a href="javascript:void(0)" class="fw-semibold text-dark text-decoration-none" (click)="openEditCallModal(call)" title="Click to view and edit call log" style="font-size: 0.8rem;">
+                  {{ call.title }}
+                </a>
               </td>
               <td>
                 <span class="badge" 
@@ -452,7 +451,7 @@
               </td>
               <td class="text-end pe-3">
                 <div class="d-inline-flex gap-1">
-                  <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteCall(call)" title="Delete Call Log">
+                  <button class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteCall(call)" title="Delete Call Log">
                     <i class="bi bi-trash3"></i>
                   </button>
                 </div>
@@ -548,12 +547,9 @@
           <tbody>
             <tr *ngFor="let task of filteredTasks">
               <td>
-                <a *ngIf="canEdit()" href="javascript:void(0)" class="fw-bold text-dark text-decoration-none" (click)="openEditTaskModal(task)" title="Click to edit task">
+                <a href="javascript:void(0)" class="fw-bold text-dark text-decoration-none" (click)="openEditTaskModal(task)" title="Click to view and edit task" style="font-size: 0.8rem;">
                   {{ task.title }}
                 </a>
-                <span *ngIf="!canEdit()" class="fw-bold text-dark">
-                  {{ task.title }}
-                </span>
               </td>
               <td>
                 <span class="badge bg-light text-dark border">
@@ -600,10 +596,7 @@
               </td>
               <td class="text-end pe-3">
                 <div class="d-inline-flex gap-1">
-                  <button *ngIf="canEdit()" class="btn btn-sm btn-outline-primary action-icon-btn shadow-none" (click)="openEditTaskModal(task)" title="Edit Task">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteTask(task)" title="Delete Task">
+                  <button class="btn btn-sm btn-outline-danger action-icon-btn shadow-none" (click)="deleteTask(task)" title="Delete Task">
                     <i class="bi bi-trash3"></i>
                   </button>
                 </div>

@@ -858,13 +858,15 @@
 
             <!-- Title -->
             <td>
-              <div class="fw-bold text-dark text-break" 
-                   [class.text-decoration-line-through]="task.status === 'Completed'"
-                   [class.text-muted]="task.status === 'Completed'"
-                   style="font-size: 0.8rem;">
+              <a href="javascript:void(0)" class="fw-bold text-dark text-break text-decoration-none" 
+                 [class.text-decoration-line-through]="task.status === 'Completed'"
+                 [class.text-muted]="task.status === 'Completed'"
+                 (click)="openEditTodoModal(task)"
+                 title="Click to view and edit task"
+                 style="font-size: 0.8rem; cursor: pointer;">
                 {{ task.title }}
-              </div>
-              <small class="text-muted" *ngIf="task.relatedTo" style="font-size: 0.7rem;">
+              </a>
+              <small class="text-muted d-block" *ngIf="task.relatedTo" style="font-size: 0.7rem;">
                 Ref: {{ task.relatedTo }}
               </small>
             </td>
@@ -896,15 +898,9 @@
               </span>
             </td>
 
-            <!-- Actions (Edit & Delete) -->
+            <!-- Actions (Delete Only) -->
             <td class="text-center pe-3">
               <div class="d-inline-flex gap-1">
-                <button type="button" 
-                        class="btn btn-sm btn-outline-primary todo-action-btn shadow-none"
-                        (click)="openEditTodoModal(task)"
-                        title="Edit Task">
-                  <i class="bi bi-pencil-square"></i>
-                </button>
                 <button type="button" 
                         class="btn btn-sm btn-outline-danger todo-action-btn shadow-none"
                         (click)="deleteTodo(task)"
@@ -971,12 +967,14 @@
 
             <!-- Title -->
             <td>
-              <div class="fw-bold text-dark text-break" 
-                   [class.text-decoration-line-through]="todo.status === 'Completed'"
-                   [class.text-muted]="todo.status === 'Completed'"
-                   style="font-size: 0.8rem;">
+              <a href="javascript:void(0)" class="fw-bold text-dark text-break text-decoration-none" 
+                 [class.text-decoration-line-through]="todo.status === 'Completed'"
+                 [class.text-muted]="todo.status === 'Completed'"
+                 (click)="openEditTodoModal(todo)"
+                 title="Click to view and edit to-do"
+                 style="font-size: 0.8rem; cursor: pointer;">
                 {{ todo.title }}
-              </div>
+              </a>
             </td>
 
             <!-- Description -->
@@ -999,15 +997,9 @@
               </span>
             </td>
 
-            <!-- Actions (Edit & Delete) -->
+            <!-- Actions (Delete Only) -->
             <td class="text-center pe-3">
               <div class="d-inline-flex gap-1">
-                <button type="button" 
-                        class="btn btn-sm btn-outline-primary todo-action-btn shadow-none"
-                        (click)="openEditTodoModal(todo)"
-                        title="Edit To-Do">
-                  <i class="bi bi-pencil-square"></i>
-                </button>
                 <button type="button" 
                         class="btn btn-sm btn-outline-danger todo-action-btn shadow-none"
                         (click)="deleteTodo(todo)"
@@ -1228,7 +1220,15 @@
               </small>
             </div>
           </div>
-          <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeBreakdownModal()"></button>
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" 
+                    class="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1.5 shadow-sm fw-semibold px-2.5 py-1 rounded-2"
+                    (click)="exportBreakdownPdf()" 
+                    [title]="'Download PDF Report for ' + getBreakdownTitle()">
+              <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF Report
+            </button>
+            <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeBreakdownModal()"></button>
+          </div>
         </div>
 
         <!-- Modal Body -->
@@ -1271,14 +1271,21 @@
               </li>
             </ul>
 
-            <!-- Search Inside Breakdown -->
-            <div class="input-group input-group-sm" style="max-width: 240px;">
-              <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-              <input type="text" 
-                     class="form-control border-start-0 shadow-none" 
-                     placeholder="Search breakdown records..."
-                     [(ngModel)]="breakdownSearchTerm"
-                     style="font-size: 0.75rem;">
+            <!-- Search & Actions Inside Breakdown -->
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 shadow-xs fw-semibold px-2.5 py-1 rounded-2"
+                      (click)="exportBreakdownPdf()"
+                      [title]="'Export ' + getBreakdownTitle() + ' to PDF'">
+                <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
+              </button>
+              <div class="input-group input-group-sm" style="max-width: 220px;">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" 
+                       class="form-control border-start-0 shadow-none" 
+                       placeholder="Search records..."
+                       [(ngModel)]="breakdownSearchTerm"
+                       style="font-size: 0.75rem;">
+              </div>
             </div>
           </div>
 
@@ -1369,11 +1376,12 @@
                     <th>Bill / Voucher</th>
                     <th>Purpose</th>
                     <th class="text-end pe-3">Voucher Amount (₹)</th>
+                    <th class="text-center" style="width: 80px;">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngIf="breakdownPoWoList.length === 0">
-                    <td colspan="7" class="text-center py-4 text-muted">No PO/WO registered records found in this timeframe.</td>
+                    <td colspan="8" class="text-center py-4 text-muted">No PO/WO registered records found in this timeframe.</td>
                   </tr>
                   <tr *ngFor="let e of breakdownPoWoList">
                     <td class="ps-3 fw-bold text-primary">{{ e.siteId }}</td>
@@ -1384,6 +1392,13 @@
                     <td>{{ e.purpose || '-' }}</td>
                     <td class="text-end pe-3 fw-bold text-dark">
                       ₹ {{ (e.amount || 0) | number:'1.2-2' }}
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-xs btn-outline-danger py-0.5 px-2 rounded d-inline-flex align-items-center gap-1 shadow-xs fw-medium"
+                              (click)="exportSinglePoWoPdf(e)" 
+                              title="Download PO/WO Voucher PDF">
+                        <i class="bi bi-file-earmark-pdf-fill"></i> PDF
+                      </button>
                     </td>
                   </tr>
                 </tbody>
@@ -1437,7 +1452,12 @@
         </div>
 
         <!-- Modal Footer -->
-        <div class="modal-footer bg-white py-2 px-3.5 d-flex justify-content-end">
+        <div class="modal-footer bg-white py-2 px-3.5 d-flex justify-content-between align-items-center">
+          <button type="button" 
+                  class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1.5 fw-semibold shadow-xs"
+                  (click)="exportBreakdownPdf()">
+            <i class="bi bi-file-earmark-pdf-fill"></i> Download {{ getBreakdownTitle() }} PDF Report
+          </button>
           <button type="button" class="btn btn-sm btn-secondary" (click)="closeBreakdownModal()">Close Breakdown</button>
         </div>
 

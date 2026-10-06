@@ -3,25 +3,38 @@ const { conDb } = require('./database/database');
 async function cleanIndexes() {
     try {
         await conDb.authenticate();
-        const [results] = await conDb.query('SHOW INDEX FROM project_masters');
-        console.log('Total indexes on project_masters:', results.length);
-        const siteIdIndexes = results.filter(r => r.Column_name === 'site_id' && r.Key_name !== 'PRIMARY');
-        console.log('Site ID indexes found:', siteIdIndexes.length);
+        const [tables] = await conDb.query('SHOW TABLES');
 
-        const keyNames = Array.from(new Set(siteIdIndexes.map(r => r.Key_name)));
-        console.log('Distinct key names:', keyNames.length);
+        for (const t of tables) {
+            const tableName = Object.values(t)[0];
+            const [indexes] = await conDb.query('SHOW INDEX FROM `' + tableName + '`');
+            const byCol = {};
+            for (const idx of indexes) {
+                if (idx.Key_name === 'PRIMARY') continue;
+                const col = idx.Column_name;
+                if (!byCol[col]) byCol[col] = [];
+                if (!byCol[col].includes(idx.Key_name)) byCol[col].push(idx.Key_name);
+            }
 
-        for (let i = 1; i < keyNames.length; i++) {
-            const kName = keyNames[i];
-            try {
-                await conDb.query('ALTER TABLE `project_masters` DROP INDEX `' + kName + '`');
-            } catch (e) {
-                console.log('Could not drop ' + kName + ':', e.message);
+            for (const col in byCol) {
+                const keys = byCol[col];
+                if (keys.length > 1) {
+                    console.log(`Table ${tableName}, column ${col} has ${keys.length} indexes.`);
+                    // Keep the first index, drop all the duplicates
+                    for (let i = 1; i < keys.length; i++) {
+                        const kName = keys[i];
+                        try {
+                            await conDb.query('ALTER TABLE `' + tableName + '` DROP INDEX `' + kName + '`');
+                            console.log(`  Dropped ${kName} from ${tableName}`);
+                        } catch (e) {
+                            console.log(`  Could not drop ${kName} from ${tableName}:`, e.message);
+                        }
+                    }
+                }
             }
         }
 
-        const [after] = await conDb.query('SHOW INDEX FROM project_masters');
-        console.log('Remaining indexes on project_masters:', after.length);
+        console.log('Index cleanup completed.');
         process.exit(0);
     } catch (err) {
         console.error('Error cleaning indexes:', err);

@@ -625,10 +625,6 @@ export class CartComponent implements OnInit {
   }
 
   openEditModal(item: CartItem): void {
-    if (!this.canEdit()) {
-      this.showToast('You do not have permission to edit cart items.', 'danger');
-      return;
-    }
     this.isEditMode = true;
     this.cartForm = { ...item };
 

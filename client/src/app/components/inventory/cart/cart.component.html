@@ -131,11 +131,11 @@
                 </td>
                 <!-- Material: Clickable to edit! -->
                 <td>
-                  <a *ngIf="canEdit()" href="javascript:void(0)" 
+                  <a href="javascript:void(0)" 
                      class="text-decoration-none hover-link d-inline-flex align-items-center flex-wrap"
-                     style="gap: 5px;"
+                     style="gap: 5px; cursor: pointer;"
                      (click)="openEditModal(item)" 
-                     title="Click to edit material details">
+                     title="Click to view and edit material details">
                     <span *ngIf="item.materialGroup" class="badge bg-light text-dark border px-2 py-0.5 rounded-1 shadow-xs" style="font-size: 0.74rem; font-weight: 600;">
                       {{ item.materialGroup }}
                     </span>
@@ -146,17 +146,6 @@
                       {{ item.specification || item.material }}
                     </span>
                   </a>
-                  <div *ngIf="!canEdit()" class="d-inline-flex align-items-center flex-wrap" style="gap: 5px;">
-                    <span *ngIf="item.materialGroup" class="badge bg-light text-dark border px-2 py-0.5 rounded-1 shadow-xs" style="font-size: 0.74rem; font-weight: 600;">
-                      {{ item.materialGroup }}
-                    </span>
-                    <span *ngIf="item.categoryType && item.categoryType !== 'Standard'" class="badge bg-primary-subtle text-primary border px-2 py-0.5 rounded-1 shadow-xs" style="font-size: 0.74rem; font-weight: 600;">
-                      {{ item.categoryType }}
-                    </span>
-                    <span class="fw-semibold text-dark" style="font-size: 0.81rem; margin-left: 2px;">
-                      {{ item.specification || item.material }}
-                    </span>
-                  </div>
                   <div *ngIf="item.clientLocation" class="text-muted small mt-1" style="font-size: 0.73rem;">
                     <i class="bi bi-geo-alt me-1 text-danger"></i>{{ item.clientLocation }}
                   </div>
@@ -200,13 +189,12 @@
 
                 <!-- Actions: Strictly DELETE button only (no icons) -->
                 <td class="text-center">
-                  <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
+                  <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
                           style="font-size: 0.76rem;"
                           (click)="confirmDelete(item)"
                           title="Delete Cart Item">
                     Delete
                   </button>
-                  <span *ngIf="!canDelete()" class="text-muted small">—</span>
                 </td>
               </tr>
             </tbody>

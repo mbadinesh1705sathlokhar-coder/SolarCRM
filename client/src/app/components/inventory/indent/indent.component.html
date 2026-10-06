@@ -110,38 +110,36 @@
             <td class="font-mono text-nowrap" style="font-size: 0.82rem;">{{ formatDate(ind.indentDate) }}</td>
             <!-- Indent_No: Clickable to edit -->
             <td>
-              <a *ngIf="canEdit()" href="javascript:void(0)" 
+              <a href="javascript:void(0)" 
                  class="fw-bold font-mono text-primary text-decoration-none hover-link"
                  (click)="openEditModal(ind)" 
-                 title="Click to edit indent and requested materials">
+                 title="Click to view and edit indent">
                 {{ ind.indentNo }}
               </a>
-              <span *ngIf="!canEdit()" class="fw-bold font-mono text-dark">
-                {{ ind.indentNo }}
-              </span>
             </td>
             <td>
               <span class="badge bg-light text-dark border">{{ ind.siteEngineer }}</span>
             </td>
             <td class="fw-semibold text-dark">
-              <a *ngIf="canEdit()" href="javascript:void(0)" 
+              <a href="javascript:void(0)" 
                  class="text-dark text-decoration-none hover-link"
                  (click)="openEditModal(ind)" 
-                 title="Click to edit indent">
+                 title="Click to view and edit indent">
                 {{ ind.clientName }}
               </a>
-              <span *ngIf="!canEdit()">
-                {{ ind.clientName }}
-              </span>
             </td>
             <td class="text-center">
-              <span class="badge bg-secondary-subtle text-secondary-emphasis border">
+              <a href="javascript:void(0)" 
+                 class="badge bg-secondary-subtle text-secondary-emphasis border text-decoration-none hover-link"
+                 style="cursor: pointer;"
+                 (click)="openEditModal(ind)"
+                 title="Click to view and edit requested materials">
                 {{ ind.materials?.length || 0 }} Materials
-              </span>
+              </a>
             </td>
             <!-- Actions: Strictly DELETE button only (no icons) -->
             <td class="text-center">
-              <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
+              <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
                       style="font-size: 0.76rem;"
                       (click)="confirmDelete(ind)"
                       title="Delete Indent">

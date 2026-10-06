@@ -105,34 +105,23 @@
             </td>
           </tr>
           <tr *ngFor="let m of filteredMaterials" class="align-middle">
-            <!-- Materials: Clickable to edit -->
-            <td class="py-2.5">
-              <a *ngIf="canEdit()" href="javascript:void(0)" 
+            <!-- Materials: Clickable to edit (compact text, no edit icon) -->
+            <td class="py-2">
+              <a href="javascript:void(0)" 
                  class="text-decoration-none hover-link d-inline-flex align-items-center flex-wrap"
-                 style="gap: 8px;"
+                 style="gap: 5px; cursor: pointer;"
                  (click)="openEditModal(m)" 
-                 title="Click to edit material details">
-                <span *ngIf="m.materialGroup" class="badge bg-light text-dark border px-2.5 py-1 rounded-2 shadow-xs" style="font-size: 0.85rem; font-weight: 600;">
+                 title="Click to view and edit material details">
+                <span *ngIf="m.materialGroup" class="badge bg-light text-dark border px-2 py-0.5 rounded-2 shadow-xs" style="font-size: 0.72rem; font-weight: 600;">
                   {{ m.materialGroup }}
                 </span>
-                <span *ngIf="m.categoryType && m.categoryType !== 'Standard'" class="badge bg-primary-subtle text-primary border px-2.5 py-1 rounded-2 shadow-xs" style="font-size: 0.85rem; font-weight: 600;">
+                <span *ngIf="m.categoryType && m.categoryType !== 'Standard'" class="badge bg-primary-subtle text-primary border px-2 py-0.5 rounded-2 shadow-xs" style="font-size: 0.72rem; font-weight: 600;">
                   {{ m.categoryType }}
                 </span>
-                <span class="fw-bold text-dark" style="font-size: 0.94rem; margin-left: 6px;">
+                <span class="fw-semibold text-dark" style="font-size: 0.8rem; margin-left: 2px;">
                   {{ m.specification || m.materialName }}
                 </span>
               </a>
-              <div *ngIf="!canEdit()" class="d-inline-flex align-items-center flex-wrap" style="gap: 8px;">
-                <span *ngIf="m.materialGroup" class="badge bg-light text-dark border px-2.5 py-1 rounded-2 shadow-xs" style="font-size: 0.85rem; font-weight: 600;">
-                  {{ m.materialGroup }}
-                </span>
-                <span *ngIf="m.categoryType && m.categoryType !== 'Standard'" class="badge bg-primary-subtle text-primary border px-2.5 py-1 rounded-2 shadow-xs" style="font-size: 0.85rem; font-weight: 600;">
-                  {{ m.categoryType }}
-                </span>
-                <span class="fw-bold text-dark" style="font-size: 0.94rem; margin-left: 6px;">
-                  {{ m.specification || m.materialName }}
-                </span>
-              </div>
             </td>
             <!-- Description -->
             <td class="small text-secondary text-truncate" style="max-width: 300px;" [title]="m.description || ''">
@@ -164,15 +153,14 @@
                 {{ m.status }}
               </span>
             </td>
-            <!-- Actions: Strictly DELETE button only (no icons) -->
+            <!-- Actions: Strictly DELETE button only -->
             <td class="text-center">
-              <button *ngIf="canDelete()" class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
+              <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
                       style="font-size: 0.76rem;"
                       (click)="confirmDelete(m)"
                       title="Delete Material">
                 Delete
               </button>
-              <span *ngIf="!canDelete()" class="text-muted small">—</span>
             </td>
           </tr>
         </tbody>

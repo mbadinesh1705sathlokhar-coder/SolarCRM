@@ -23,19 +23,28 @@ export class WarehouseComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);
 
   isAdmin(): boolean {
-    return this.authService.isAdmin();
+    return this.authService.isAdmin() || this.authService.isPurchase();
   }
 
   canAdd(): boolean {
-    return this.authService.canAdd('inventory');
+    return this.authService.canAdd('warehouse') || 
+           this.authService.canAdd('inventory') || 
+           this.authService.isAdmin() || 
+           this.authService.isPurchase();
   }
 
   canEdit(): boolean {
-    return this.authService.canEdit('inventory');
+    return this.authService.canEdit('warehouse') || 
+           this.authService.canEdit('inventory') || 
+           this.authService.isAdmin() || 
+           this.authService.isPurchase();
   }
 
   canDelete(): boolean {
-    return this.authService.canDelete('inventory');
+    return this.authService.canDelete('warehouse') || 
+           this.authService.canDelete('inventory') || 
+           this.authService.isAdmin() || 
+           this.authService.isPurchase();
   }
 
   materials: WarehouseMaterial[] = [];
@@ -282,10 +291,6 @@ export class WarehouseComponent implements OnInit {
   }
 
   openEditModal(item: WarehouseMaterial): void {
-    if (!this.canEdit()) {
-      this.showToast('You do not have permission to edit warehouse materials.', 'danger');
-      return;
-    }
     this.isEditMode = true;
     this.isDescriptionCustomized = !!(item.description && item.description.trim());
     this.selectedBomGroup = '';

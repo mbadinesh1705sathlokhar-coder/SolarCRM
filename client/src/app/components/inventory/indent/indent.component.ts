@@ -474,10 +474,6 @@ export class IndentComponent implements OnInit {
   }
 
   openEditModal(indent: Indent): void {
-    if (!this.canEdit()) {
-      this.showToast('You do not have permission to edit indents.', 'danger');
-      return;
-    }
     this.isEditMode = true;
     this.indentForm = { ...indent };
     this.requestedMaterials = (indent.materials || []).map(m => {

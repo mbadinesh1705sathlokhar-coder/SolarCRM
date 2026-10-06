@@ -542,10 +542,6 @@ export class GatePassComponent implements OnInit {
   }
 
   openEditModal(gp: GatePass): void {
-    if (!this.canEdit()) {
-      this.showToast('You do not have permission to edit gate passes.', 'danger');
-      return;
-    }
     this.isEditMode = true;
     this.passForm = { ...gp };
     const defaultDate = gp.gatePassDate || new Date().toISOString().substring(0, 10);

@@ -28,6 +28,7 @@ async function Db() {
         console.log('MySQL connected successfully to database:', process.env.DATABASE_NAME);
     } catch (err) {
         console.error('Database connection error:', err);
+        throw err;
     }
 }
 

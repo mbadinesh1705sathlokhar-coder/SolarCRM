@@ -101,11 +101,10 @@
                 </div>
                 <a *ngIf="canEdit(emp)"
                    href="javascript:void(0)" 
-                   class="fw-bold text-dark text-decoration-none name-link d-inline-flex align-items-center gap-1"
+                   class="fw-bold text-dark text-decoration-none name-link"
                    (click)="openEditModal(emp)"
                    title="Click to view and edit credentials / details">
                   {{ emp.name }}
-                  <i class="bi bi-pencil-fill text-muted opacity-50" style="font-size: 0.65rem;"></i>
                 </a>
                 <span *ngIf="!canEdit(emp)" class="fw-semibold text-dark" title="Read-only: Contact admin to change">
                   {{ emp.name }}

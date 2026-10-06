@@ -424,19 +424,31 @@ export class WarehouseExpensesComponent implements OnInit {
   }
 
   canAdd(): boolean {
-    return this.authService.canAdd('expense-ledger') || this.authService.isAdmin();
+    return this.authService.canAdd('warehouse-expenses') || 
+           this.authService.canAdd('warehouse') || 
+           this.authService.canAdd('expense-ledger') || 
+           this.authService.isAdmin() || 
+           this.authService.isPurchase();
   }
 
   canEdit(): boolean {
-    return this.authService.canEdit('expense-ledger') || this.authService.isAdmin();
+    return this.authService.canEdit('warehouse-expenses') || 
+           this.authService.canEdit('warehouse') || 
+           this.authService.canEdit('expense-ledger') || 
+           this.authService.isAdmin() || 
+           this.authService.isPurchase();
   }
 
   canDelete(): boolean {
-    return this.authService.canDelete('expense-ledger') || this.authService.isAdmin();
+    return this.authService.canDelete('warehouse-expenses') || 
+           this.authService.canDelete('warehouse') || 
+           this.authService.canDelete('expense-ledger') || 
+           this.authService.isAdmin() || 
+           this.authService.isPurchase();
   }
 
   isAdmin(): boolean {
-    return this.authService.isAdmin();
+    return this.authService.isAdmin() || this.authService.isPurchase();
   }
 
   loadVendorsFromOffice(): void {

@@ -215,6 +215,11 @@ export class AuthService {
     if (this.isAdmin()) return true;
     const user = this.currentUser();
     if (!user) return false;
+
+    if (['warehouse', 'warehouse-expenses', 'indent', 'gate-pass', 'cart', 'inventory'].includes(target)) {
+      return true;
+    }
+
     const perms = user.accessPermissions;
     if (!perms) return false;
     const key = target === 'opportunity' ? 'oppurtunities' : target;
@@ -236,12 +241,17 @@ export class AuthService {
       'awarded-sites': 'sales',
       'payment-ledger': 'finance',
       'expense-ledger': 'finance',
+      'warehouse-expenses': 'finance',
       'vendor-ledger': 'finance',
       'expo-expenses': 'finance',
       'meetings': 'activity',
       'calls': 'activity',
       'tasks': 'activity',
-      'site-plan': 'activity'
+      'site-plan': 'activity',
+      'indent': 'inventory',
+      'warehouse': 'inventory',
+      'gate-pass': 'inventory',
+      'cart': 'inventory'
     };
     const parentMod = moduleMap[target] || moduleMap[key];
     if (parentMod && (perms as any)[parentMod] !== undefined) {
@@ -254,6 +264,11 @@ export class AuthService {
     if (this.isAdmin()) return true;
     const user = this.currentUser();
     if (!user) return false;
+
+    if (['warehouse', 'warehouse-expenses', 'indent', 'gate-pass', 'cart', 'inventory'].includes(target)) {
+      return true;
+    }
+
     const perms = user.accessPermissions;
     if (!perms) return false;
     const key = target === 'opportunity' ? 'oppurtunities' : target;
@@ -275,12 +290,17 @@ export class AuthService {
       'awarded-sites': 'sales',
       'payment-ledger': 'finance',
       'expense-ledger': 'finance',
+      'warehouse-expenses': 'finance',
       'vendor-ledger': 'finance',
       'expo-expenses': 'finance',
       'meetings': 'activity',
       'calls': 'activity',
       'tasks': 'activity',
-      'site-plan': 'activity'
+      'site-plan': 'activity',
+      'indent': 'inventory',
+      'warehouse': 'inventory',
+      'gate-pass': 'inventory',
+      'cart': 'inventory'
     };
     const parentMod = moduleMap[target] || moduleMap[key];
     if (parentMod && (perms as any)[parentMod] !== undefined) {
@@ -293,6 +313,11 @@ export class AuthService {
     if (this.isAdmin()) return true;
     const user = this.currentUser();
     if (!user) return false;
+
+    if (['warehouse', 'warehouse-expenses', 'indent', 'gate-pass', 'cart', 'inventory'].includes(target)) {
+      return true;
+    }
+
     const perms = user.accessPermissions;
     if (!perms) return false;
     const key = target === 'opportunity' ? 'oppurtunities' : target;
@@ -314,12 +339,17 @@ export class AuthService {
       'awarded-sites': 'sales',
       'payment-ledger': 'finance',
       'expense-ledger': 'finance',
+      'warehouse-expenses': 'finance',
       'vendor-ledger': 'finance',
       'expo-expenses': 'finance',
       'meetings': 'activity',
       'calls': 'activity',
       'tasks': 'activity',
-      'site-plan': 'activity'
+      'site-plan': 'activity',
+      'indent': 'inventory',
+      'warehouse': 'inventory',
+      'gate-pass': 'inventory',
+      'cart': 'inventory'
     };
     const parentMod = moduleMap[target] || moduleMap[key];
     if (parentMod && (perms as any)[parentMod] !== undefined) {

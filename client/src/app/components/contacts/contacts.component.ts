@@ -784,10 +784,6 @@ export class ContactsComponent implements OnInit, OnDestroy {
   }
 
   openEditCallModal(call: CallLog): void {
-    if (!this.canEdit()) {
-      alert('You do not have permission to edit call logs.');
-      return;
-    }
     this.editingCallId = call.id || null;
     this.callForm = {
       date: call.date ? call.date.substring(0, 10) : formatLocalDate(new Date()),
@@ -949,10 +945,6 @@ export class ContactsComponent implements OnInit, OnDestroy {
   }
 
   openEditTaskModal(task: TaskItem): void {
-    if (!this.canEdit()) {
-      alert('You do not have permission to edit tasks.');
-      return;
-    }
     this.editingTaskId = task.id || null;
     const fromVal = (!task.assignedFrom || task.assignedFrom === 'Admin') ? 'Dinesh Kumar' : task.assignedFrom;
     this.taskForm = {

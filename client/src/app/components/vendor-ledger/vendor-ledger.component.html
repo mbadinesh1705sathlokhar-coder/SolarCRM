@@ -575,7 +575,9 @@
 
                 <!-- PO/WO No. -->
                 <td class="fw-bold font-mono text-dark" style="font-size: 0.84rem;">
-                  {{ po.poWoNumber }}
+                  <a href="javascript:void(0)" class="fw-bold font-mono text-dark text-decoration-none" (click)="openEditPoWoModal(po)" title="Click to view and edit PO/WO">
+                    {{ po.poWoNumber }}
+                  </a>
                 </td>
 
                 <!-- Order Type (PO or WO) -->
@@ -592,7 +594,9 @@
 
                 <!-- Materials -->
                 <td class="text-secondary small">
-                  {{ po.materialDescription || '—' }}
+                  <a href="javascript:void(0)" class="text-secondary small text-decoration-none" (click)="openEditPoWoModal(po)" title="Click to view and edit PO/WO">
+                    {{ po.materialDescription || '—' }}
+                  </a>
                 </td>
 
                 <!-- Order Value (Amount ₹) -->
@@ -644,18 +648,11 @@
 
                 <!-- Actions -->
                 <td class="text-center">
-                  <div class="btn-group btn-group-sm">
-                    <button class="btn btn-sm btn-outline-secondary border-0 p-1" 
-                            (click)="openEditPoWoModal(po)" 
-                            title="Edit PO/WO">
-                      <i class="bi bi-pencil-square"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger border-0 p-1" 
-                            (click)="confirmDeletePoWo(po)" 
-                            title="Delete PO/WO">
-                      <i class="bi bi-trash3"></i>
-                    </button>
-                  </div>
+                  <button class="btn btn-sm btn-outline-danger border-0 p-1" 
+                          (click)="confirmDeletePoWo(po)" 
+                          title="Delete PO/WO">
+                    <i class="bi bi-trash3"></i>
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -725,7 +722,9 @@
 
                       <!-- Payment Made (₹) -->
                       <td class="text-end font-mono fw-bold text-success" style="font-size: 0.85rem;">
-                        ₹ {{ pay.amount | number:'1.2-2' }}
+                        <a href="javascript:void(0)" class="text-success text-decoration-none" (click)="openEditPaymentModal(pay)" title="Click to view and edit payment">
+                          ₹ {{ pay.amount | number:'1.2-2' }}
+                        </a>
                       </td>
 
                       <!-- URN No. -->
@@ -738,18 +737,11 @@
 
                       <!-- Actions -->
                       <td class="text-center">
-                        <div class="btn-group btn-group-sm">
-                          <button class="btn btn-sm btn-outline-secondary border-0 p-1" 
-                                  (click)="openEditPaymentModal(pay)" 
-                                  title="Edit Payment">
-                            <i class="bi bi-pencil-square"></i>
-                          </button>
-                          <button class="btn btn-sm btn-outline-danger border-0 p-1" 
-                                  (click)="confirmDeletePayment(pay)" 
-                                  title="Delete Payment">
-                            <i class="bi bi-trash3"></i>
-                          </button>
-                        </div>
+                        <button class="btn btn-sm btn-outline-danger border-0 p-1" 
+                                (click)="confirmDeletePayment(pay)" 
+                                title="Delete Payment">
+                          <i class="bi bi-trash3"></i>
+                        </button>
                       </td>
                     </tr>
                   </tbody>
