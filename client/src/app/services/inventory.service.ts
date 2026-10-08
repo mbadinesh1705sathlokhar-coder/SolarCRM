@@ -190,6 +190,7 @@ export interface GatePassItem {
 
 export interface GatePass {
   id?: number;
+  gatePassNo?: string;
   gatePassDate: string;
   descriptions?: string;
   unit?: string;
@@ -200,6 +201,40 @@ export interface GatePass {
   totalAmount?: number;
   transportCost?: number;
   items?: GatePassItem[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InwardItem {
+  id?: number;
+  inwardId?: number;
+  inwardDate?: string;
+  materialName: string;
+  materialGroup?: string;
+  categoryType?: string;
+  specification?: string;
+  unit: string;
+  quantity: number;
+  rate?: number;
+  vendorName?: string;
+  amount?: number;
+}
+
+export interface Inward {
+  id?: number;
+  inwardNo?: string;
+  inwardDate: string;
+  descriptions?: string;
+  unit?: string;
+  quantity?: number;
+  supplierName?: string;
+  clientName?: string;
+  receivedBy?: string;
+  siteEngineer?: string;
+  remarks?: string;
+  totalAmount?: number;
+  transportCost?: number;
+  items?: InwardItem[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -292,7 +327,28 @@ export class InventoryService {
     return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/gate-pass/${id}`);
   }
 
-  // 4. CART
+  // 4. INWARD
+  getInwards(): Observable<{ success: boolean; data: Inward[] }> {
+    return this.http.get<{ success: boolean; data: Inward[] }>(`${this.apiUrl}/inward`);
+  }
+
+  createInward(inward: Partial<Inward>): Observable<{ success: boolean; data: Inward }> {
+    return this.http.post<{ success: boolean; data: Inward }>(`${this.apiUrl}/inward`, inward);
+  }
+
+  updateInward(id: number, inward: Partial<Inward>): Observable<{ success: boolean; data: Inward }> {
+    return this.http.put<{ success: boolean; data: Inward }>(`${this.apiUrl}/inward/${id}`, inward);
+  }
+
+  deleteInward(id: number): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/inward/${id}`);
+  }
+
+  clearAllInwards(): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/inward/all`);
+  }
+
+  // 5. CART
   getCartItems(): Observable<{ success: boolean; data: CartItem[]; summary: CartSummary }> {
     return this.http.get<{ success: boolean; data: CartItem[]; summary: CartSummary }>(`${this.apiUrl}/cart`);
   }

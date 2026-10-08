@@ -379,19 +379,6 @@ async function seedMasterListsIfEmpty() {
                         sortOrder: idx + 1
                     }));
                     await MasterListItem.bulkCreate(itemRows);
-                } else {
-                    const currentItems = await MasterListItem.findAll({ where: { listId: existing.id } });
-                    const currentVals = currentItems.map(it => it.itemValue.toLowerCase().trim());
-                    for (let i = 0; i < item.items.length; i++) {
-                        const val = item.items[i];
-                        if (!currentVals.includes(val.toLowerCase().trim())) {
-                            await MasterListItem.create({
-                                listId: existing.id,
-                                itemValue: val,
-                                sortOrder: currentItems.length + i + 1
-                            });
-                        }
-                    }
                 }
             }
         };

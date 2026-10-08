@@ -33,6 +33,9 @@
       <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none active">
         <i class="bi bi-box-seam me-1 text-success"></i> Warehouse
       </a>
+      <a routerLink="/inventory/inward" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-arrow-in-down me-1 text-info"></i> Inward
+      </a>
       <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-pass me-1 text-warning"></i> Gate Pass
       </a>
@@ -48,8 +51,12 @@
         <i class="bi bi-file-earmark-arrow-up-fill text-success"></i> Upload
       </button>
       <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
-              (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
-        <i class="bi bi-download text-danger"></i> Export
+              (click)="exportWarehousePdf()" title="Download Warehouse Stock PDF Report">
+        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      </button>
+      <button class="btn btn-sm btn-outline-primary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportToExcel()" title="Export Excel / CSV">
+        <i class="bi bi-file-earmark-excel-fill text-primary"></i> Excel
       </button>
       <button *ngIf="isAdmin() && materials.length > 0" class="btn btn-sm btn-outline-secondary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
               (click)="clearAllWarehouse()" title="Clear all warehouse materials to re-upload cleanly">
@@ -112,20 +119,17 @@
                  style="gap: 5px; cursor: pointer;"
                  (click)="openEditModal(m)" 
                  title="Click to view and edit material details">
-                <span *ngIf="m.materialGroup" class="badge bg-light text-dark border px-2 py-0.5 rounded-2 shadow-xs" style="font-size: 0.72rem; font-weight: 600;">
-                  {{ m.materialGroup }}
-                </span>
                 <span *ngIf="m.categoryType && m.categoryType !== 'Standard'" class="badge bg-primary-subtle text-primary border px-2 py-0.5 rounded-2 shadow-xs" style="font-size: 0.72rem; font-weight: 600;">
                   {{ m.categoryType }}
                 </span>
                 <span class="fw-semibold text-dark" style="font-size: 0.8rem; margin-left: 2px;">
-                  {{ m.specification || m.materialName }}
+                  {{ getCleanSpec(m) }}
                 </span>
               </a>
             </td>
             <!-- Description -->
-            <td class="small text-secondary text-truncate" style="max-width: 300px;" [title]="m.description || ''">
-              {{ m.description || '—' }}
+            <td class="small text-secondary text-truncate" style="max-width: 300px;" [title]="getCleanDescription(m)">
+              {{ getCleanDescription(m) }}
             </td>
             <!-- Unit -->
             <td>
@@ -180,7 +184,15 @@
           <i class="bi bi-box-seam"></i>
           {{ isEditMode ? 'Edit Material: ' + materialForm.materialName : 'Add Material to Warehouse' }}
         </h6>
-        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeModal()"></button>
+        <div class="d-flex align-items-center ms-auto" style="gap: 3px;">
+          <button type="button" class="btn-pdf-statement" (click)="exportCurrentWarehousePdf()" title="Download PDF Statement">
+            <i class="bi bi-file-earmark-pdf-fill"></i>
+            <span>PDF Statement</span>
+          </button>
+          <button type="button" class="modal-close-btn" (click)="closeModal()" title="Close dialog" aria-label="Close">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
       </div>
       <form (ngSubmit)="saveMaterial()">
         <div class="modal-body p-4 bg-light">

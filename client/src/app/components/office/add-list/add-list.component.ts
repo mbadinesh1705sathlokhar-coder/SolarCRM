@@ -1181,24 +1181,21 @@ export class AddListComponent implements OnInit {
   bomGroupSpecRows: { id?: number; categoryType: string; specification: string; defaultUom: string; unitRate: number; gstPercent?: number }[] = [];
   loadingBomSpecs = false;
   uomOptions: string[] = ['Nos', 'Meter', 'Sets', 'Kg', 'Watts', 'Pcs', 'Pair', 'Box', 'Packet', 'Coil', 'Trip', 'Lot', 'Sqft', 'Sqmm', 'Rmtr'];
+  previousBomGroup: string = '';
 
   syncUomOptions(): void {
     const norm = (s: string) => (s || '').toLowerCase().replace(/[\s_-]+/g, '');
     const uomList = this.lists.find(l => norm(l.title) === 'uommeasurements' || norm(l.title) === 'uom');
-    if (uomList && uomList.items && uomList.items.length > 0) {
-      this.uomOptions = uomList.items;
+    if (uomList && uomList.items) {
+      this.uomOptions = [...uomList.items];
     }
   }
 
   getEffectiveUomOptions(): string[] {
-    const set = new Set(this.uomOptions);
-    this.bomGroupSpecRows.forEach(r => {
-      if (r.defaultUom && r.defaultUom.trim()) set.add(r.defaultUom.trim());
-    });
-    this.materialGroupRows.forEach(r => {
-      if (r.defaultUom && r.defaultUom.trim()) set.add(r.defaultUom.trim());
-    });
-    return Array.from(set);
+    if (this.uomOptions && this.uomOptions.length > 0) {
+      return this.uomOptions;
+    }
+    return ['Nos', 'Meter', 'Sets', 'Kg'];
   }
 
   initMaterialGroupRows(): void {
@@ -1279,6 +1276,7 @@ export class AddListComponent implements OnInit {
         if (res.success && res.grouped) {
           this.allBomGroupItems = res.grouped;
           this.syncBomMaterialGroups();
+          this.previousBomGroup = this.selectedBomGroup;
           this.onBomGroupChange();
         }
         this.loadingBomSpecs = false;
@@ -1292,14 +1290,9 @@ export class AddListComponent implements OnInit {
   }
 
   syncBomMaterialGroups(): void {
-    const excludedGroups = new Set([
-      'mc4', 'mc4 connector', 'lugs', 'bucket', 'structure',
-      'earthing & lightning', 'fasteners & hardware', 'transportation & logistics'
-    ]);
-
     const listGroups = this.formRows
       .map(r => (r.value || '').trim())
-      .filter(g => g && !excludedGroups.has(g.toLowerCase()));
+      .filter(Boolean);
 
     const bomList = this.lists.find(l => {
       const t = (l.title || '').toLowerCase().trim();
@@ -1307,11 +1300,11 @@ export class AddListComponent implements OnInit {
     });
     const loadedListItems = (bomList?.items || [])
       .map(g => (g || '').trim())
-      .filter(g => g && !excludedGroups.has(g.toLowerCase()));
+      .filter(Boolean);
 
     const dbGroups = Object.keys(this.allBomGroupItems || {})
       .map(g => (g || '').trim())
-      .filter(g => g && !excludedGroups.has(g.toLowerCase()));
+      .filter(Boolean);
 
     const defaultGroups = [
       'Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous',
@@ -1326,7 +1319,7 @@ export class AddListComponent implements OnInit {
       const clean = (g || '').trim();
       if (!clean) return;
       const lower = clean.toLowerCase();
-      if (!excludedGroups.has(lower) && !seen.has(lower)) {
+      if (!seen.has(lower)) {
         seen.add(lower);
         combined.push(clean);
       }
@@ -1344,6 +1337,13 @@ export class AddListComponent implements OnInit {
   }
 
   onBomGroupChange(): void {
+    // Preserve modifications of previously selected group in memory cache
+    if (this.previousBomGroup && this.previousBomGroup !== this.selectedBomGroup && this.bomGroupSpecRows.length > 0) {
+      const cleanPrevSpecs = this.bomGroupSpecRows.filter(r => r.specification && r.specification.trim().length > 0);
+      this.allBomGroupItems[this.previousBomGroup] = cleanPrevSpecs.map(r => ({ ...r }));
+    }
+    this.previousBomGroup = this.selectedBomGroup;
+
     const raw = this.allBomGroupItems[this.selectedBomGroup] || [];
     // Determine group GST%: default Panels to 5%, others to 18% unless configured in raw items
     if (raw.length > 0 && raw[0].gstPercent !== undefined && raw[0].gstPercent !== null) {
@@ -1439,6 +1439,8 @@ export class AddListComponent implements OnInit {
     this.selectedSectionId = '';
     this.selectedColumnKey = '';
     this.configNoticeText = '';
+    this.cdr.markForCheck();
+    this.cdr.detectChanges();
   }
 
   // Dynamic Repeating Row Builder: + Add New
@@ -1482,30 +1484,33 @@ export class AddListComponent implements OnInit {
             this.allBomGroupItems = res.grouped;
             this.syncBomMaterialGroups();
           }
-        },
-        error: (err) => console.error('Error syncing material groups with UOM:', err)
-      });
 
-      // 2. Save to MasterList table
-      const payload = {
-        title: this.formTitle.trim(),
-        category: this.formCategory,
-        description: this.formDescription.trim(),
-        items: groupNames
-      };
+          // 2. Save to MasterList table
+          const payload = {
+            title: this.formTitle.trim(),
+            category: this.formCategory,
+            description: this.formDescription.trim(),
+            items: groupNames
+          };
 
-      const op = (this.isEditMode && this.editingId)
-        ? this.masterListService.updateList(this.editingId, payload)
-        : this.masterListService.createList(payload);
+          const op = (this.isEditMode && this.editingId)
+            ? this.masterListService.updateList(this.editingId, payload)
+            : this.masterListService.createList(payload);
 
-      op.subscribe({
-        next: () => {
-          this.showToast(`Saved Material Groups (${cleanGroups.length} groups with Default UOM) successfully!`, 'success');
-          this.closeModal();
-          this.loadLists();
+          op.subscribe({
+            next: () => {
+              this.showToast(`Saved Material Groups (${cleanGroups.length} groups with Default UOM) successfully!`, 'success');
+              this.closeModal();
+              this.loadLists();
+            },
+            error: (err) => {
+              this.showToast(err.error?.message || 'Failed to save configuration list.', 'danger');
+            }
+          });
         },
         error: (err) => {
-          this.showToast(err.error?.message || 'Failed to save configuration list.', 'danger');
+          console.error('Error syncing material groups with UOM:', err);
+          this.showToast(err.error?.message || 'Failed to sync material groups.', 'danger');
         }
       });
       return;
@@ -1517,47 +1522,49 @@ export class AddListComponent implements OnInit {
         .map(r => r.value.trim())
         .filter(Boolean);
 
-      // 1. Save specs for currently selected group if any exist
-      if (cleanSpecs.length > 0) {
-        this.masterListService.saveBomMaterialGroupSpecs(this.selectedBomGroup, cleanSpecs, this.groupGstPercent).subscribe({
-          next: (res) => {
-            if (res.success && res.data) {
-              this.allBomGroupItems[this.selectedBomGroup] = res.data;
-            }
-          },
-          error: (err) => console.error('Error saving BOM specs:', err)
-        });
-      }
+      // Save specs for currently selected group
+      this.masterListService.saveBomMaterialGroupSpecs(this.selectedBomGroup, cleanSpecs, this.groupGstPercent).subscribe({
+        next: (res) => {
+          if (res.success && res.data) {
+            this.allBomGroupItems[this.selectedBomGroup] = res.data;
+          }
 
-      // 2. Also save/update MasterList options (so the user's groups in Screenshot 4 are saved to Database!)
-      if (cleanItems.length > 0) {
-        const payload = {
-          title: this.formTitle.trim(),
-          category: this.formCategory,
-          description: this.formDescription.trim(),
-          items: cleanItems
-        };
-        const op = (this.isEditMode && this.editingId)
-          ? this.masterListService.updateList(this.editingId, payload)
-          : this.masterListService.createList(payload);
+          // Also save/update MasterList options if group items exist
+          if (cleanItems.length > 0) {
+            const payload = {
+              title: this.formTitle.trim(),
+              category: this.formCategory,
+              description: this.formDescription.trim(),
+              items: cleanItems
+            };
+            const op = (this.isEditMode && this.editingId)
+              ? this.masterListService.updateList(this.editingId, payload)
+              : this.masterListService.createList(payload);
 
-        op.subscribe({
-          next: () => {
-            this.showToast(`Saved "${this.formTitle}" with ${cleanItems.length} groups and updated "${this.selectedBomGroup}" specifications!`, 'success');
+            op.subscribe({
+              next: () => {
+                this.showToast(`Saved "${this.formTitle}" and updated "${this.selectedBomGroup}" specifications!`, 'success');
+                this.closeModal();
+                this.loadLists();
+              },
+              error: (err) => {
+                this.showToast(err.error?.message || 'Saved specs, but failed to save list title.', 'info');
+                this.closeModal();
+                this.loadLists();
+              }
+            });
+          } else {
+            this.showToast(`BOM Specifications for "${this.selectedBomGroup}" updated successfully!`, 'success');
             this.closeModal();
             this.loadLists();
-          },
-          error: (err) => {
-            this.showToast(err.error?.message || 'Failed to save configuration list.', 'danger');
           }
-        });
-        return;
-      } else {
-        this.showToast(`BOM Specifications for "${this.selectedBomGroup}" updated!`, 'success');
-        this.closeModal();
-        this.loadLists();
-        return;
-      }
+        },
+        error: (err) => {
+          console.error('Error saving BOM specs:', err);
+          this.showToast(err.error?.message || 'Failed to save BOM specifications.', 'danger');
+        }
+      });
+      return;
     }
 
     const cleanItems = this.formRows

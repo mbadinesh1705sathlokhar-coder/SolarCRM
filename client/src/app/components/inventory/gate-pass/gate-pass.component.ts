@@ -84,10 +84,95 @@ export class GatePassComponent implements OnInit {
   // Searchable Client Dropdown State
   clientDropdownOpen = false;
 
+  matchesEngineer(projOrderBy?: string, selectedEngineer?: string): boolean {
+    if (!selectedEngineer || !selectedEngineer.trim()) return true;
+    if (!projOrderBy || !projOrderBy.trim()) return false;
+
+    const normProj = projOrderBy.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    const normEng = selectedEngineer.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+    if (normProj === normEng) return true;
+    if (normProj.includes(normEng) || normEng.includes(normProj)) return true;
+
+    const engTokens = selectedEngineer.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    const projTokens = projOrderBy.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    
+    const engFirstChar = selectedEngineer.trim().toLowerCase()[0];
+    const projFirstChar = projOrderBy.trim().toLowerCase()[0];
+    const initialsMatch = engFirstChar === projFirstChar;
+
+    return engTokens.some(t => projTokens.includes(t)) && initialsMatch;
+  }
+
+  getClientsForSelectedEngineer(): string[] {
+    const selectedEng = this.passForm?.siteEngineer;
+    let projs = this.projectsList;
+    if (selectedEng && selectedEng.trim()) {
+      projs = projs.filter(p => this.matchesEngineer(p.orderBy, selectedEng));
+    }
+    const names = projs.map(p => p.clientName).filter(Boolean);
+    return Array.from(new Set(names));
+  }
+
+  updateClientOptions(): void {
+    this.clientOptions = this.getClientsForSelectedEngineer();
+  }
+
+  onEngineerChange(): void {
+    this.updateClientOptions();
+    const validClients = this.getClientsForSelectedEngineer();
+    if (this.passForm.clientName && !validClients.includes(this.passForm.clientName)) {
+      this.passForm.clientName = '';
+      this.dispatchMaterials = [];
+    }
+    this.cdr.markForCheck();
+  }
+
+  getClientBomCount(clientName: string): number {
+    if (!clientName) return 0;
+    const norm = clientName.toLowerCase().trim();
+    const proj = this.projectsList.find(p => 
+      (p.clientName || '').toLowerCase().trim() === norm ||
+      (p.siteId || '').toLowerCase().trim() === norm ||
+      norm.includes((p.siteId || '').toLowerCase().trim()) ||
+      norm.includes((p.clientName || '').toLowerCase().trim())
+    );
+    if (!proj || !proj.bomItems) return 0;
+    return this.parseBomItems(proj.bomItems).length;
+  }
+
+  isClientBomUpdated(): boolean {
+    if (!this.passForm.clientName) return true;
+    return this.getClientBomCount(this.passForm.clientName) > 0;
+  }
+
+  formatBomMaterialName(grp?: string, cat?: string, spec?: string): string {
+    const c = (cat || '').trim();
+    const s = (spec || '').trim();
+    const g = (grp || '').trim();
+    if (!s && !c) return g || 'Material';
+    if (!c || c.toLowerCase() === 'standard') return s || g;
+    if (!s) return c;
+    if (s.toLowerCase().startsWith(c.toLowerCase())) return s;
+    return `${c} ${s}`;
+  }
+
+  cleanMaterialName(name?: string): string {
+    if (!name) return '';
+    let cleaned = name;
+    const masterGroups = this.getAvailableMaterialGroups();
+    for (const g of masterGroups) {
+      const regex = new RegExp(`^${g}\\s*-\\s*`, 'i');
+      cleaned = cleaned.replace(regex, '').trim();
+    }
+    return cleaned;
+  }
+
   get filteredClientOptions(): string[] {
+    const pool = this.getClientsForSelectedEngineer();
     const q = (this.passForm.clientName || '').toLowerCase().trim();
-    if (!q) return this.clientOptions;
-    return this.clientOptions.filter(c => c.toLowerCase().includes(q));
+    if (!q) return pool;
+    return pool.filter(c => c.toLowerCase().includes(q));
   }
 
   openClientDropdown(): void {
@@ -111,12 +196,25 @@ export class GatePassComponent implements OnInit {
   selectClient(clientName: string): void {
     this.passForm.clientName = clientName;
     this.clientDropdownOpen = false;
+
+    const proj = this.getSelectedProject();
+    if (proj?.orderBy && (!this.passForm.siteEngineer || !this.matchesEngineer(proj.orderBy, this.passForm.siteEngineer))) {
+      this.passForm.siteEngineer = proj.orderBy;
+      this.updateClientOptions();
+    }
+
+    if (this.hasProjectBomItems()) {
+      this.populateFromProjectBom(false);
+    } else {
+      this.dispatchMaterials = [];
+    }
     this.cdr.markForCheck();
   }
 
   clearClientSelection(): void {
     this.passForm.clientName = '';
     this.clientDropdownOpen = true;
+    this.dispatchMaterials = [];
     this.cdr.markForCheck();
   }
 
@@ -176,6 +274,15 @@ export class GatePassComponent implements OnInit {
         }
       }
     });
+
+    this.masterListService.getList('UOM measurements').subscribe({
+      next: (res) => {
+        if (res.success && res.data?.items?.length > 0) {
+          this.unitOptions = res.data.items;
+          this.cdr.markForCheck();
+        }
+      }
+    });
   }
 
   loadWarehouseStockOptions(): void {
@@ -231,7 +338,7 @@ export class GatePassComponent implements OnInit {
     return items.length > 0;
   }
 
-  populateFromProjectBom(): void {
+  populateFromProjectBom(notify: boolean = true): void {
     const proj = this.getSelectedProject();
     if (!proj || !proj.bomItems) return;
     const items = this.parseBomItems(proj.bomItems);
@@ -242,7 +349,7 @@ export class GatePassComponent implements OnInit {
       const grp = b.materialGroup || '';
       const cat = b.categoryType || 'Standard';
       const spec = b.specification || '';
-      const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+      const autoName = this.formatBomMaterialName(grp, cat, spec);
       const plannedQty = parseFloat(b.plannedQty) || 1;
       const dispQty = parseFloat(b.dispatchedQty) || 0;
       const remainingQty = Math.max(1, plannedQty - dispQty);
@@ -260,7 +367,9 @@ export class GatePassComponent implements OnInit {
         amount: Math.round(remainingQty * r * 100) / 100
       };
     });
-    this.showToast(`Loaded ${items.length} materials from Project BOM.`, 'info');
+    if (notify) {
+      this.showToast(`Loaded ${items.length} materials from Project BOM.`, 'info');
+    }
     this.cdr.markForCheck();
   }
 
@@ -383,7 +492,7 @@ export class GatePassComponent implements OnInit {
       }
     }
 
-    m.materialName = [grp, cat && cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp || 'Material';
+    m.materialName = this.formatBomMaterialName(grp, cat, spec);
     this.calculateRowAmount(m);
     this.cdr.markForCheck();
   }
@@ -395,11 +504,7 @@ export class GatePassComponent implements OnInit {
         const itemsArr = this.parseBomItems(selectedProj.bomItems);
         if (itemsArr.length > 0) {
           const bomOpts = itemsArr.map(b => {
-            const grp = b.materialGroup || '';
-            const sub = b.categoryType || '';
-            const spec = b.specification || '';
-            const parts = [grp, sub, spec].filter(Boolean);
-            return parts.join(' - ') || grp || spec;
+            return this.formatBomMaterialName(b.materialGroup, b.categoryType, b.specification);
           });
           return Array.from(new Set(bomOpts));
         }
@@ -413,8 +518,11 @@ export class GatePassComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data?.length > 0) {
           this.projectsList = res.data;
-          const names = res.data.map(p => p.clientName).filter(Boolean);
-          this.clientOptions = Array.from(new Set(names));
+          const distinctProjectEngineers = Array.from(new Set(res.data.map(p => p.orderBy).filter(Boolean))) as string[];
+          if (distinctProjectEngineers.length > 0) {
+            this.engineers = Array.from(new Set([...distinctProjectEngineers, ...this.engineers]));
+          }
+          this.updateClientOptions();
           this.cdr.markForCheck();
         }
       }
@@ -466,6 +574,7 @@ export class GatePassComponent implements OnInit {
           if (filtered.length > 0) {
             this.engineers = Array.from(new Set([...filtered, ...this.engineers]));
           }
+          this.updateClientOptions();
           this.cdr.markForCheck();
         }
       }
@@ -474,13 +583,20 @@ export class GatePassComponent implements OnInit {
 
   cleanDescription(desc?: string): string {
     if (!desc) return '';
-    return desc.replace(/\s*\([\d.]+\s*[A-Za-z]+\)/g, '');
+    let cleaned = desc.replace(/\s*\([\d.]+\s*[A-Za-z]+\)/g, '');
+    const masterGroups = this.getAvailableMaterialGroups();
+    for (const g of masterGroups) {
+      const regex = new RegExp(`(^|,\\s*)${g}\\s*-\\s*`, 'gi');
+      cleaned = cleaned.replace(regex, '$1');
+    }
+    return cleaned;
   }
 
   get filteredGatePasses(): GatePass[] {
     if (!this.searchTerm.trim()) return this.gatePasses;
     const term = this.searchTerm.trim().toLowerCase();
     return this.gatePasses.filter(gp =>
+      (gp.gatePassNo || '').toLowerCase().includes(term) ||
       (gp.descriptions || '').toLowerCase().includes(term) ||
       (gp.clientName || '').toLowerCase().includes(term) ||
       (gp.siteEngineer || '').toLowerCase().includes(term) ||
@@ -522,7 +638,7 @@ export class GatePassComponent implements OnInit {
     const cat = types[0] || 'Standard';
     const specs = this.getAvailableSpecs(grp, cat);
     const spec = specs[0] || '';
-    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+    const autoName = this.formatBomMaterialName(grp, cat, spec);
 
     const row: GatePassItem = {
       dispatchDate: today,
@@ -619,7 +735,7 @@ export class GatePassComponent implements OnInit {
       const cat = types[0] || 'Standard';
       const specs = this.getAvailableSpecs(grp, cat);
       const spec = specs[0] || '';
-      const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+      const autoName = this.formatBomMaterialName(grp, cat, spec);
 
       const row: GatePassItem = {
         dispatchDate: defaultDate,
@@ -671,7 +787,7 @@ export class GatePassComponent implements OnInit {
     const cat = types[0] || 'Standard';
     const specs = this.getAvailableSpecs(grp, cat);
     const spec = specs[0] || '';
-    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+    const autoName = this.formatBomMaterialName(grp, cat, spec);
 
     const newRow: GatePassItem = {
       dispatchDate: defaultDate,
@@ -731,6 +847,11 @@ export class GatePassComponent implements OnInit {
   saveGatePass(): void {
     if (!this.passForm.clientName?.trim()) {
       this.showToast('Client Name is required.', 'danger');
+      return;
+    }
+
+    if (this.passForm.clientName && !this.isClientBomUpdated()) {
+      this.showToast(`Cannot save gate pass: BOM is not updated for ${this.passForm.clientName} in Awarded Sites. Please update BOM in Project Master first.`, 'danger');
       return;
     }
 
@@ -840,6 +961,7 @@ export class GatePassComponent implements OnInit {
 
   getEmptyGatePass(): Partial<GatePass> {
     return {
+      gatePassNo: '',
       gatePassDate: new Date().toISOString().substring(0, 10),
       descriptions: '',
       unit: 'Nos',
@@ -890,14 +1012,14 @@ export class GatePassComponent implements OnInit {
 
     const showPrice = this.canViewPricing();
     const headers = showPrice
-      ? [['S.No', 'Date', 'Client / Destination', 'Site Engineer', 'Dispatched Materials', 'Qty & Unit', 'Total Amount', 'Remarks']]
-      : [['S.No', 'Date', 'Client / Destination', 'Site Engineer', 'Dispatched Materials', 'Qty & Unit', 'Remarks']];
+      ? [['S.No', 'Gate Pass No', 'Date', 'Client / Destination', 'Site Engineer', 'Dispatched Materials', 'Qty & Unit', 'Total Amount', 'Remarks']]
+      : [['S.No', 'Gate Pass No', 'Date', 'Client / Destination', 'Site Engineer', 'Dispatched Materials', 'Qty & Unit', 'Remarks']];
 
     const body = list.map((gp, idx) => {
       let matDetails = gp.descriptions || '';
       if (gp.items && gp.items.length > 0) {
         matDetails = gp.items.map(it => {
-          let line = `${it.materialName} (${it.quantity} ${it.unit})`;
+          let line = `${this.cleanMaterialName(it.materialName)} (${it.quantity} ${it.unit})`;
           if (it.dispatchDate) line += ` [${this.formatDate(it.dispatchDate)}]`;
           if (showPrice) {
             if (it.rate) line += ` @ Rs.${it.rate}`;
@@ -907,9 +1029,11 @@ export class GatePassComponent implements OnInit {
         }).join('\n');
       }
       const totalAmt = this.getGatePassTotal(gp);
+      const passNoStr = gp.gatePassNo || (gp.id ? `GP-${gp.id}` : '—');
       if (showPrice) {
         return [
           idx + 1,
+          passNoStr,
           this.formatDate(gp.gatePassDate),
           gp.clientName || '',
           gp.siteEngineer || '',
@@ -921,6 +1045,7 @@ export class GatePassComponent implements OnInit {
       } else {
         return [
           idx + 1,
+          passNoStr,
           this.formatDate(gp.gatePassDate),
           gp.clientName || '',
           gp.siteEngineer || '',
@@ -942,6 +1067,18 @@ export class GatePassComponent implements OnInit {
 
     doc.save(`Gate_Passes_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Gate Pass PDF exported successfully!', 'success');
+  }
+
+  exportCurrentGatePassPdf(): void {
+    if (this.passForm?.clientName) {
+      const gp: GatePass = {
+        ...this.passForm,
+        items: [...(this.dispatchMaterials || [])]
+      } as GatePass;
+      this.downloadSingleGatePassPdf(gp);
+    } else {
+      this.exportGatePassPdf();
+    }
   }
 
   downloadSingleGatePassPdf(gp: GatePass | null): void {
@@ -1014,7 +1151,7 @@ export class GatePassComponent implements OnInit {
           tableBody.push([
             idx + 1,
             this.formatDate(it.dispatchDate || gp.gatePassDate),
-            it.materialName || '—',
+            this.cleanMaterialName(it.materialName) || '—',
             it.unit || 'Nos',
             it.quantity || 0,
             it.rate ? `Rs. ${Number(it.rate).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—',
@@ -1027,7 +1164,7 @@ export class GatePassComponent implements OnInit {
           tableBody.push([
             idx + 1,
             this.formatDate(it.dispatchDate || gp.gatePassDate),
-            it.materialName || '—',
+            this.cleanMaterialName(it.materialName) || '—',
             it.unit || 'Nos',
             it.quantity || 0
           ]);
@@ -1192,6 +1329,7 @@ export class GatePassComponent implements OnInit {
             return parseFloat(valStr.replace(/[^0-9.-]/g, '')) || 0;
           };
 
+          const gatePassNo = getVal(['gate pass no', 'gatepassno', 'pass no', 'gp no']) || '';
           const gatePassDate = getVal(['gate pass date', 'date']) || today;
           const clientName = getVal(['client name', 'client', 'name']) || 'Client';
           const siteEngineer = getVal(['site engineer', 'engineer', 'order by']) || 'Site Engineer';
@@ -1201,6 +1339,7 @@ export class GatePassComponent implements OnInit {
           const unit = getVal(['unit', 'uom']) || 'Meter';
 
           return {
+            gatePassNo: gatePassNo || undefined,
             gatePassDate,
             clientName,
             siteEngineer,

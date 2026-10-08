@@ -208,7 +208,14 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
           }
           this.invoiceStatusOptions = findItems('Invoice Status', this.invoiceStatusOptions);
           this.paymentModeOptions = findItems('Payment Mode', this.paymentModeOptions);
-          this.uomOptions = findItems('UOM measurements', findItems('UOM', this.uomOptions));
+
+          const uomMatch = res.data.find(l => {
+            const t = normalize(l.title);
+            return t === 'uommeasurements' || t === 'uom';
+          });
+          if (uomMatch && uomMatch.items && uomMatch.items.length > 0) {
+            this.uomOptions = [...uomMatch.items];
+          }
 
           const engineerItems = findItems('Engineer', findItems('Order_By', ['K KARTHIKEYAN', 'K SATHISH', 'S KARTHIKEYAN', 'SOUNDARARAJAN M', 'V SHARATH', 'Ramesh']));
           if (engineerItems && engineerItems.length > 0) {
@@ -217,16 +224,16 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
             this.orderByOptions = combined.map(lbl => ({ label: lbl, selected: true }));
           }
 
-          const excludedGroups = new Set([
-            'mc4', 'mc4 connector', 'lugs', 'bucket', 'structure',
-            'earthing & lightning', 'fasteners & hardware'
-          ]);
+          const leadHandlerItems = findItems('Leads Name', findItems('Lead Handlers', findItems('Sales Team', [])));
+          if (leadHandlerItems && leadHandlerItems.length > 0) {
+            this.salesTeamOptions = Array.from(new Set([...leadHandlerItems, ...this.salesTeamOptions]));
+          }
 
           const dbMatGroups = findItems('BOM', findItems('Material Group', findItems('Materials_', [])));
           if (dbMatGroups && dbMatGroups.length > 0) {
             dbMatGroups.forEach(gName => {
               const cleanG = (gName || '').trim();
-              if (cleanG && !excludedGroups.has(cleanG.toLowerCase())) {
+              if (cleanG) {
                 const exists = this.materialGroupsList.some(m => m.group.toLowerCase().trim() === cleanG.toLowerCase());
                 if (!exists) {
                   this.materialGroupsList.push({
@@ -373,10 +380,44 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       next: (res) => {
         if (res.success && res.data) {
           this.bomMaterialsMasterList = res.data;
+          this.syncMaterialGroupsFromBomMaster();
           this.cdr.markForCheck();
         }
       },
       error: () => {}
+    });
+  }
+
+  syncMaterialGroupsFromBomMaster(): void {
+    if (!this.bomMaterialsMasterList || this.bomMaterialsMasterList.length === 0) return;
+
+    const grouped: { [key: string]: { defaultUom?: string; specs: string[] } } = {};
+    for (const item of this.bomMaterialsMasterList) {
+      const grp = (item.groupName || '').trim();
+      if (!grp) continue;
+      if (!grouped[grp]) {
+        grouped[grp] = { defaultUom: item.defaultUom || 'Nos', specs: [] };
+      }
+      if (item.defaultUom) grouped[grp].defaultUom = item.defaultUom;
+      if (item.specification && !grouped[grp].specs.includes(item.specification)) {
+        grouped[grp].specs.push(item.specification);
+      }
+    }
+
+    Object.keys(grouped).forEach(grpName => {
+      const existing = this.materialGroupsList.find(m => m.group.toLowerCase().trim() === grpName.toLowerCase().trim());
+      if (existing) {
+        if (grouped[grpName].defaultUom) existing.defaultUom = grouped[grpName].defaultUom!;
+        if (grouped[grpName].specs.length > 0) {
+          existing.specifications = Array.from(new Set([...existing.specifications, ...grouped[grpName].specs]));
+        }
+      } else {
+        this.materialGroupsList.push({
+          group: grpName,
+          defaultUom: grouped[grpName].defaultUom || 'Nos',
+          specifications: grouped[grpName].specs.length > 0 ? grouped[grpName].specs : [`${grpName} Standard Spec`]
+        });
+      }
     });
   }
 
@@ -453,6 +494,22 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     const specs = this.getAvailableSpecsForType(item.materialGroup, item.categoryType || '');
     if (specs.length > 0) {
       item.specification = specs[0];
+    }
+    this.onSpecificationChange(item);
+  }
+
+  onSpecificationChange(item: BomItem): void {
+    if (item.materialGroup && item.specification) {
+      const match = this.bomMaterialsMasterList.find(b =>
+        (b.groupName || '').toLowerCase().trim() === (item.materialGroup || '').toLowerCase().trim() &&
+        (b.specification || '').toLowerCase().trim() === (item.specification || '').toLowerCase().trim() &&
+        (!item.categoryType || (b.categoryType || '').toLowerCase().trim() === (item.categoryType || '').toLowerCase().trim() || (b.categoryType || '').toLowerCase().trim() === 'standard')
+      );
+      if (match) {
+        if (match.defaultUom) item.uom = match.defaultUom;
+        if (match.unitRate && (!item.unitRate || item.unitRate === 0)) item.unitRate = match.unitRate;
+        if (match.gstPercent !== undefined && match.gstPercent !== null) item.gstPercent = Number(match.gstPercent);
+      }
     }
     this.recalculateBomItem(item);
   }
@@ -1362,6 +1419,9 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       this.showToast('You do not have permission to add new projects.', 'error');
       return;
     }
+    this.loadBomMaterialsMaster();
+    this.loadMasterListOptions();
+    this.loadSalesTeamOptions();
     this.isEditMode = false;
     this.currentProjectId = null;
     this.projectForm = this.getEmptyProject();
@@ -1392,6 +1452,9 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       this.showToast('You do not have permission to edit projects.', 'error');
       return;
     }
+    this.loadBomMaterialsMaster();
+    this.loadMasterListOptions();
+    this.loadSalesTeamOptions();
     this.isEditMode = true;
     this.currentProjectId = project.id || null;
     this.projectForm = {

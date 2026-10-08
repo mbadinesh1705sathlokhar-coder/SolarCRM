@@ -176,3 +176,77 @@ textarea:focus {
   margin-bottom: 1rem;
 }
 
+/* Reusable PDF Statement Button (Screenshot style) */
+.btn-pdf-statement {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.btn-pdf-statement:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.45);
+}
+
+.btn-pdf-statement i {
+  font-size: 0.95rem;
+}
+
+/* Modal Close Button (Circular button next to PDF button) */
+.modal-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+/* Adapt close button for light/warning backgrounds */
+.modal-header.bg-white .modal-close-btn,
+.modal-header.bg-warning .modal-close-btn,
+.modal-close-btn-dark {
+  background: rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  color: #1e293b;
+}
+
+.modal-header.bg-white .modal-close-btn:hover,
+.modal-header.bg-warning .modal-close-btn:hover,
+.modal-close-btn-dark:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #dc2626;
+  transform: scale(1.05);
+}
+
+

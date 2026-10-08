@@ -17,6 +17,11 @@ const {
     updateGatePass,
     deleteGatePass,
     deleteAllGatePasses,
+    getAllInwards,
+    createInward,
+    updateInward,
+    deleteInward,
+    deleteAllInwards,
     getCartItems,
     createCartItem,
     updateCartItem,
@@ -46,7 +51,14 @@ router.post('/gate-pass', createGatePass);
 router.put('/gate-pass/:id', updateGatePass);
 router.delete('/gate-pass/:id', deleteGatePass);
 
-// 4. Add to Cart Routes
+// 4. Inward Routes
+router.get('/inward', getAllInwards);
+router.delete('/inward/all', deleteAllInwards);
+router.post('/inward', createInward);
+router.put('/inward/:id', updateInward);
+router.delete('/inward/:id', deleteInward);
+
+// 5. Add to Cart Routes
 router.get('/cart', getCartItems);
 router.delete('/cart/all', deleteAllCartItems);
 router.post('/cart', createCartItem);

@@ -33,6 +33,9 @@
       <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-box-seam me-1 text-success"></i> Warehouse
       </a>
+      <a routerLink="/inventory/inward" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-arrow-in-down me-1 text-info"></i> Inward
+      </a>
       <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-pass me-1 text-warning"></i> Gate Pass
       </a>
@@ -165,7 +168,15 @@
           <i class="bi bi-file-earmark-text"></i>
           {{ isEditMode ? 'Edit Indent: ' + indentForm.indentNo : 'Add New Indent' }}
         </h6>
-        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeModal()"></button>
+        <div class="d-flex align-items-center ms-auto" style="gap: 3px;">
+          <button type="button" class="btn-pdf-statement" (click)="exportCurrentIndentPdf()" title="Download PDF Statement">
+            <i class="bi bi-file-earmark-pdf-fill"></i>
+            <span>PDF Statement</span>
+          </button>
+          <button type="button" class="modal-close-btn" (click)="closeModal()" title="Close dialog" aria-label="Close">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
       </div>
 
       <form (ngSubmit)="saveIndent()">
@@ -186,7 +197,8 @@
               </div>
               <div class="col-md-3">
                 <label class="form-label small fw-bold text-dark mb-1">Site Engineer <span class="text-danger">*</span></label>
-                <select class="form-select form-select-sm shadow-sm" [(ngModel)]="indentForm.siteEngineer" name="siteEngineer" required>
+                <select class="form-select form-select-sm shadow-sm" [(ngModel)]="indentForm.siteEngineer" (ngModelChange)="onEngineerChange()" name="siteEngineer" required>
+                  <option value="">-- All Site Engineers --</option>
                   <option *ngFor="let eng of engineers" [value]="eng">{{ eng }}</option>
                 </select>
               </div>
@@ -223,7 +235,7 @@
                     <div class="p-2 bg-light border-bottom text-muted small d-flex justify-content-between align-items-center">
                       <span class="fw-semibold">
                         <i class="bi bi-search me-1"></i>
-                        {{ filteredClientOptions.length }} clients
+                        {{ filteredClientOptions.length }} clients {{ indentForm.siteEngineer ? 'for ' + indentForm.siteEngineer : '' }}
                       </span>
                       <span class="fs-8 text-secondary">Click to select</span>
                     </div>
@@ -232,7 +244,15 @@
                          class="searchable-client-item d-flex align-items-center justify-content-between text-wrap"
                          [class.active]="indentForm.clientName === client"
                          (mousedown)="selectClient(client)">
-                      <span class="font-mono text-dark fw-medium">{{ client }}</span>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="font-mono text-dark fw-medium">{{ client }}</span>
+                        <span *ngIf="getClientBomCount(client) > 0" class="badge bg-success-subtle text-success border border-success-subtle font-mono" style="font-size: 0.68rem;">
+                          <i class="bi bi-check2-circle"></i> BOM ({{ getClientBomCount(client) }})
+                        </span>
+                        <span *ngIf="getClientBomCount(client) === 0" class="badge bg-danger-subtle text-danger border border-danger-subtle font-mono" style="font-size: 0.68rem;">
+                          No BOM
+                        </span>
+                      </div>
                       <i *ngIf="indentForm.clientName === client" class="bi bi-check-lg text-primary fw-bold ms-2"></i>
                     </div>
 
@@ -246,8 +266,24 @@
             </div>
           </div>
 
+          <!-- Warning banner if BOM is not updated for selected client -->
+          <div *ngIf="indentForm.clientName && !isClientBomUpdated()" class="alert alert-danger border-danger shadow-sm d-flex align-items-center justify-content-between p-3 mb-4 rounded-3">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-shield-lock-fill fs-3 text-danger flex-shrink-0"></i>
+              <div>
+                <strong class="text-danger">⚠️ BOM Not Updated for {{ indentForm.clientName }}:</strong>
+                <div class="small text-dark mt-0.5">
+                  This site has no Bill of Materials (BOM) configured in Awarded Sites. Indents can only be registered and edited once the BOM is updated in <strong>Project Master</strong>.
+                </div>
+              </div>
+            </div>
+            <a routerLink="/project-master" target="_blank" class="btn btn-sm btn-outline-danger fw-semibold text-nowrap d-flex align-items-center gap-1 shadow-xs">
+              <i class="bi bi-box-arrow-up-right"></i> Open Project Master
+            </a>
+          </div>
+
           <!-- 2. REQUESTED MATERIALS (Exact replica of Screenshot 1) -->
-          <div class="bg-white p-3 rounded-3 border shadow-xs">
+          <div class="bg-white p-3 rounded-3 border shadow-xs" [class.opacity-50]="indentForm.clientName && !isClientBomUpdated()">
             <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
               <div>
                 <h6 class="fw-bold text-uppercase mb-0 text-dark" style="letter-spacing: 0.04em; font-size: 0.92rem;">
@@ -257,10 +293,11 @@
               </div>
               <div class="d-flex align-items-center gap-2">
                 <button *ngIf="hasProjectBomItems()" type="button" class="btn btn-sm btn-outline-primary fw-bold px-2.5 py-1 shadow-xs d-flex align-items-center gap-1"
-                        (click)="populateFromProjectBom()" title="Load materials from this project's Bill of Materials">
-                  <i class="bi bi-box-seam"></i> Load Project BOM
+                        (click)="populateFromProjectBom(true)" title="Reload materials from this project's Bill of Materials">
+                  <i class="bi bi-arrow-repeat"></i> Reload BOM
                 </button>
                 <button type="button" class="btn btn-sm btn-add-material-custom fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1"
+                        [disabled]="indentForm.clientName && !isClientBomUpdated()"
                         (click)="addMaterialRow()">
                   <i class="bi bi-plus-lg"></i> Add Material
                 </button>
@@ -378,11 +415,19 @@
         </div>
 
         <!-- Modal Footer -->
-        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between align-items-center">
           <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">Cancel</button>
-          <button type="submit" *ngIf="isEditMode ? canEdit() : canAdd()" class="btn btn-sm btn-success px-4 fw-bold shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
-            <i class="bi bi-check2-circle me-1"></i> {{ isEditMode ? 'Update Indent' : 'Save Indent' }}
-          </button>
+          <div class="d-flex align-items-center gap-2">
+            <span *ngIf="indentForm.clientName && !isClientBomUpdated()" class="text-danger small fw-semibold">
+              <i class="bi bi-lock-fill"></i> Update BOM in Project Master to enable save
+            </span>
+            <button type="submit" *ngIf="isEditMode ? canEdit() : canAdd()" 
+                    class="btn btn-sm btn-success px-4 fw-bold shadow-sm" 
+                    [disabled]="indentForm.clientName && !isClientBomUpdated()"
+                    style="background-color: #0f766e; border-color: #0f766e;">
+              <i class="bi bi-check2-circle me-1"></i> {{ isEditMode ? 'Update Indent' : 'Save Indent' }}
+            </button>
+          </div>
         </div>
       </form>
     </div>

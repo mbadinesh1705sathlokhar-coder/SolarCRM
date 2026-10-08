@@ -171,6 +171,11 @@ const GatePass = conDb.define('GatePass', {
         autoIncrement: true,
         primaryKey: true
     },
+    gatePassNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'gate_pass_no'
+    },
     gatePassDate: {
         type: DataTypes.DATEONLY,
         allowNull: false,
@@ -310,7 +315,159 @@ const GatePassItem = conDb.define('GatePassItem', {
 GatePass.hasMany(GatePassItem, { as: 'items', foreignKey: 'gate_pass_id', onDelete: 'CASCADE' });
 GatePassItem.belongsTo(GatePass, { as: 'gatePass', foreignKey: 'gate_pass_id' });
 
-// 5. Cart Item Model (Add to Cart per Screenshot 2)
+// 5. Inward Model (Inventory Inward Stock Entry)
+const Inward = conDb.define('Inward', {
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true
+    },
+    inwardNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'inward_no'
+    },
+    inwardDate: {
+        type: DataTypes.DATEONLY,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+        field: 'inward_date'
+    },
+    descriptions: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'descriptions'
+    },
+    unit: {
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        defaultValue: 'Nos',
+        field: 'unit'
+    },
+    quantity: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+        defaultValue: 1.0,
+        field: 'quantity'
+    },
+    supplierName: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        defaultValue: '',
+        field: 'supplier_name'
+    },
+    receivedBy: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        defaultValue: 'Soundarajan',
+        field: 'received_by'
+    },
+    remarks: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'remarks'
+    },
+    totalAmount: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+        field: 'total_amount'
+    },
+    transportCost: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        defaultValue: 0,
+        field: 'transport_cost'
+    }
+}, {
+    tableName: 'inventory_inwards',
+    timestamps: true,
+    underscored: true
+});
+
+// 6. Inward Item Model (Multiple materials received per Inward)
+const InwardItem = conDb.define('InwardItem', {
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true
+    },
+    inwardId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: 'inward_id',
+        references: {
+            model: Inward,
+            key: 'id'
+        },
+        onDelete: 'CASCADE'
+    },
+    inwardDate: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: 'inward_date'
+    },
+    materialName: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+        field: 'material_name'
+    },
+    materialGroup: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'material_group'
+    },
+    categoryType: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'category_type'
+    },
+    specification: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'specification'
+    },
+    quantity: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+        defaultValue: 1.0,
+        field: 'quantity'
+    },
+    unit: {
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        defaultValue: 'Nos',
+        field: 'unit'
+    },
+    rate: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+        field: 'rate'
+    },
+    vendorName: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        defaultValue: '',
+        field: 'vendor_name'
+    },
+    amount: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+        field: 'amount'
+    }
+}, {
+    tableName: 'inventory_inward_items',
+    timestamps: true,
+    underscored: true
+});
+
+// Inward Relationships
+Inward.hasMany(InwardItem, { as: 'items', foreignKey: 'inward_id', onDelete: 'CASCADE' });
+InwardItem.belongsTo(Inward, { as: 'inward', foreignKey: 'inward_id' });
+
+// 7. Cart Item Model (Add to Cart per Screenshot 2)
 const CartItem = conDb.define('CartItem', {
     id: {
         type: DataTypes.INTEGER,
@@ -390,5 +547,7 @@ module.exports = {
     WarehouseMaterial,
     GatePass,
     GatePassItem,
+    Inward,
+    InwardItem,
     CartItem
 };

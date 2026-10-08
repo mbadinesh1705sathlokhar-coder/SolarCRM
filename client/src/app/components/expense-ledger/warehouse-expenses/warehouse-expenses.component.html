@@ -91,9 +91,14 @@
             <span>Upload</span>
           </button>
 
-          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportBothPdfAndExcel()" title="Export PDF & Excel">
-            <i class="bi bi-file-earmark-arrow-down-fill text-danger"></i>
-            <span>Export</span>
+          <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportPdf()" title="Download PDF Ledger Report">
+            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
+            <span>PDF</span>
+          </button>
+
+          <button class="btn btn-outline-primary d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="exportToExcel()" title="Export Excel / CSV">
+            <i class="bi bi-file-earmark-excel-fill text-primary"></i>
+            <span>Excel</span>
           </button>
 
           <button *ngIf="isAdmin() && expenses.length > 0" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm text-nowrap" style="height: 38px; font-size: 0.85rem;" (click)="clearAllWarehouseExpenses()" title="Clear all warehouse expenses to re-upload cleanly">
@@ -125,7 +130,7 @@
             <th style="width: 120px;">Source</th>
             <th style="width: 130px;">Paid By</th>
             <th class="text-end" style="width: 140px;">Amount</th>
-            <th class="text-center" style="width: 70px;">Actions</th>
+            <th class="text-center" style="width: 110px;">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -223,11 +228,20 @@
               ₹ {{ (e.amount || 0) | number:'1.2-2' }}
             </td>
 
-            <!-- Actions: Strictly DELETE button only -->
+            <!-- Actions: PDF Voucher & Delete -->
             <td class="text-center">
-              <button class="btn btn-outline-danger border-0 btn-sm p-1" (click)="confirmDelete(e)" title="Delete Warehouse Expense">
-                <i class="bi bi-trash3 fs-6"></i>
-              </button>
+              <div class="d-inline-flex align-items-center gap-1">
+                <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold d-inline-flex align-items-center gap-1"
+                        style="font-size: 0.74rem;"
+                        (click)="exportSingleExpensePdf(e)"
+                        title="Download Expense PDF Voucher">
+                  <i class="bi bi-file-earmark-pdf-fill"></i>
+                  <span>PDF</span>
+                </button>
+                <button class="btn btn-outline-danger border-0 btn-sm p-1" (click)="confirmDelete(e)" title="Delete Warehouse Expense">
+                  <i class="bi bi-trash3 fs-6"></i>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -261,7 +275,13 @@
             <i class="bi" [ngClass]="isEditMode ? 'bi-pencil-square fs-5' : 'bi-plus-circle-fill fs-5'"></i>
             <h5 class="modal-title fw-bold mb-0">{{ isEditMode ? 'Edit Warehouse Expense' : '+ Record Warehouse Expense' }}</h5>
           </div>
-          <button type="button" class="btn-close btn-close-white" (click)="closeModal()"></button>
+          <div class="d-flex align-items-center ms-auto" style="gap: 3px;">
+            <button *ngIf="isEditMode" type="button" class="btn btn-sm btn-light text-danger fw-semibold d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-2 shadow-xs" (click)="exportCurrentModalPdf()" title="Download PDF Voucher">
+              <i class="bi bi-file-earmark-pdf-fill"></i>
+              <span>PDF Voucher</span>
+            </button>
+            <button type="button" class="btn-close btn-close-white" (click)="closeModal()"></button>
+          </div>
         </div>
 
         <form (ngSubmit)="submitExpense()">

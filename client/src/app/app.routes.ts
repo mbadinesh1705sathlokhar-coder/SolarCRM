@@ -16,6 +16,7 @@ import { AddListComponent } from './components/office/add-list/add-list.componen
 import { IndentComponent } from './components/inventory/indent/indent.component';
 import { WarehouseComponent } from './components/inventory/warehouse/warehouse.component';
 import { GatePassComponent } from './components/inventory/gate-pass/gate-pass.component';
+import { InwardComponent } from './components/inventory/inward/inward.component';
 import { CartComponent } from './components/inventory/cart/cart.component';
 import { LoginComponent } from './components/login/login.component';
 import { authGuard } from './guards/auth.guard';
@@ -68,6 +69,7 @@ export const routes: Routes = [
   { path: 'inventory', redirectTo: 'inventory/indent', pathMatch: 'full' },
   { path: 'inventory/indent', component: IndentComponent, canActivate: [authGuard, moduleGuard('inventory')] },
   { path: 'inventory/warehouse', component: WarehouseComponent, canActivate: [authGuard, moduleGuard('inventory')] },
+  { path: 'inventory/inward', component: InwardComponent, canActivate: [authGuard, moduleGuard('inventory')] },
   { path: 'inventory/gate-pass', component: GatePassComponent, canActivate: [authGuard, moduleGuard('inventory')] },
   { path: 'inventory/cart', component: CartComponent, canActivate: [authGuard, moduleGuard('inventory')] },
   { path: '**', redirectTo: 'home' }

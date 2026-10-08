@@ -242,7 +242,7 @@
         <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeModal()"></button>
       </div>
 
-      <form (ngSubmit)="saveList()">
+      <form (ngSubmit)="saveList()" novalidate>
         <div class="modal-body p-4 bg-light" style="max-height: 75vh; overflow-y: auto;">
           <!-- 1. Cascading Multi-Row Section & Column Selector -->
           <div class="bg-white p-3 rounded-3 border mb-3 shadow-xs">

@@ -109,6 +109,16 @@ export class WarehouseComponent implements OnInit {
       }
     });
 
+    // Load UOM measurements
+    this.masterListService.getList('UOM measurements').subscribe({
+      next: (res) => {
+        if (res.success && res.data?.items?.length > 0) {
+          this.unitOptions = res.data.items;
+          this.cdr.markForCheck();
+        }
+      }
+    });
+
     // 2. Load hierarchical BOM Material Groups & Specifications from Database
     this.masterListService.getBomMaterials().subscribe({
       next: (res) => {
@@ -177,7 +187,7 @@ export class WarehouseComponent implements OnInit {
     }
 
     if (this.selectedBomGroup) {
-      const parts = [this.selectedBomGroup, catName && catName !== 'Standard' ? catName : ''].filter(Boolean);
+      const parts = [catName && catName !== 'Standard' ? catName : ''].filter(Boolean);
       this.materialForm.materialName = parts.join(' - ') || this.selectedBomGroup;
       if (!this.isDescriptionCustomized) {
         this.materialForm.description = this.materialForm.materialName;
@@ -198,7 +208,7 @@ export class WarehouseComponent implements OnInit {
     this.materialForm.categoryType = cat;
 
     if (specName) {
-      const parts = [grp, cat && cat !== 'Standard' ? cat : '', specName].filter(Boolean);
+      const parts = [cat && cat !== 'Standard' ? cat : '', specName].filter(Boolean);
       this.materialForm.materialName = parts.join(' - ') || specName;
     }
 
@@ -206,8 +216,8 @@ export class WarehouseComponent implements OnInit {
       this.materialForm.unit = specObj.defaultUom || (grp === 'Cables' ? 'Meter' : 'Nos');
       if (!this.isDescriptionCustomized) {
         this.materialForm.description = cat && cat !== 'Standard'
-          ? `${grp} (${cat} - ${specObj.specification})`
-          : `${grp} - ${specObj.specification}`;
+          ? `${cat} - ${specObj.specification}`
+          : specObj.specification;
       }
     }
     this.cdr.markForCheck();
@@ -272,6 +282,59 @@ export class WarehouseComponent implements OnInit {
       (m.unit || '').toLowerCase().includes(term) ||
       (m.status || '').toLowerCase().includes(term)
     );
+  }
+
+  getCleanSpec(m: WarehouseMaterial): string {
+    if (m.specification && m.specification.trim()) {
+      return m.specification.trim();
+    }
+    let name = (m.materialName || '').trim();
+    if (m.materialGroup) {
+      const prefix = m.materialGroup + ' - ';
+      if (name.toLowerCase().startsWith(prefix.toLowerCase())) {
+        name = name.substring(prefix.length).trim();
+      }
+    }
+    for (const grp of this.bomGroupKeys) {
+      const prefix = grp + ' - ';
+      if (name.toLowerCase().startsWith(prefix.toLowerCase())) {
+        name = name.substring(prefix.length).trim();
+        break;
+      }
+    }
+    if (m.categoryType && m.categoryType !== 'Standard') {
+      const catPrefix = m.categoryType + ' - ';
+      if (name.toLowerCase().startsWith(catPrefix.toLowerCase())) {
+        name = name.substring(catPrefix.length).trim();
+      }
+    }
+    return name || m.materialName || '';
+  }
+
+  getCleanDescription(m: WarehouseMaterial): string {
+    if (!m.description) return '—';
+    let d = m.description.trim();
+    if (m.materialGroup) {
+      const prefixWithParen = `${m.materialGroup} (`;
+      if (d.startsWith(prefixWithParen) && d.endsWith(')')) {
+        return d.substring(prefixWithParen.length, d.length - 1).trim();
+      }
+      const prefixWithDash = `${m.materialGroup} - `;
+      if (d.startsWith(prefixWithDash)) {
+        return d.substring(prefixWithDash.length).trim();
+      }
+    }
+    for (const grp of this.bomGroupKeys) {
+      const prefixWithParen = `${grp} (`;
+      if (d.startsWith(prefixWithParen) && d.endsWith(')')) {
+        return d.substring(prefixWithParen.length, d.length - 1).trim();
+      }
+      const prefixWithDash = `${grp} - `;
+      if (d.startsWith(prefixWithDash)) {
+        return d.substring(prefixWithDash.length).trim();
+      }
+    }
+    return d;
   }
 
   openAddModal(): void {
@@ -523,6 +586,10 @@ export class WarehouseComponent implements OnInit {
 
     doc.save(`Warehouse_Stock_${new Date().toISOString().substring(0, 10)}.pdf`);
     this.showToast('Warehouse Stock PDF exported successfully!', 'success');
+  }
+
+  exportCurrentWarehousePdf(): void {
+    this.exportWarehousePdf();
   }
 
   exportToExcel(): void {

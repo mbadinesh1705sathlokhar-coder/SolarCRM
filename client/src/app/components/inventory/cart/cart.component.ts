@@ -202,6 +202,15 @@ export class CartComponent implements OnInit {
         }
       }
     });
+
+    this.masterListService.getList('UOM measurements').subscribe({
+      next: (res) => {
+        if (res.success && res.data?.items?.length > 0) {
+          this.unitOptions = res.data.items;
+          this.cdr.markForCheck();
+        }
+      }
+    });
   }
 
   loadBomMaterialsMaster(): void {

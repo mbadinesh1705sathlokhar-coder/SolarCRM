@@ -1,0 +1,633 @@
+<!-- Toast Notification -->
+<div *ngIf="toastMessage" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
+  <div class="toast show align-items-center text-white border-0 shadow-lg" [ngClass]="'bg-' + toastType" role="alert">
+    <div class="d-flex">
+      <div class="toast-body fw-medium">
+        <i class="bi bi-check-circle-fill me-2" *ngIf="toastType === 'success'"></i>
+        <i class="bi bi-exclamation-triangle-fill me-2" *ngIf="toastType === 'danger'"></i>
+        <i class="bi bi-info-circle-fill me-2" *ngIf="toastType === 'info'"></i>
+        {{ toastMessage }}
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" (click)="toastMessage = ''"></button>
+    </div>
+  </div>
+</div>
+
+<div class="container-fluid py-4 px-4">
+  <!-- Header with Inventory Navigation Pills -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div class="d-flex align-items-center gap-2">
+      <div class="inventory-icon-box bg-info-subtle text-info-emphasis shadow-sm p-2 rounded-3">
+        <i class="bi bi-box-arrow-in-down-fill fs-4 text-info"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold mb-0 text-dark tracking-tight">Inventory Management</h4>
+      </div>
+    </div>
+
+    <!-- Inventory Pill Navigation Tabs -->
+    <div class="nav-tabs-wrapper bg-light p-1 rounded-pill border shadow-sm">
+      <a routerLink="/inventory/indent" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-file-earmark-text me-1 text-primary"></i> Indent
+      </a>
+      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-seam me-1 text-success"></i> Warehouse
+      </a>
+      <a routerLink="/inventory/inward" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-box-arrow-in-down me-1 text-info"></i> Inward
+      </a>
+      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-pass me-1 text-warning"></i> Gate Pass
+      </a>
+      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-cart3 me-1 text-danger"></i> Add to cart
+      </a>
+    </div>
+
+    <!-- Top Action -->
+    <div class="d-flex align-items-center gap-2">
+      <button *ngIf="isAdmin()" class="btn btn-sm btn-outline-success fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="triggerExcelImport()" title="Upload Excel spreadsheet">
+        <i class="bi bi-file-earmark-arrow-up-fill text-success"></i> Upload
+      </button>
+      <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportInwardPdf()" title="Download Inwards PDF Report">
+        <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF
+      </button>
+      <button class="btn btn-sm btn-outline-primary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="exportToExcel()" title="Export Excel / CSV">
+        <i class="bi bi-file-earmark-excel-fill text-primary"></i> Excel
+      </button>
+      <button *ngIf="isAdmin() && inwards.length > 0" class="btn btn-sm btn-outline-secondary fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1.5"
+              (click)="clearAllInwards()" title="Clear all inward entries">
+        <i class="bi bi-trash3 text-muted"></i> Clear All
+      </button>
+      <input #excelFileInput type="file" accept=".xlsx,.xls,.csv" (change)="onExcelUploadSelected($event)" class="d-none">
+      <button class="btn btn-sm btn-info text-white fw-semibold shadow-sm px-3 py-2 d-flex align-items-center gap-1"
+              *ngIf="canAdd()"
+              (click)="openAddModal()">
+        <i class="bi bi-plus-lg"></i> Create Inward
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="card border-0 shadow-sm rounded-3 p-2 px-3 bg-white mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="input-group input-group-sm" style="max-width: 340px;">
+        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" class="form-control border-start-0 bg-light" placeholder="Search Inward No, supplier, item..." [(ngModel)]="searchTerm">
+      </div>
+      <div class="small text-muted">
+        Total Inwards: <strong class="text-dark">{{ filteredInwards.length }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inward Table -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 compact-table">
+        <thead class="table-light">
+          <tr class="text-uppercase text-muted" style="font-size: 0.74rem;">
+            <th style="width: 55px;" class="text-center">S.No</th>
+            <th style="width: 105px;">Inward No</th>
+            <th style="width: 105px;">Date</th>
+            <th style="width: 105px;">Unit</th>
+            <th *ngIf="canViewPricing()" style="width: 120px;" class="text-end">Total Amount</th>
+            <th>Supplier / Vendor</th>
+            <th>Received By</th>
+            <th style="width: 140px;" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td [attr.colspan]="canViewPricing() ? 8 : 7" class="text-center py-4 text-muted">
+              <div class="spinner-border spinner-border-sm text-info me-2"></div>
+              Loading inward records...
+            </td>
+          </tr>
+          <tr *ngIf="!loading && filteredInwards.length === 0">
+            <td [attr.colspan]="canViewPricing() ? 8 : 7" class="text-center py-5 text-muted">
+              <i class="bi bi-box-arrow-in-down fs-2 d-block mb-2 text-secondary"></i>
+              No inward records found. Click <strong>Create Inward</strong> to receive materials into Warehouse.
+            </td>
+          </tr>
+          <tr *ngFor="let inw of filteredInwards; let i = index">
+            <!-- S.No -->
+            <td class="text-center font-mono text-muted small fw-bold">{{ i + 1 }}</td>
+            <!-- Inward No -->
+            <td class="font-mono text-nowrap" style="font-size: 0.82rem;">
+              <a href="javascript:void(0)" 
+                 class="badge bg-light text-dark border font-mono text-decoration-none hover-link"
+                 (click)="openEditModal(inw)"
+                 title="Click to view and edit inward entry">
+                {{ inw.inwardNo || ('INW-' + inw.id) }}
+              </a>
+            </td>
+            <!-- Date (dd-mm-yyyy) - Clickable to edit -->
+            <td class="font-mono text-nowrap" style="font-size: 0.82rem;">
+              <a href="javascript:void(0)" 
+                 class="fw-bold text-dark text-decoration-none hover-link"
+                 (click)="openEditModal(inw)" 
+                 title="Click to view and edit inward entry">
+                {{ formatDate(inw.inwardDate) }}
+              </a>
+            </td>
+            <!-- Unit: Clickable to view all descriptions & materials -->
+            <td>
+              <button type="button" 
+                      class="btn btn-sm btn-light border py-1 px-2.5 d-inline-flex align-items-center gap-1.5 unit-clickable-btn shadow-xs rounded-2"
+                      (click)="openDescriptionsModal(inw)"
+                      title="Click to view all received descriptions">
+                <span class="badge bg-info-subtle text-dark border border-info-subtle font-mono">{{ inw.unit || 'Nos' }}</span>
+              </button>
+            </td>
+            <!-- Total Amount (Purchase & Admin only) -->
+            <td *ngIf="canViewPricing()" class="text-end font-mono fw-bold" style="font-size: 0.84rem;">
+              <span *ngIf="getInwardTotal(inw) > 0" class="text-success">₹ {{ getInwardTotal(inw) | number:'1.2-2' }}</span>
+              <span *ngIf="getInwardTotal(inw) === 0" class="text-muted">—</span>
+            </td>
+            <!-- Supplier / Vendor: Clickable to edit -->
+            <td>
+              <a href="javascript:void(0)" 
+                 class="fw-semibold text-dark text-decoration-none hover-link"
+                 (click)="openEditModal(inw)" 
+                 title="Click to view and edit inward entry">
+                {{ inw.supplierName || inw.clientName || 'Supplier' }}
+              </a>
+            </td>
+            <!-- Received By -->
+            <td>
+              <span class="badge bg-light text-dark border">{{ inw.receivedBy || inw.siteEngineer || 'Soundarajan' }}</span>
+            </td>
+            <!-- Actions: PDF & Delete -->
+            <td class="text-center">
+              <div class="d-inline-flex align-items-center gap-1">
+                <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold d-inline-flex align-items-center gap-1"
+                        style="font-size: 0.74rem;"
+                        (click)="downloadSingleInwardPdf(inw)"
+                        title="Download Inward PDF Voucher">
+                  <i class="bi bi-file-earmark-pdf-fill"></i>
+                  <span>PDF</span>
+                </button>
+                <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold"
+                        style="font-size: 0.76rem;"
+                        (click)="confirmDelete(inw)"
+                        title="Delete Inward Entry">
+                  Delete
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: CREATE / EDIT INWARD                              -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 1100px;">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header bg-info text-white py-3 px-4 d-flex justify-content-between align-items-center">
+        <h5 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-box-arrow-in-down-fill"></i>
+          {{ isEditMode ? 'Edit Inward Goods Receipt' : 'Create Inward Goods Receipt' }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeModal()"></button>
+      </div>
+
+      <form (ngSubmit)="saveInward()">
+        <div class="modal-body p-4 bg-light" style="max-height: 80vh; overflow-y: auto;">
+
+          <!-- 1. Inward Header Details -->
+          <div class="bg-white p-3 rounded-3 border mb-3 shadow-xs">
+            <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+              <span class="badge bg-info text-white px-2.5 py-1 fw-bold">1. Inward Header Details</span>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Inward No.</label>
+                <input type="text" class="form-control form-control-sm font-mono shadow-sm" placeholder="e.g. INW-001" [(ngModel)]="inwardForm.inwardNo" name="inwardNo">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Date <span class="text-danger">*</span></label>
+                <input type="date" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="inwardForm.inwardDate" name="inwardDate" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Received By <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm shadow-sm" [(ngModel)]="inwardForm.receivedBy" name="receivedBy" required>
+                  <option value="">-- Select Receiver --</option>
+                  <option *ngFor="let eng of engineers" [value]="eng">{{ eng }}</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Supplier / Vendor Name <span class="text-danger">*</span></label>
+                <div class="position-relative">
+                  <div class="input-group input-group-sm shadow-sm">
+                    <input type="text"
+                           class="form-control form-control-sm font-mono"
+                           placeholder="Type or select supplier..."
+                           [(ngModel)]="inwardForm.supplierName"
+                           name="supplierName"
+                           (focus)="openSupplierDropdown()"
+                           (blur)="closeSupplierDropdown()"
+                           autocomplete="off"
+                           required>
+                    <button *ngIf="inwardForm.supplierName" 
+                            type="button" 
+                            class="btn btn-outline-secondary bg-white border-start-0 border-end-0 text-muted px-2"
+                            (mousedown)="clearSupplierSelection()"
+                            title="Clear supplier name">
+                      <i class="bi bi-x"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary bg-white border-start-0 text-muted px-2" 
+                            type="button" 
+                            (mousedown)="toggleSupplierDropdown($event)"
+                            title="Toggle supplier list">
+                      <i class="bi bi-chevron-down" style="font-size: 0.72rem;"></i>
+                    </button>
+                  </div>
+
+                  <!-- Floating Dropdown -->
+                  <div *ngIf="supplierDropdownOpen" class="searchable-client-dropdown">
+                    <div class="p-2 bg-light border-bottom text-muted small d-flex justify-content-between align-items-center">
+                      <span class="fw-semibold">
+                        <i class="bi bi-truck me-1"></i>
+                        {{ filteredSupplierOptions.length }} Vendors available
+                      </span>
+                      <span class="fs-8 text-secondary">Click to select</span>
+                    </div>
+
+                    <div *ngFor="let v of filteredSupplierOptions"
+                         class="searchable-client-item d-flex align-items-center justify-content-between text-wrap"
+                         [class.active]="inwardForm.supplierName === v"
+                         (mousedown)="selectSupplier(v)">
+                      <span class="font-mono text-dark fw-medium">{{ v }}</span>
+                      <i *ngIf="inwardForm.supplierName === v" class="bi bi-check-lg text-primary fw-bold ms-2"></i>
+                    </div>
+
+                    <div *ngIf="filteredSupplierOptions.length === 0" class="p-3 text-center text-muted small">
+                      <i class="bi bi-info-circle me-1"></i> No matching vendor found for "{{ inwardForm.supplierName }}".<br>
+                      <span class="text-secondary fs-8">You can save this as a new supplier name.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-bold text-dark mb-1">Description / Remarks</label>
+                <input type="text" class="form-control form-control-sm shadow-sm" placeholder="e.g. Received via Delivery Challan #DC-4892 with invoice copy" [(ngModel)]="inwardForm.remarks" name="remarks">
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. INWARD MATERIALS (Stock Addition: Material, Qty, Unit, Rate) -->
+          <div class="bg-white p-3 rounded-3 border shadow-xs">
+            <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+              <div>
+                <h6 class="fw-bold text-uppercase mb-0 text-dark" style="letter-spacing: 0.04em; font-size: 0.9rem;">
+                  INWARD MATERIALS (AUTOMATIC WAREHOUSE STOCK ADDITION)
+                </h6>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-info text-dark fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1"
+                        (click)="addMaterialRow()">
+                  <i class="bi bi-plus-lg"></i> Add Material
+                </button>
+              </div>
+            </div>
+
+            <!-- Material Rows Table -->
+            <div class="table-responsive">
+              <table class="table table-borderless align-middle mb-0">
+                <thead>
+                  <tr class="text-uppercase text-secondary" style="font-size: 0.72rem; font-weight: 700;">
+                    <th style="width: 120px;">DATE</th>
+                    <th style="min-width: 140px;">MATERIAL GROUP *</th>
+                    <th style="min-width: 135px;">CATEGORY / TYPE</th>
+                    <th style="min-width: 160px;">SPECIFICATION / RATING *</th>
+                    <th style="width: 85px;">UNIT *</th>
+                    <th style="width: 80px;" class="text-center">QUANTITY *</th>
+                    <th *ngIf="canViewPricing()" style="width: 95px;" class="text-end">RATE (₹)</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 150px;">VENDOR NAME</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 110px; width: 110px;" class="text-end">AMOUNT (₹)</th>
+                    <th style="width: 35px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let m of inwardMaterials; let i = index" class="border-bottom-custom">
+                    <!-- DATE -->
+                    <td>
+                      <input type="date" 
+                             class="form-control form-control-sm font-mono shadow-xs rounded-3 text-dark" 
+                             [(ngModel)]="m.inwardDate" 
+                             [name]="'inw_mat_date_' + i">
+                    </td>
+
+                    <!-- 1. MATERIAL GROUP -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-bold text-dark" 
+                              [(ngModel)]="m.materialGroup" 
+                              (change)="onMaterialGroupChange(m)"
+                              [name]="'inw_mat_grp_' + i"
+                              required>
+                        <option value="">-- Select Group --</option>
+                        <option *ngFor="let grp of getAvailableMaterialGroups()" [value]="grp">{{ grp }}</option>
+                      </select>
+                    </td>
+
+                    <!-- 2. CATEGORY / TYPE -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-dark" 
+                              [(ngModel)]="m.categoryType" 
+                              (change)="onMaterialGroupChange(m)"
+                              [name]="'inw_mat_cat_' + i">
+                        <option *ngFor="let cat of getAvailableCategoryTypes(m.materialGroup)" [value]="cat">{{ cat }}</option>
+                      </select>
+                    </td>
+
+                    <!-- 3. SPECIFICATION / RATING -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 fw-medium text-dark font-mono" 
+                              [(ngModel)]="m.specification" 
+                              (change)="onSpecificationChange(m)"
+                              [name]="'inw_mat_spec_' + i"
+                              required>
+                        <option value="">-- Select Spec --</option>
+                        <option *ngFor="let s of getAvailableSpecs(m.materialGroup, m.categoryType)" [value]="s">{{ s }}</option>
+                        <option *ngIf="m.specification && !getAvailableSpecs(m.materialGroup, m.categoryType).includes(m.specification)" [value]="m.specification">{{ m.specification }}</option>
+                      </select>
+                    </td>
+
+                    <!-- UNIT -->
+                    <td>
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary" 
+                              [(ngModel)]="m.unit" 
+                              [name]="'inw_mat_unit_' + i"
+                              required>
+                        <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
+                        <option *ngIf="m.unit && !unitOptions.includes(m.unit)" [value]="m.unit">{{ m.unit }}</option>
+                      </select>
+                    </td>
+
+                    <!-- QUANTITY -->
+                    <td>
+                      <input type="number" 
+                             min="0.01" 
+                             step="any" 
+                             class="form-control form-control-sm font-mono text-center shadow-xs rounded-3 fw-bold" 
+                             [(ngModel)]="m.quantity" 
+                             (ngModelChange)="calculateRowAmount(m)"
+                             [name]="'inw_mat_qty_' + i"
+                             required>
+                    </td>
+
+                    <!-- RATE -->
+                    <td *ngIf="canViewPricing()">
+                      <input type="number" 
+                             min="0" 
+                             step="any" 
+                             placeholder="0.00"
+                             class="form-control form-control-sm font-mono text-end shadow-xs rounded-3 fw-bold" 
+                             [(ngModel)]="m.rate" 
+                             (ngModelChange)="calculateRowAmount(m)"
+                             [name]="'inw_mat_rate_' + i">
+                    </td>
+
+                    <!-- VENDOR NAME -->
+                    <td *ngIf="canViewPricing()">
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-dark" 
+                              [(ngModel)]="m.vendorName" 
+                              [name]="'inw_mat_vendor_' + i">
+                        <option value="">Select Vendor</option>
+                        <option *ngFor="let v of vendorOptions" [value]="v">{{ v }}</option>
+                        <option *ngIf="m.vendorName && !vendorOptions.includes(m.vendorName)" [value]="m.vendorName">{{ m.vendorName }}</option>
+                      </select>
+                    </td>
+
+                    <!-- AMOUNT -->
+                    <td *ngIf="canViewPricing()" style="min-width: 135px; width: 135px;">
+                      <div class="form-control form-control-sm font-mono text-end fw-bold bg-light text-dark shadow-xs border text-nowrap d-flex align-items-center justify-content-end" style="white-space: nowrap; font-size: 0.82rem; height: 31px;">
+                        <span>₹&nbsp;{{ (m.amount || 0) | number:'1.2-2' }}</span>
+                      </div>
+                    </td>
+
+                    <!-- REMOVE BUTTON -->
+                    <td class="text-center">
+                      <button type="button" 
+                              class="btn btn-link text-danger p-0 border-0 fs-5 text-decoration-none shadow-none" 
+                              (click)="removeMaterialRow(i)" 
+                              [disabled]="inwardMaterials.length <= 1"
+                              title="Remove row">
+                        &times;
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Total Amount Summary Card -->
+              <div *ngIf="canViewPricing()" class="d-flex justify-content-end align-items-center gap-4 p-2.5 px-3 mt-3 bg-light rounded-3 border">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="text-secondary small fw-bold text-uppercase">Total Amount:</span>
+                  <span class="fs-6 font-mono fw-bolder text-info">₹ {{ getTotalAmount() | number:'1.2-2' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between align-items-center">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeModal()">Cancel</button>
+          <div class="d-flex align-items-center gap-2">
+            <button type="submit" *ngIf="isEditMode ? canEdit() : canAdd()" 
+                    class="btn btn-sm btn-info text-white px-4 fw-bold shadow-sm">
+              <i class="bi bi-check2-circle me-1"></i> {{ isEditMode ? 'Update Inward' : 'Save Inward' }}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: CONFIRM DELETE INWARD                             -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDeleteModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-danger text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0">Confirm Delete Inward Entry</h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeDeleteModal()"></button>
+      </div>
+      <div class="modal-body p-4 bg-light text-center">
+        <p class="mb-1 text-dark">Are you sure you want to delete this inward entry?</p>
+        <p class="fw-bold text-danger mb-0 fs-6">{{ inwardToDelete?.supplierName || inwardToDelete?.clientName }}</p>
+        <small class="text-muted d-block mt-2">{{ inwardToDelete?.descriptions }}</small>
+        <div class="alert alert-warning border-warning-subtle small text-start mt-3 mb-0">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>
+          Deleting this entry will automatically revert the added stock from Warehouse.
+        </div>
+      </div>
+      <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteModal()">Cancel</button>
+        <button type="button" *ngIf="canDelete()" class="btn btn-sm btn-danger px-4 fw-bold shadow-sm" (click)="deleteInward()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: VIEW ALL DESCRIPTIONS & MATERIALS FOR INWARD       -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isViewDescriptionsOpen && selectedInwardForView" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 850px;">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header bg-info text-white py-2.5 px-4 d-flex justify-content-between align-items-center">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2 text-truncate me-2">
+          <i class="bi bi-box-seam"></i>
+          <span>Goods Inward Receipt: <span class="fw-normal">{{ selectedInwardForView.supplierName || selectedInwardForView.clientName }}</span></span>
+        </h6>
+        <div class="d-flex align-items-center flex-shrink-0" style="gap: 3px;">
+          <button type="button"
+                  class="btn btn-sm btn-light border text-dark fw-bold px-2 py-0.5 d-flex align-items-center gap-1 shadow-xs"
+                  style="font-size: 0.72rem; line-height: 1.3;"
+                  (click)="downloadSingleInwardPdf(selectedInwardForView)"
+                  title="Download Inward Receipt Voucher PDF">
+            <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF Voucher
+          </button>
+          <button type="button" 
+                  *ngIf="canEdit()"
+                  class="btn btn-sm btn-dark text-white fw-semibold px-2 py-0.5 d-flex align-items-center gap-1 shadow-xs"
+                  style="font-size: 0.72rem; line-height: 1.3;"
+                  (click)="editFromViewModal(selectedInwardForView)"
+                  title="Edit this inward entry">
+            <i class="bi bi-pencil-square"></i> Edit
+          </button>
+          <button type="button" 
+                  class="btn-close btn-close-white shadow-none ms-1" 
+                  style="padding: 0.35rem 0.35rem; font-size: 0.75rem;"
+                  (click)="closeDescriptionsModal()" 
+                  title="Close dialog" 
+                  aria-label="Close"></button>
+        </div>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body p-4 bg-light">
+        <!-- Inward Summary Strip -->
+        <div class="row g-2 mb-3 bg-white p-3 rounded-3 border">
+          <div class="col-md-3">
+            <small class="text-secondary d-block fw-bold text-uppercase" style="font-size: 0.68rem;">Inward No</small>
+            <span class="font-mono fw-bold text-info">{{ selectedInwardForView.inwardNo || ('INW-' + selectedInwardForView.id) }}</span>
+          </div>
+          <div class="col-md-3">
+            <small class="text-secondary d-block fw-bold text-uppercase" style="font-size: 0.68rem;">Date</small>
+            <span class="font-mono text-dark">{{ formatDate(selectedInwardForView.inwardDate) }}</span>
+          </div>
+          <div class="col-md-3">
+            <small class="text-secondary d-block fw-bold text-uppercase" style="font-size: 0.68rem;">Supplier / Vendor</small>
+            <span class="fw-semibold text-dark">{{ selectedInwardForView.supplierName || selectedInwardForView.clientName }}</span>
+          </div>
+          <div class="col-md-3">
+            <small class="text-secondary d-block fw-bold text-uppercase" style="font-size: 0.68rem;">Received By</small>
+            <span class="badge bg-light text-dark border">{{ selectedInwardForView.receivedBy || selectedInwardForView.siteEngineer }}</span>
+          </div>
+        </div>
+
+        <!-- Materials Table -->
+        <div class="card border-0 shadow-xs rounded-3 overflow-hidden bg-white">
+          <div class="card-header bg-light py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+            <span class="fw-bold text-dark small text-uppercase" style="font-size: 0.76rem; letter-spacing: 0.03em;">
+              Received Descriptions & Materials
+            </span>
+            <span class="badge bg-info-subtle text-dark border font-mono">
+              {{ (selectedInwardForView.items?.length || (selectedInwardForView.descriptions ? 1 : 0)) }} Items
+            </span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0 dispatched-descriptions-table">
+              <thead class="table-light">
+                <tr class="text-uppercase text-secondary text-center" style="font-size: 0.7rem;">
+                  <th style="width: 40px;">#</th>
+                  <th style="width: 100px;">Date</th>
+                  <th class="text-start">Specification / Description</th>
+                  <th style="width: 110px;">Quantity</th>
+                  <th style="width: 80px;">Unit</th>
+                  <th *ngIf="canViewPricing()" style="width: 100px;" class="text-end">Rate (₹)</th>
+                  <th *ngIf="canViewPricing()" style="width: 110px;" class="text-end">Amount (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ng-container *ngIf="selectedInwardForView.items && selectedInwardForView.items.length > 0">
+                  <tr *ngFor="let it of selectedInwardForView.items; let idx = index">
+                    <td class="text-center font-mono text-muted">{{ idx + 1 }}</td>
+                    <td class="text-center font-mono small text-secondary">{{ formatDate(it.inwardDate || selectedInwardForView.inwardDate) }}</td>
+                    <td class="fw-medium text-dark">
+                      {{ cleanMaterialName(it.materialName) }}
+                    </td>
+                    <td class="text-center font-mono fw-bold text-dark">{{ it.quantity }}</td>
+                    <td class="text-center">
+                      <span class="badge bg-light text-secondary border font-mono">{{ it.unit }}</span>
+                    </td>
+                    <td *ngIf="canViewPricing()" class="text-end font-mono text-secondary">
+                      <span *ngIf="it.rate">₹ {{ it.rate | number:'1.2-2' }}</span>
+                      <span *ngIf="!it.rate">—</span>
+                    </td>
+                    <td *ngIf="canViewPricing()" class="text-end font-mono fw-bold text-dark desc-amount-cell">
+                      <span *ngIf="it.amount">₹ {{ it.amount | number:'1.2-2' }}</span>
+                      <span *ngIf="!it.amount && it.rate">₹ {{ ((it.quantity || 1) * it.rate) | number:'1.2-2' }}</span>
+                      <span *ngIf="!it.amount && !it.rate">—</span>
+                    </td>
+                  </tr>
+                </ng-container>
+
+                <ng-container *ngIf="(!selectedInwardForView.items || selectedInwardForView.items.length === 0) && selectedInwardForView.descriptions">
+                  <tr>
+                    <td class="text-center font-mono text-muted">1</td>
+                    <td class="text-center font-mono small text-secondary">{{ formatDate(selectedInwardForView.inwardDate) }}</td>
+                    <td class="fw-medium text-dark">{{ cleanDescription(selectedInwardForView.descriptions) }}</td>
+                    <td class="text-center font-mono fw-bold text-dark">{{ selectedInwardForView.quantity || 1 }}</td>
+                    <td class="text-center">
+                      <span class="badge bg-light text-secondary border font-mono">{{ selectedInwardForView.unit || 'Nos' }}</span>
+                    </td>
+                    <td *ngIf="canViewPricing()" class="text-end font-mono text-secondary">—</td>
+                    <td *ngIf="canViewPricing()" class="text-end font-mono fw-bold text-dark desc-amount-cell">
+                      <span *ngIf="selectedInwardForView.totalAmount">₹ {{ selectedInwardForView.totalAmount | number:'1.2-2' }}</span>
+                      <span *ngIf="!selectedInwardForView.totalAmount">—</span>
+                    </td>
+                  </tr>
+                </ng-container>
+              </tbody>
+              <tfoot *ngIf="canViewPricing() && getInwardTotal(selectedInwardForView) > 0">
+                <tr class="table-light">
+                  <td colspan="6" class="text-end fw-bold text-uppercase text-secondary desc-total-label">Total Amount:</td>
+                  <td class="text-end font-mono fw-bolder text-info desc-total-amount">
+                    ₹ {{ getInwardTotal(selectedInwardForView) | number:'1.2-2' }}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between align-items-center">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDescriptionsModal()">
+          Close
+        </button>
+        <button type="button"
+                class="btn btn-sm btn-outline-danger fw-semibold px-3 d-flex align-items-center gap-1 shadow-xs"
+                (click)="downloadSingleInwardPdf(selectedInwardForView)">
+          <i class="bi bi-file-earmark-pdf text-danger"></i> Export Voucher
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

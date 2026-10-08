@@ -174,7 +174,7 @@
       </li>
 
       <!-- Inventory Dropdown Group -->
-      <li class="nav-item has-submenu" *ngIf="authService.canViewAnyNav(['indent', 'warehouse', 'gate-pass', 'cart'])">
+      <li class="nav-item has-submenu" *ngIf="authService.canViewAnyNav(['indent', 'warehouse', 'inward', 'gate-pass', 'cart'])">
         <button type="button"
                 class="sidebar-nav-item dropdown-trigger-btn w-100 text-start border-0 bg-transparent"
                 (click)="toggleInventory()"
@@ -198,6 +198,12 @@
             <a routerLink="/inventory/warehouse" routerLinkActive="active" class="submenu-link">
               <i class="bi bi-box-seam text-success"></i>
               <span>Warehouse</span>
+            </a>
+          </li>
+          <li class="submenu-item" *ngIf="authService.canViewNav('inward')">
+            <a routerLink="/inventory/inward" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-box-arrow-in-down text-info"></i>
+              <span>Inward</span>
             </a>
           </li>
           <li class="submenu-item" *ngIf="authService.canViewNav('gate-pass')">

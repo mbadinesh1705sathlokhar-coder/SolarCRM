@@ -74,10 +74,95 @@ export class IndentComponent implements OnInit {
   // Searchable Client Dropdown State
   clientDropdownOpen = false;
 
+  matchesEngineer(projOrderBy?: string, selectedEngineer?: string): boolean {
+    if (!selectedEngineer || !selectedEngineer.trim()) return true;
+    if (!projOrderBy || !projOrderBy.trim()) return false;
+
+    const normProj = projOrderBy.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    const normEng = selectedEngineer.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+    if (normProj === normEng) return true;
+    if (normProj.includes(normEng) || normEng.includes(normProj)) return true;
+
+    const engTokens = selectedEngineer.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    const projTokens = projOrderBy.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    
+    const engFirstChar = selectedEngineer.trim().toLowerCase()[0];
+    const projFirstChar = projOrderBy.trim().toLowerCase()[0];
+    const initialsMatch = engFirstChar === projFirstChar;
+
+    return engTokens.some(t => projTokens.includes(t)) && initialsMatch;
+  }
+
+  getClientsForSelectedEngineer(): string[] {
+    const selectedEng = this.indentForm?.siteEngineer;
+    let projs = this.projectsList;
+    if (selectedEng && selectedEng.trim()) {
+      projs = projs.filter(p => this.matchesEngineer(p.orderBy, selectedEng));
+    }
+    const names = projs.map(p => p.clientName).filter(Boolean);
+    return Array.from(new Set(names));
+  }
+
+  updateClientOptions(): void {
+    this.clientOptions = this.getClientsForSelectedEngineer();
+  }
+
+  onEngineerChange(): void {
+    this.updateClientOptions();
+    const validClients = this.getClientsForSelectedEngineer();
+    if (this.indentForm.clientName && !validClients.includes(this.indentForm.clientName)) {
+      this.indentForm.clientName = '';
+      this.requestedMaterials = [];
+    }
+    this.cdr.markForCheck();
+  }
+
+  getClientBomCount(clientName: string): number {
+    if (!clientName) return 0;
+    const norm = clientName.toLowerCase().trim();
+    const proj = this.projectsList.find(p => 
+      (p.clientName || '').toLowerCase().trim() === norm ||
+      (p.siteId || '').toLowerCase().trim() === norm ||
+      norm.includes((p.siteId || '').toLowerCase().trim()) ||
+      norm.includes((p.clientName || '').toLowerCase().trim())
+    );
+    if (!proj || !proj.bomItems) return 0;
+    return this.parseBomItems(proj.bomItems).length;
+  }
+
+  isClientBomUpdated(): boolean {
+    if (!this.indentForm.clientName) return true;
+    return this.getClientBomCount(this.indentForm.clientName) > 0;
+  }
+
+  formatBomMaterialName(grp?: string, cat?: string, spec?: string): string {
+    const c = (cat || '').trim();
+    const s = (spec || '').trim();
+    const g = (grp || '').trim();
+    if (!s && !c) return g || 'Material';
+    if (!c || c.toLowerCase() === 'standard') return s || g;
+    if (!s) return c;
+    if (s.toLowerCase().startsWith(c.toLowerCase())) return s;
+    return `${c} ${s}`;
+  }
+
+  cleanMaterialName(name?: string): string {
+    if (!name) return '';
+    let cleaned = name;
+    const masterGroups = this.getAvailableMaterialGroups();
+    for (const g of masterGroups) {
+      const regex = new RegExp(`^${g}\\s*-\\s*`, 'i');
+      cleaned = cleaned.replace(regex, '').trim();
+    }
+    return cleaned;
+  }
+
   get filteredClientOptions(): string[] {
+    const pool = this.getClientsForSelectedEngineer();
     const q = (this.indentForm.clientName || '').toLowerCase().trim();
-    if (!q) return this.clientOptions;
-    return this.clientOptions.filter(c => c.toLowerCase().includes(q));
+    if (!q) return pool;
+    return pool.filter(c => c.toLowerCase().includes(q));
   }
 
   openClientDropdown(): void {
@@ -101,12 +186,25 @@ export class IndentComponent implements OnInit {
   selectClient(clientName: string): void {
     this.indentForm.clientName = clientName;
     this.clientDropdownOpen = false;
+
+    const proj = this.getSelectedProject();
+    if (proj?.orderBy && (!this.indentForm.siteEngineer || !this.matchesEngineer(proj.orderBy, this.indentForm.siteEngineer))) {
+      this.indentForm.siteEngineer = proj.orderBy;
+      this.updateClientOptions();
+    }
+
+    if (this.hasProjectBomItems()) {
+      this.populateFromProjectBom(false);
+    } else {
+      this.requestedMaterials = [];
+    }
     this.cdr.markForCheck();
   }
 
   clearClientSelection(): void {
     this.indentForm.clientName = '';
     this.clientDropdownOpen = true;
+    this.requestedMaterials = [];
     this.cdr.markForCheck();
   }
 
@@ -123,6 +221,15 @@ export class IndentComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data?.items?.length > 0) {
           this.stockMaterialOptions = Array.from(new Set([...res.data.items, ...this.stockMaterialOptions]));
+          this.cdr.markForCheck();
+        }
+      }
+    });
+
+    this.masterListService.getList('UOM measurements').subscribe({
+      next: (res) => {
+        if (res.success && res.data?.items?.length > 0) {
+          this.unitOptions = res.data.items;
           this.cdr.markForCheck();
         }
       }
@@ -172,7 +279,7 @@ export class IndentComponent implements OnInit {
     return items.length > 0;
   }
 
-  populateFromProjectBom(): void {
+  populateFromProjectBom(notify: boolean = true): void {
     const proj = this.getSelectedProject();
     if (!proj || !proj.bomItems) return;
     const items = this.parseBomItems(proj.bomItems);
@@ -182,7 +289,7 @@ export class IndentComponent implements OnInit {
       const grp = b.materialGroup || '';
       const cat = b.categoryType || 'Standard';
       const spec = b.specification || '';
-      const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+      const autoName = this.formatBomMaterialName(grp, cat, spec);
       const plannedQty = parseFloat(b.plannedQty) || 1;
       const dispQty = parseFloat(b.dispatchedQty) || 0;
       const remainingQty = Math.max(1, plannedQty - dispQty);
@@ -197,7 +304,9 @@ export class IndentComponent implements OnInit {
         poWo: true
       };
     });
-    this.showToast(`Loaded ${items.length} materials from Project BOM.`, 'info');
+    if (notify) {
+      this.showToast(`Loaded ${items.length} materials from Project BOM.`, 'info');
+    }
     this.cdr.markForCheck();
   }
 
@@ -319,7 +428,7 @@ export class IndentComponent implements OnInit {
       }
     }
 
-    m.materialName = [grp, cat && cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp || 'Solar Component';
+    m.materialName = this.formatBomMaterialName(grp, cat, spec);
     this.cdr.markForCheck();
   }
 
@@ -330,11 +439,7 @@ export class IndentComponent implements OnInit {
         const itemsArr = this.parseBomItems(selectedProj.bomItems);
         if (itemsArr.length > 0) {
           const bomOpts = itemsArr.map(b => {
-            const grp = b.materialGroup || '';
-            const sub = b.categoryType || '';
-            const spec = b.specification || '';
-            const parts = [grp, sub, spec].filter(Boolean);
-            return parts.join(' - ') || grp || spec;
+            return this.formatBomMaterialName(b.materialGroup, b.categoryType, b.specification);
           });
           return Array.from(new Set(bomOpts));
         }
@@ -348,8 +453,11 @@ export class IndentComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data?.length > 0) {
           this.projectsList = res.data;
-          const names = res.data.map(p => p.clientName).filter(Boolean);
-          this.clientOptions = Array.from(new Set(names));
+          const distinctProjectEngineers = Array.from(new Set(res.data.map(p => p.orderBy).filter(Boolean))) as string[];
+          if (distinctProjectEngineers.length > 0) {
+            this.engineers = Array.from(new Set([...distinctProjectEngineers, ...this.engineers]));
+          }
+          this.updateClientOptions();
           this.cdr.markForCheck();
         }
       }
@@ -455,7 +563,7 @@ export class IndentComponent implements OnInit {
     const cat = types[0] || 'Standard';
     const specs = this.getAvailableSpecs(grp, cat);
     const spec = specs[0] || '';
-    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+    const autoName = this.formatBomMaterialName(grp, cat, spec);
 
     const row: IndentMaterial = {
       materialName: autoName,
@@ -534,7 +642,7 @@ export class IndentComponent implements OnInit {
     const cat = types[0] || 'Standard';
     const specs = this.getAvailableSpecs(grp, cat);
     const spec = specs[0] || '';
-    const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp;
+    const autoName = this.formatBomMaterialName(grp, cat, spec);
 
     const row: IndentMaterial = {
       materialName: autoName,
@@ -557,6 +665,11 @@ export class IndentComponent implements OnInit {
   saveIndent(): void {
     if (!this.indentForm.clientName?.trim()) {
       this.showToast('Client Name is required.', 'danger');
+      return;
+    }
+
+    if (this.indentForm.clientName && !this.isClientBomUpdated()) {
+      this.showToast(`Cannot save indent: BOM is not updated for ${this.indentForm.clientName} in Awarded Sites. Please update BOM in Project Master first.`, 'danger');
       return;
     }
 
@@ -688,7 +801,7 @@ export class IndentComponent implements OnInit {
 
     const body = list.map((ind, idx) => {
       const matSummary = (ind.materials || [])
-        .map(m => `${m.materialName} (${m.quantity} ${m.unit}) [${m.status || 'Ready'}]`)
+        .map(m => `${this.cleanMaterialName(m.materialName)} (${m.quantity} ${m.unit}) [${m.status || 'Ready'}]`)
         .join('\n');
       return [
         idx + 1,
@@ -713,6 +826,98 @@ export class IndentComponent implements OnInit {
     this.showToast('Material Indents PDF exported successfully!', 'success');
   }
 
+  exportCurrentIndentPdf(): void {
+    if (this.requestedMaterials && this.requestedMaterials.length > 0) {
+      this.exportSingleIndentPdf(this.indentForm, this.requestedMaterials);
+    } else if (this.isEditMode && this.indentForm?.indentNo) {
+      const match = this.indents.find(i => i.indentNo === this.indentForm.indentNo);
+      this.exportSingleIndentPdf(this.indentForm, match?.materials || []);
+    } else {
+      this.exportIndentPdf();
+    }
+  }
+
+  exportSingleIndentPdf(ind: Partial<Indent>, materials: IndentMaterial[]): void {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = 210;
+    const margin = 14;
+
+    // Header Banner
+    doc.setFillColor(15, 118, 110); // Teal brand
+    doc.rect(0, 0, pageWidth, 26, 'F');
+    doc.setFillColor(245, 158, 11); // Amber accent
+    doc.rect(0, 26, pageWidth, 1.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(255, 255, 255);
+    doc.text('SOLAR SATHLOKHAR', margin, 11);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(204, 251, 241);
+    doc.text('MATERIAL INDENT & PROCUREMENT STATEMENT', margin, 17);
+
+    doc.setFontSize(7.5);
+    doc.text(`Indent Ref: ${ind.indentNo || 'INDENT'}   |   Date: ${this.formatDate(ind.indentDate)}   |   Generated: ${new Date().toLocaleString('en-IN')}`, margin, 22);
+
+    let currentY = 34;
+
+    const overviewData = [
+      ['Indent Number:', ind.indentNo || '—', 'Indent Date:', this.formatDate(ind.indentDate)],
+      ['Client / Site Name:', ind.clientName || '—', 'Site Engineer:', ind.siteEngineer || '—'],
+      ['Total Items:', `${materials.length} Requested Item(s)`, 'Generated:', new Date().toLocaleDateString('en-IN')]
+    ];
+
+    autoTable(doc, {
+      body: overviewData,
+      startY: currentY,
+      theme: 'plain',
+      styles: { fontSize: 8.5, cellPadding: 2.2 },
+      columnStyles: {
+        0: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 35 },
+        1: { fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 70 },
+        2: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 30 },
+        3: { textColor: [51, 65, 85], cellWidth: 55 }
+      }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 6;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(15, 118, 110);
+    doc.text('Requested Materials & Specifications', margin, currentY);
+    currentY += 4;
+
+    const headers = [
+      ['#', 'Material Group / Specification', 'Category', 'Quantity', 'Unit', 'Status', 'PO/WO']
+    ];
+
+    const body = (materials.length > 0 ? materials : [{ materialName: 'No materials listed', quantity: 0, unit: '-', status: '-' } as any]).map((m, idx) => [
+      idx + 1,
+      this.cleanMaterialName(m.materialName) || [m.materialGroup, m.specification].filter(Boolean).join(' - ') || '—',
+      m.categoryType || 'Standard',
+      m.quantity || 0,
+      m.unit || 'Nos',
+      m.status || 'Ready to issue',
+      m.poWo ? 'PO/WO' : 'Direct'
+    ]);
+
+    autoTable(doc, {
+      head: headers,
+      body: body,
+      startY: currentY,
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+
+    const safeRef = (ind.indentNo || 'IND').replace(/[^a-zA-Z0-9_-]/g, '_');
+    doc.save(`Indent_Statement_${safeRef}_${new Date().toISOString().substring(0, 10)}.pdf`);
+    this.showToast(`Indent Statement PDF for ${ind.indentNo || 'Indent'} exported successfully!`, 'success');
+  }
+
   exportToExcel(): void {
     const list = this.filteredIndents;
     if (list.length === 0) return;
@@ -723,7 +928,7 @@ export class IndentComponent implements OnInit {
       `"${this.formatDate(ind.indentDate)}"`,
       `"${ind.siteEngineer || ''}"`,
       `"${ind.clientName || ''}"`,
-      `"${(ind.materials || []).map(m => m.materialName + ' (' + m.quantity + ' ' + m.unit + ')').join('; ')}"`
+      `"${(ind.materials || []).map(m => this.cleanMaterialName(m.materialName) + ' (' + m.quantity + ' ' + m.unit + ')').join('; ')}"`
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);

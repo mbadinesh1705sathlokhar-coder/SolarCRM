@@ -571,10 +571,11 @@
 
               <div class="col-md-4">
                 <label class="form-label small fw-bold">Lead by (Sales)</label>
-                <input type="text" class="form-control shadow-none" [(ngModel)]="projectForm.leadBy" name="leadBy" list="pmSalesLeadByList" placeholder="e.g. Renuka / Daya">
-                <datalist id="pmSalesLeadByList">
-                  <option *ngFor="let opt of salesTeamOptions" [value]="opt"></option>
-                </datalist>
+                <select class="form-select shadow-none" [(ngModel)]="projectForm.leadBy" name="leadBy">
+                  <option value="">-- Select Sales Lead --</option>
+                  <option *ngFor="let opt of salesTeamOptions" [value]="opt">{{ opt }}</option>
+                  <option *ngIf="projectForm.leadBy && !salesTeamOptions.includes(projectForm.leadBy)" [value]="projectForm.leadBy">{{ projectForm.leadBy }}</option>
+                </select>
               </div>
             </div>
 
@@ -1052,7 +1053,7 @@
                           <select class="form-select form-select-sm font-semibold text-dark" 
                                   style="min-width: 210px;"
                                   [(ngModel)]="item.specification" 
-                                  (change)="recalculateBomItem(item)" 
+                                  (change)="onSpecificationChange(item)" 
                                   name="spec_{{i}}">
                             <option value="">-- Select Specification --</option>
                             <option *ngFor="let s of getAvailableSpecsForType(item.materialGroup, item.categoryType || '')" [value]="s">
@@ -1068,6 +1069,7 @@
                         <td (click)="$event.stopPropagation()">
                           <select class="form-select form-select-sm px-1 text-center" style="width: 65px;" [(ngModel)]="item.uom" name="uom_{{i}}">
                             <option *ngFor="let u of uomOptions" [value]="u">{{ u }}</option>
+                            <option *ngIf="item.uom && !uomOptions.includes(item.uom)" [value]="item.uom">{{ item.uom }}</option>
                           </select>
                         </td>
 

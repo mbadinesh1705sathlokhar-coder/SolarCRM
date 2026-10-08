@@ -1,4 +1,4 @@
-const { Indent, IndentMaterial, WarehouseMaterial, GatePass, GatePassItem, CartItem } = require('../models/Inventory');
+const { Indent, IndentMaterial, WarehouseMaterial, GatePass, GatePassItem, Inward, InwardItem, CartItem } = require('../models/Inventory');
 const { SiteExpenseLedger } = require('../models/SiteExpenseLedger');
 const { ProjectMaster } = require('../models/ProjectMaster');
 const { Op } = require('sequelize');
@@ -470,6 +470,109 @@ async function restoreWarehouseStock(items) {
     }
 }
 
+async function addWarehouseStock(items) {
+    if (!Array.isArray(items) || items.length === 0) return;
+    for (const it of items) {
+        const name = (it.materialName || '').trim();
+        const grp = (it.materialGroup || '').trim();
+        const cat = (it.categoryType || '').trim();
+        const spec = (it.specification || '').trim();
+        const unit = (it.unit || 'Nos').trim();
+        const qty = parseFloat(it.quantity) || 0;
+        if ((!name && !spec) || qty <= 0) continue;
+
+        let mat = null;
+        if (grp && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    materialGroup: grp,
+                    specification: spec
+                }
+            });
+        }
+        if (!mat && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    specification: spec
+                }
+            });
+        }
+        if (!mat && name) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    materialName: { [Op.like]: name }
+                }
+            });
+        }
+        if (mat) {
+            const currentStock = parseFloat(mat.inStock) || 0;
+            const newStock = currentStock + qty;
+            const autoStatus = computeWarehouseStockStatus(mat.materialName, mat.unit || unit, newStock);
+            await mat.update({
+                inStock: newStock,
+                status: autoStatus
+            });
+        } else {
+            // Material doesn't exist yet in warehouse stock, auto-create it!
+            const autoName = name || [grp, cat, spec].filter(Boolean).join(' - ') || 'Material';
+            const autoStatus = computeWarehouseStockStatus(autoName, unit, qty);
+            await WarehouseMaterial.create({
+                materialName: autoName,
+                materialGroup: grp || null,
+                categoryType: cat || null,
+                specification: spec || null,
+                unit: unit || 'Nos',
+                inStock: qty,
+                status: autoStatus
+            });
+        }
+    }
+}
+
+async function revertInwardWarehouseStock(items) {
+    if (!Array.isArray(items) || items.length === 0) return;
+    for (const it of items) {
+        const name = (it.materialName || '').trim();
+        const grp = (it.materialGroup || '').trim();
+        const spec = (it.specification || '').trim();
+        const qty = parseFloat(it.quantity) || 0;
+        if ((!name && !spec) || qty <= 0) continue;
+
+        let mat = null;
+        if (grp && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    materialGroup: grp,
+                    specification: spec
+                }
+            });
+        }
+        if (!mat && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    specification: spec
+                }
+            });
+        }
+        if (!mat && name) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    materialName: { [Op.like]: name }
+                }
+            });
+        }
+        if (mat) {
+            const currentStock = parseFloat(mat.inStock) || 0;
+            const newStock = Math.max(0, currentStock - qty);
+            const autoStatus = computeWarehouseStockStatus(mat.materialName, mat.unit, newStock);
+            await mat.update({
+                inStock: newStock,
+                status: autoStatus
+            });
+        }
+    }
+}
+
 async function syncGatePassToExpensesAndBom(gatePass, items) {
     try {
         if (!gatePass || !gatePass.clientName) return;
@@ -638,7 +741,7 @@ async function removeGatePassExpensesAndRestoreStock(gatePass) {
 
 async function createGatePass(req, res) {
     try {
-        let { gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, transportCost } = req.body;
+        let { gatePassNo, gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, transportCost } = req.body;
         if (!clientName || !clientName.trim()) {
             return res.status(400).json({ success: false, message: 'Client name is required.' });
         }
@@ -669,6 +772,7 @@ async function createGatePass(req, res) {
         }
 
         const created = await GatePass.create({
+            gatePassNo: gatePassNo ? gatePassNo.trim() : null,
             gatePassDate: gatePassDate || new Date().toISOString().substring(0, 10),
             descriptions: descriptions.trim(),
             unit: unit || 'Nos',
@@ -729,7 +833,7 @@ async function createGatePass(req, res) {
 async function updateGatePass(req, res) {
     try {
         const { id } = req.params;
-        let { gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, totalAmount, transportCost } = req.body;
+        let { gatePassNo, gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, totalAmount, transportCost } = req.body;
         const pass = await GatePass.findByPk(id, {
             include: [{ model: GatePassItem, as: 'items' }]
         });
@@ -760,6 +864,7 @@ async function updateGatePass(req, res) {
         }
 
         await pass.update({
+            gatePassNo: gatePassNo !== undefined ? (gatePassNo ? gatePassNo.trim() : null) : pass.gatePassNo,
             gatePassDate: gatePassDate || pass.gatePassDate,
             descriptions: descriptions !== undefined ? descriptions.trim() : pass.descriptions,
             unit: unit !== undefined ? unit : pass.unit,
@@ -842,7 +947,223 @@ async function deleteGatePass(req, res) {
 }
 
 // ==========================================
-// 4. CART ITEMS CONTROLLER (Screenshot 2)
+// 4. INWARD CONTROLLER (Inward Stock Addition)
+// ==========================================
+async function getAllInwards(req, res) {
+    try {
+        const inwards = await Inward.findAll({
+            include: [{ model: InwardItem, as: 'items' }],
+            order: [['inwardDate', 'DESC'], ['id', 'DESC']]
+        });
+        res.json({ success: true, data: inwards });
+    } catch (err) {
+        console.error('Error fetching inwards:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch inward entries' });
+    }
+}
+
+async function createInward(req, res) {
+    try {
+        let { inwardNo, inwardDate, descriptions, unit, quantity, supplierName, clientName, receivedBy, siteEngineer, remarks, items, transportCost } = req.body;
+        
+        const finalSupplier = (supplierName || clientName || '').trim();
+        const finalReceiver = (receivedBy || siteEngineer || 'Soundarajan').trim();
+        const parsedTransportCost = transportCost !== undefined ? (parseFloat(transportCost) || 0) : 0;
+
+        let calculatedTotalAmount = 0;
+        if (Array.isArray(items) && items.length > 0) {
+            descriptions = items.map(m => m.materialName || 'Material').join(', ');
+            quantity = items.reduce((sum, m) => sum + (parseFloat(m.quantity) || 0), 0);
+            unit = items.length === 1 ? (items[0].unit || 'Nos') : `${items.length} Items`;
+            calculatedTotalAmount = items.reduce((sum, m) => {
+                const q = parseFloat(m.quantity) || 0;
+                const r = parseFloat(m.rate) || 0;
+                const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                return sum + a;
+            }, 0);
+        } else if (req.body.totalAmount !== undefined) {
+            calculatedTotalAmount = parseFloat(req.body.totalAmount) || 0;
+        }
+
+        calculatedTotalAmount += parsedTransportCost;
+
+        if (!descriptions || !descriptions.trim()) {
+            descriptions = 'Inward Material';
+        }
+
+        const created = await Inward.create({
+            inwardNo: inwardNo ? inwardNo.trim() : null,
+            inwardDate: inwardDate || new Date().toISOString().substring(0, 10),
+            descriptions: descriptions.trim(),
+            unit: unit || 'Nos',
+            quantity: parseFloat(quantity) || 1,
+            supplierName: finalSupplier,
+            receivedBy: finalReceiver,
+            remarks: remarks ? remarks.trim() : '',
+            totalAmount: calculatedTotalAmount,
+            transportCost: parsedTransportCost
+        });
+
+        if (Array.isArray(items) && items.length > 0) {
+            const itemRecords = items.map(m => {
+                const q = parseFloat(m.quantity) || 0;
+                const r = parseFloat(m.rate) || 0;
+                const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                const grp = (m.materialGroup || '').trim();
+                const cat = (m.categoryType || '').trim();
+                const spec = (m.specification || '').trim();
+                const autoName = [grp, cat, spec].filter(Boolean).join(' - ');
+                return {
+                    inwardId: created.id,
+                    inwardDate: m.inwardDate || inwardDate || new Date().toISOString().substring(0, 10),
+                    materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
+                    materialGroup: grp || null,
+                    categoryType: cat || null,
+                    specification: spec || null,
+                    quantity: q,
+                    unit: m.unit || 'Nos',
+                    rate: r,
+                    vendorName: (m.vendorName || finalSupplier || '').trim(),
+                    amount: a
+                };
+            });
+            await InwardItem.bulkCreate(itemRecords);
+        }
+
+        // Automatically ADD to Warehouse stock! (+)
+        if (Array.isArray(items) && items.length > 0) {
+            await addWarehouseStock(items);
+        }
+
+        const full = await Inward.findByPk(created.id, {
+            include: [{ model: InwardItem, as: 'items' }]
+        });
+
+        res.status(201).json({ success: true, data: full });
+    } catch (err) {
+        console.error('Error creating inward:', err);
+        res.status(500).json({ success: false, message: 'Failed to create inward record', error: err.message });
+    }
+}
+
+async function updateInward(req, res) {
+    try {
+        const { id } = req.params;
+        let { inwardNo, inwardDate, descriptions, unit, quantity, supplierName, clientName, receivedBy, siteEngineer, remarks, items, totalAmount, transportCost } = req.body;
+        
+        const existing = await Inward.findByPk(id, {
+            include: [{ model: InwardItem, as: 'items' }]
+        });
+        if (!existing) {
+            return res.status(404).json({ success: false, message: 'Inward entry not found' });
+        }
+
+        // 1. Revert previous stock (-)
+        if (existing.items && existing.items.length > 0) {
+            await revertInwardWarehouseStock(existing.items);
+        }
+
+        const finalSupplier = supplierName !== undefined ? supplierName.trim() : (clientName !== undefined ? clientName.trim() : existing.supplierName);
+        const finalReceiver = receivedBy !== undefined ? receivedBy.trim() : (siteEngineer !== undefined ? siteEngineer.trim() : existing.receivedBy);
+        const parsedTransportCost = transportCost !== undefined ? (parseFloat(transportCost) || 0) : (existing.transportCost || 0);
+
+        let calculatedTotalAmount = totalAmount !== undefined ? parseFloat(totalAmount) || 0 : (existing.totalAmount || 0);
+        if (Array.isArray(items) && items.length > 0) {
+            descriptions = items.map(m => m.materialName || 'Material').join(', ');
+            quantity = items.reduce((sum, m) => sum + (parseFloat(m.quantity) || 0), 0);
+            unit = items.length === 1 ? (items[0].unit || 'Nos') : `${items.length} Items`;
+            calculatedTotalAmount = items.reduce((sum, m) => {
+                const q = parseFloat(m.quantity) || 0;
+                const r = parseFloat(m.rate) || 0;
+                const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                return sum + a;
+            }, 0);
+            calculatedTotalAmount += parsedTransportCost;
+        }
+
+        await existing.update({
+            inwardNo: inwardNo !== undefined ? (inwardNo ? inwardNo.trim() : null) : existing.inwardNo,
+            inwardDate: inwardDate || existing.inwardDate,
+            descriptions: descriptions !== undefined ? descriptions.trim() : existing.descriptions,
+            unit: unit !== undefined ? unit : existing.unit,
+            quantity: quantity !== undefined ? parseFloat(quantity) || existing.quantity : existing.quantity,
+            supplierName: finalSupplier,
+            receivedBy: finalReceiver,
+            remarks: remarks !== undefined ? (remarks ? remarks.trim() : '') : existing.remarks,
+            totalAmount: calculatedTotalAmount,
+            transportCost: parsedTransportCost
+        });
+
+        if (Array.isArray(items)) {
+            await InwardItem.destroy({ where: { inwardId: id } });
+            if (items.length > 0) {
+                const itemRecords = items.map(m => {
+                    const q = parseFloat(m.quantity) || 0;
+                    const r = parseFloat(m.rate) || 0;
+                    const a = m.amount !== undefined ? (parseFloat(m.amount) || 0) : (q * r);
+                    const grp = (m.materialGroup || '').trim();
+                    const cat = (m.categoryType || '').trim();
+                    const spec = (m.specification || '').trim();
+                    const autoName = [grp, cat, spec].filter(Boolean).join(' - ');
+                    return {
+                        inwardId: id,
+                        inwardDate: m.inwardDate || existing.inwardDate || new Date().toISOString().substring(0, 10),
+                        materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
+                        materialGroup: grp || null,
+                        categoryType: cat || null,
+                        specification: spec || null,
+                        quantity: q,
+                        unit: m.unit || 'Nos',
+                        rate: r,
+                        vendorName: (m.vendorName || finalSupplier || '').trim(),
+                        amount: a
+                    };
+                });
+                await InwardItem.bulkCreate(itemRecords);
+            }
+        }
+
+        // 2. Add new updated stock (+)
+        if (Array.isArray(items) && items.length > 0) {
+            await addWarehouseStock(items);
+        }
+
+        const full = await Inward.findByPk(id, {
+            include: [{ model: InwardItem, as: 'items' }]
+        });
+
+        res.json({ success: true, data: full });
+    } catch (err) {
+        console.error('Error updating inward:', err);
+        res.status(500).json({ success: false, message: 'Failed to update inward record', error: err.message });
+    }
+}
+
+async function deleteInward(req, res) {
+    try {
+        const { id } = req.params;
+        const existing = await Inward.findByPk(id, {
+            include: [{ model: InwardItem, as: 'items' }]
+        });
+        if (!existing) {
+            return res.status(404).json({ success: false, message: 'Inward entry not found' });
+        }
+
+        // Revert added stock (-)
+        if (existing.items && existing.items.length > 0) {
+            await revertInwardWarehouseStock(existing.items);
+        }
+
+        await existing.destroy();
+        res.json({ success: true, message: 'Inward entry deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting inward:', err);
+        res.status(500).json({ success: false, message: 'Failed to delete inward entry' });
+    }
+}
+
+// ==========================================
+// 5. CART ITEMS CONTROLLER (Screenshot 2)
 // ==========================================
 async function getCartItems(req, res) {
     try {
@@ -1025,6 +1346,17 @@ async function deleteAllGatePasses(req, res) {
     }
 }
 
+async function deleteAllInwards(req, res) {
+    try {
+        await InwardItem.destroy({ where: {} });
+        await Inward.destroy({ where: {} });
+        res.json({ success: true, message: 'All inward entries cleared successfully' });
+    } catch (err) {
+        console.error('Error clearing inward records:', err);
+        res.status(500).json({ success: false, message: 'Failed to clear inward records' });
+    }
+}
+
 async function deleteAllCartItems(req, res) {
     try {
         await CartItem.destroy({ where: {} });
@@ -1036,11 +1368,16 @@ async function deleteAllCartItems(req, res) {
 }
 
 // ==========================================
-// 5. SEED DATA GENERATOR
+// 6. SEED DATA & SCHEMA GENERATOR
 // ==========================================
 async function seedInventoryIfEmpty() {
     try {
-        // Dummy inventory seeding disabled per user requirement: real world data to be entered
+        const { conDb } = require('../database/database');
+        try {
+            await conDb.query("ALTER TABLE inventory_gate_passes ADD COLUMN gate_pass_no VARCHAR(100) NULL AFTER id;");
+        } catch (e) {
+            // Column already exists or table alter not required
+        }
         return;
     } catch (err) {
         console.error('Error seeding Inventory module:', err);
@@ -1067,6 +1404,12 @@ module.exports = {
     updateGatePass,
     deleteGatePass,
     deleteAllGatePasses,
+    // Inward
+    getAllInwards,
+    createInward,
+    updateInward,
+    deleteInward,
+    deleteAllInwards,
     // Cart
     getCartItems,
     createCartItem,

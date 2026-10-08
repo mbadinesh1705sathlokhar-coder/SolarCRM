@@ -101,13 +101,13 @@ export class AuthService {
 
     // Engineers can always view inventory pages
     const resp = (user.responsibility || '').toLowerCase();
-    if (['indent', 'warehouse', 'gate-pass', 'cart'].includes(pageKey) && 
+    if (['indent', 'warehouse', 'inward', 'gate-pass', 'cart'].includes(pageKey) && 
         resp.includes('engineer')) {
       return true;
     }
 
     // Purchase employees can view inventory and finance pages
-    if (['indent', 'warehouse', 'gate-pass', 'cart', 'payment-ledger', 'expense-ledger', 'vendor-ledger', 'expo-expenses'].includes(pageKey) && 
+    if (['indent', 'warehouse', 'inward', 'gate-pass', 'cart', 'payment-ledger', 'expense-ledger', 'vendor-ledger', 'expo-expenses'].includes(pageKey) && 
         resp.includes('purchase')) {
       return true;
     }
@@ -140,6 +140,7 @@ export class AuthService {
       'site-plan': 'activity',
       'indent': 'inventory',
       'warehouse': 'inventory',
+      'inward': 'inventory',
       'gate-pass': 'inventory',
       'cart': 'inventory',
       'office-employees': 'office',
@@ -196,7 +197,7 @@ export class AuthService {
         sales: ['campaigns', 'leads', 'oppurtunities', 'awarded-sites', 'sales-dashboard'],
         finance: ['payment-ledger', 'expense-ledger', 'vendor-ledger', 'expo-expenses'],
         activity: ['meetings', 'calls', 'tasks', 'site-plan'],
-        inventory: ['indent', 'warehouse', 'gate-pass', 'cart'],
+        inventory: ['indent', 'warehouse', 'inward', 'gate-pass', 'cart'],
         office: ['office-employees', 'office-add-list']
       };
       const pages = moduleNavMap[module];
@@ -216,7 +217,7 @@ export class AuthService {
     const user = this.currentUser();
     if (!user) return false;
 
-    if (['warehouse', 'warehouse-expenses', 'indent', 'gate-pass', 'cart', 'inventory'].includes(target)) {
+    if (['warehouse', 'warehouse-expenses', 'indent', 'inward', 'gate-pass', 'cart', 'inventory'].includes(target)) {
       return true;
     }
 
@@ -250,6 +251,7 @@ export class AuthService {
       'site-plan': 'activity',
       'indent': 'inventory',
       'warehouse': 'inventory',
+      'inward': 'inventory',
       'gate-pass': 'inventory',
       'cart': 'inventory'
     };
@@ -265,7 +267,7 @@ export class AuthService {
     const user = this.currentUser();
     if (!user) return false;
 
-    if (['warehouse', 'warehouse-expenses', 'indent', 'gate-pass', 'cart', 'inventory'].includes(target)) {
+    if (['warehouse', 'warehouse-expenses', 'indent', 'inward', 'gate-pass', 'cart', 'inventory'].includes(target)) {
       return true;
     }
 
@@ -299,6 +301,7 @@ export class AuthService {
       'site-plan': 'activity',
       'indent': 'inventory',
       'warehouse': 'inventory',
+      'inward': 'inventory',
       'gate-pass': 'inventory',
       'cart': 'inventory'
     };
@@ -314,7 +317,7 @@ export class AuthService {
     const user = this.currentUser();
     if (!user) return false;
 
-    if (['warehouse', 'warehouse-expenses', 'indent', 'gate-pass', 'cart', 'inventory'].includes(target)) {
+    if (['warehouse', 'warehouse-expenses', 'indent', 'inward', 'gate-pass', 'cart', 'inventory'].includes(target)) {
       return true;
     }
 
@@ -348,6 +351,7 @@ export class AuthService {
       'site-plan': 'activity',
       'indent': 'inventory',
       'warehouse': 'inventory',
+      'inward': 'inventory',
       'gate-pass': 'inventory',
       'cart': 'inventory'
     };

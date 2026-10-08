@@ -786,6 +786,128 @@ export class WarehouseExpensesComponent implements OnInit {
     this.showToast('PDF downloaded successfully!', 'info');
   }
 
+  exportSingleExpensePdf(e: SiteExpense): void {
+    if (!e) return;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = 210;
+    const margin = 14;
+
+    // Header banner
+    doc.setFillColor(15, 23, 42); // Dark navy
+    doc.rect(0, 0, pageWidth, 26, 'F');
+    doc.setFillColor(37, 99, 235); // Blue accent line
+    doc.rect(0, 26, pageWidth, 1.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(255, 255, 255);
+    doc.text('SOLAR SATHLOKHAR', margin, 11);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(190, 205, 230);
+    doc.text('CENTRAL WAREHOUSE & INVENTORY MANAGEMENT', margin, 17);
+    doc.text('Facility: Sathlokhar H.O Central Store', margin, 22);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(255, 255, 255);
+    doc.text('EXPENSE VOUCHER', pageWidth - margin, 14, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(190, 205, 230);
+    doc.text(`Voucher ID: #WH-${e.id || 'NEW'}`, pageWidth - margin, 21, { align: 'right' });
+
+    // Voucher meta box
+    autoTable(doc, {
+      startY: 33,
+      head: [['VOUCHER INFORMATION', '']],
+      body: [
+        ['Voucher Date', this.toDisplayDate(e.expenseDate)],
+        ['PO / WO Number', e.referenceNo || '—'],
+        ['Invoice Number', e.invoiceNo || '—'],
+        ['Purpose / Material', e.purpose || 'Consumables'],
+        ['Vendor / Supplier', e.vendorName || '—'],
+        ['Payment Through', e.paymentThrough || 'P.O'],
+        ['Paid By', e.paidBy || 'OFFICE'],
+        ['Bill Voucher Status', e.billVoucher || 'Submitted'],
+        ['Remarks / Description', e.remarks || '—']
+      ],
+      theme: 'grid',
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 9
+      },
+      bodyStyles: {
+        fontSize: 9,
+        textColor: [30, 41, 59]
+      },
+      columnStyles: {
+        0: { cellWidth: 55, fontStyle: 'bold', fillColor: [248, 250, 252] },
+        1: { cellWidth: pageWidth - (margin * 2) - 55 }
+      },
+      margin: { left: margin, right: margin }
+    });
+
+    const finalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 8 : 120;
+
+    // Amount box
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(margin, finalY, pageWidth - (margin * 2), 22, 2, 2, 'F');
+    doc.setDrawColor(203, 213, 225);
+    doc.roundedRect(margin, finalY, pageWidth - (margin * 2), 22, 2, 2, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text('TOTAL EXPENSE AMOUNT:', margin + 6, finalY + 13);
+
+    doc.setFontSize(15);
+    doc.setTextColor(37, 99, 235);
+    const amtStr = `Rs. ${(Number(e.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    doc.text(amtStr, pageWidth - margin - 6, finalY + 14, { align: 'right' });
+
+    // Signature Area
+    const signY = finalY + 45;
+    doc.setDrawColor(148, 163, 184);
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(margin + 10, signY, margin + 65, signY);
+    doc.line(pageWidth - margin - 65, signY, pageWidth - margin - 10, signY);
+    doc.setLineDashPattern([], 0);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Prepared By / Store Keeper', margin + 37, signY + 5, { align: 'center' });
+    doc.text('Authorized Signatory', pageWidth - margin - 37, signY + 5, { align: 'center' });
+
+    doc.save(`Warehouse_Expense_Voucher_${e.referenceNo || e.invoiceNo || e.id || 'WH'}.pdf`);
+    this.showToast('Voucher PDF downloaded successfully!', 'info');
+  }
+
+  exportCurrentModalPdf(): void {
+    if (this.formData && this.formData.amount) {
+      const e: SiteExpense = {
+        id: this.editingId || undefined,
+        siteId: 'WAREHOUSE',
+        expenseDate: this.toIsoDate(this.formData.dateInput),
+        referenceNo: this.formData.referenceNo,
+        invoiceNo: this.formData.invoiceNo,
+        purpose: this.formData.purpose,
+        vendorName: this.formData.vendor,
+        paymentThrough: this.formData.paymentThrough,
+        paidBy: this.formData.paidBy,
+        amount: Number(this.formData.amount),
+        remarks: this.formData.remarks,
+        billVoucher: this.formData.billVoucher
+      } as SiteExpense;
+      this.exportSingleExpensePdf(e);
+    }
+  }
+
   exportToExcel(): void {
     if (!this.filteredExpenses || this.filteredExpenses.length === 0) {
       this.showToast('No records to export to Excel', 'danger');
