@@ -14,6 +14,32 @@ import { MasterListService } from '../../services/master-list.service';
 import { AuthService } from '../../services/auth.service';
 import { OfficeService } from '../../services/office.service';
 
+export interface BomGroupTheme {
+  bg: string;
+  headerBg: string;
+  rowBg: string;
+  border: string;
+  text: string;
+  badgeBg: string;
+  icon: string;
+}
+
+export interface BomSectionItem {
+  item: BomItem;
+  originalIndex: number;
+  subIndex: string;
+}
+
+export interface BomGroupSection {
+  groupIndex: number;
+  groupName: string;
+  theme: BomGroupTheme;
+  items: BomSectionItem[];
+  subtotalBase: number;
+  subtotalGst: number;
+  subtotalTotal: number;
+}
+
 interface FilterOption {
   label: string;
   selected: boolean;
@@ -557,7 +583,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     const act = Number(item.allocatedExpenseAmount) || 0;
     if (est > 0 && act > est) {
       const diff = act - est;
-      return `⚠️ Checkpoint Warning: Expenses (₹ ${act.toLocaleString('en-IN')}) exceed estimated BOM budget (₹ ${est.toLocaleString('en-IN')}) by ₹ ${diff.toLocaleString('en-IN')}!`;
+      return `⚠️ Checkpoint Warning: Expenses (${act.toLocaleString('en-IN')}) exceed estimated BOM budget (${est.toLocaleString('en-IN')}) by ${diff.toLocaleString('en-IN')}!`;
     }
     return '';
   }
@@ -569,7 +595,399 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     }
     const bill = item.invoiceRef.trim();
     const src = item.expenseSource || 'Warehouse';
-    this.showToast(`Tracking Bill ${bill} (${src}): Linked to client expense & PO/WO disbursements. Total allocated: ₹ ${(item.allocatedExpenseAmount || 0).toLocaleString('en-IN')}`, 'success');
+    this.showToast(`Tracking Bill ${bill} (${src}): Linked to client expense & PO/WO disbursements. Total allocated: ${(item.allocatedExpenseAmount || 0).toLocaleString('en-IN')}`, 'success');
+  }
+
+  selectedGroupToAdd: string = '';
+
+  get availableMaterialGroupNames(): string[] {
+    const names = new Set<string>();
+    if (this.bomMaterialsMasterList) {
+      this.bomMaterialsMasterList.forEach(b => {
+        if (b.groupName && b.groupName.trim()) names.add(b.groupName.trim());
+      });
+    }
+    if (this.materialGroupsList) {
+      this.materialGroupsList.forEach(m => {
+        if (m.group && m.group.trim()) names.add(m.group.trim());
+      });
+    }
+    return Array.from(names);
+  }
+
+  getGroupMasterItemsCount(groupName: string): number {
+    const norm = (groupName || '').toLowerCase().trim();
+    const count = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === norm).length;
+    if (count > 0) return count;
+    const mg = this.materialGroupsList.find(m => m.group.toLowerCase().trim() === norm);
+    return mg?.specifications?.length || 0;
+  }
+
+  getGroupDefaultUom(groupName: string): string {
+    const norm = (groupName || '').toLowerCase().trim();
+    const match = this.bomMaterialsMasterList.find(b => (b.groupName || '').toLowerCase().trim() === norm && b.defaultUom);
+    if (match && match.defaultUom) return match.defaultUom;
+    const grpMatch = this.materialGroupsList.find(m => m.group.toLowerCase().trim() === norm);
+    if (grpMatch && grpMatch.defaultUom) return grpMatch.defaultUom;
+    if (norm.includes('cable') || norm.includes('wire')) return 'Meter';
+    return 'Nos';
+  }
+
+  getGroupTheme(groupName: string): BomGroupTheme {
+    const norm = (groupName || '').toLowerCase().trim();
+    if (norm.includes('cable') || norm.includes('wire')) {
+      return {
+        bg: '#f0f9ff',
+        headerBg: '#e0f2fe',
+        rowBg: '#f8fafc',
+        border: '#0284c7',
+        text: '#0369a1',
+        badgeBg: '#0284c7',
+        icon: 'bi-plugin'
+      };
+    }
+    if (norm.includes('panel')) {
+      return {
+        bg: '#fffbeb',
+        headerBg: '#fef3c7',
+        rowBg: '#fffdf5',
+        border: '#d97706',
+        text: '#92400e',
+        badgeBg: '#d97706',
+        icon: 'bi-sun'
+      };
+    }
+    if (norm.includes('inverter')) {
+      return {
+        bg: '#f0fdfa',
+        headerBg: '#ccfbf1',
+        rowBg: '#f6fdfc',
+        border: '#0d9488',
+        text: '#0f766e',
+        badgeBg: '#0d9488',
+        icon: 'bi-cpu'
+      };
+    }
+    if (norm.includes('structure') || norm.includes('mounting')) {
+      return {
+        bg: '#f5f3ff',
+        headerBg: '#ede9fe',
+        rowBg: '#faf8ff',
+        border: '#7c3aed',
+        text: '#5b21b6',
+        badgeBg: '#7c3aed',
+        icon: 'bi-grid-3x3'
+      };
+    }
+    if (norm.includes('earthing') || norm.includes('earth')) {
+      return {
+        bg: '#f0fdf4',
+        headerBg: '#dcfce7',
+        rowBg: '#f7fee7',
+        border: '#16a34a',
+        text: '#166534',
+        badgeBg: '#16a34a',
+        icon: 'bi-shield-check'
+      };
+    }
+    if (norm.includes('consumable')) {
+      return {
+        bg: '#fff1f2',
+        headerBg: '#ffe4e6',
+        rowBg: '#fff5f6',
+        border: '#e11d48',
+        text: '#9f1239',
+        badgeBg: '#e11d48',
+        icon: 'bi-tools'
+      };
+    }
+    if (norm.includes('tata') || norm.includes('spg')) {
+      return {
+        bg: '#eef2ff',
+        headerBg: '#e0e7ff',
+        rowBg: '#f8f9ff',
+        border: '#4f46e5',
+        text: '#3730a3',
+        badgeBg: '#4f46e5',
+        icon: 'bi-box-seam'
+      };
+    }
+    if (norm.includes('waree') || norm.includes('waaree')) {
+      return {
+        bg: '#fff7ed',
+        headerBg: '#ffedd5',
+        rowBg: '#fffaf5',
+        border: '#ea580c',
+        text: '#9a3412',
+        badgeBg: '#ea580c',
+        icon: 'bi-sun-fill'
+      };
+    }
+    if (norm.includes('civil')) {
+      return {
+        bg: '#f8fafc',
+        headerBg: '#f1f5f9',
+        rowBg: '#fafbfc',
+        border: '#64748b',
+        text: '#334155',
+        badgeBg: '#64748b',
+        icon: 'bi-hammer'
+      };
+    }
+    if (norm.includes('box') || norm.includes('db')) {
+      return {
+        bg: '#fefce8',
+        headerBg: '#fef9c3',
+        rowBg: '#fefdf0',
+        border: '#ca8a04',
+        text: '#713f12',
+        badgeBg: '#ca8a04',
+        icon: 'bi-inbox'
+      };
+    }
+    if (norm.includes('installation') || norm.includes('commissioning')) {
+      return {
+        bg: '#fdf4ff',
+        headerBg: '#fae8ff',
+        rowBg: '#fdf8ff',
+        border: '#c026d3',
+        text: '#701a75',
+        badgeBg: '#c026d3',
+        icon: 'bi-gear-wide-connected'
+      };
+    }
+    return {
+      bg: '#f8fafc',
+      headerBg: '#f1f5f9',
+      rowBg: '#ffffff',
+      border: '#475569',
+      text: '#1e293b',
+      badgeBg: '#475569',
+      icon: 'bi-boxes'
+    };
+  }
+
+  get groupedBomSections(): BomGroupSection[] {
+    if (!this.formBomItems || this.formBomItems.length === 0) return [];
+
+    const groupMap = new Map<string, { item: BomItem; originalIndex: number }[]>();
+    this.formBomItems.forEach((item, index) => {
+      const grp = (item.materialGroup || '').trim() || 'Custom / Unassigned';
+      if (!groupMap.has(grp)) {
+        groupMap.set(grp, []);
+      }
+      groupMap.get(grp)!.push({ item, originalIndex: index });
+    });
+
+    const sections: BomGroupSection[] = [];
+    let grpIdx = 1;
+
+    for (const [groupName, itemsWithIdx] of groupMap.entries()) {
+      const sectionItems: BomSectionItem[] = itemsWithIdx.map((entry, subIdx) => ({
+        item: entry.item,
+        originalIndex: entry.originalIndex,
+        subIndex: `${grpIdx}.${subIdx + 1}`
+      }));
+
+      const subtotalBase = sectionItems.reduce((acc, it) => acc + (Number(it.item.estimatedTotalCost) || 0), 0);
+      const subtotalGst = sectionItems.reduce((acc, it) => acc + (Number(it.item.gstAmount) || 0), 0);
+      const subtotalTotal = sectionItems.reduce((acc, it) => acc + (Number(it.item.estAmount !== undefined ? it.item.estAmount : ((Number(it.item.estimatedTotalCost) || 0) + (Number(it.item.gstAmount) || 0))) || 0), 0);
+
+      sections.push({
+        groupIndex: grpIdx,
+        groupName: groupName,
+        theme: this.getGroupTheme(groupName),
+        items: sectionItems,
+        subtotalBase,
+        subtotalGst,
+        subtotalTotal
+      });
+      grpIdx++;
+    }
+
+    return sections;
+  }
+
+  addMaterialGroupToBom(groupName: string): void {
+    if (!groupName) return;
+    const normGrp = groupName.toLowerCase().trim();
+
+    let masterItems = this.bomMaterialsMasterList.filter(b =>
+      (b.groupName || '').toLowerCase().trim() === normGrp
+    );
+
+    if (masterItems.length === 0) {
+      const mg = this.materialGroupsList.find(m => m.group.toLowerCase().trim() === normGrp);
+      if (mg && mg.specifications) {
+        masterItems = mg.specifications.map(s => ({
+          groupName: mg.group,
+          categoryType: 'Standard',
+          specification: s,
+          defaultUom: mg.defaultUom || 'Nos',
+          unitRate: 0,
+          gstPercent: this.getDefaultGstForGroup(mg.group)
+        }));
+      }
+    }
+
+    if (masterItems.length === 0) {
+      this.showToast(`No items configured for ${groupName} in AddList.`, 'info');
+      return;
+    }
+
+    let addedCount = 0;
+    masterItems.forEach(it => {
+      const exists = this.formBomItems.some(b =>
+        (b.materialGroup || '').toLowerCase().trim() === normGrp &&
+        (b.categoryType || '').toLowerCase().trim() === (it.categoryType || 'Standard').toLowerCase().trim() &&
+        (b.specification || '').toLowerCase().trim() === (it.specification || '').toLowerCase().trim()
+      );
+
+      if (!exists) {
+        const newItem: BomItem = {
+          id: 'bom-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+          materialGroup: it.groupName || groupName,
+          categoryType: it.categoryType || 'Standard',
+          specification: it.specification || '',
+          uom: it.defaultUom || this.getGroupDefaultUom(groupName),
+          plannedQty: 0,
+          unitRate: Number(it.unitRate) || 0,
+          estimatedTotalCost: 0,
+          gstPercent: it.gstPercent !== undefined && it.gstPercent !== null ? Number(it.gstPercent) : this.getDefaultGstForGroup(groupName),
+          gstAmount: 0,
+          estAmount: 0,
+          allocatedExpenseAmount: 0,
+          expenseSource: 'PO',
+          invoiceRef: '',
+          warehouseUnitsDrawn: 0,
+          isDispatched: false,
+          dispatchedQty: 0,
+          dispatchDate: '',
+          remarks: ''
+        };
+        this.recalculateBomItem(newItem);
+        this.formBomItems.push(newItem);
+        addedCount++;
+      }
+    });
+
+    if (addedCount > 0) {
+      this.showToast(`Added ${addedCount} item(s) for ${groupName} from AddList into BOM!`, 'success');
+    } else {
+      this.showToast(`All ${masterItems.length} items for ${groupName} from AddList are already in the BOM.`, 'info');
+    }
+    this.selectedGroupToAdd = '';
+    this.cdr.markForCheck();
+  }
+
+  addAllGroupsFromMaster(): void {
+    const groups = this.availableMaterialGroupNames;
+    let totalAdded = 0;
+    groups.forEach(grp => {
+      const normGrp = grp.toLowerCase().trim();
+      const masterItems = this.bomMaterialsMasterList.filter(b =>
+        (b.groupName || '').toLowerCase().trim() === normGrp
+      );
+      masterItems.forEach(it => {
+        const exists = this.formBomItems.some(b =>
+          (b.materialGroup || '').toLowerCase().trim() === normGrp &&
+          (b.categoryType || '').toLowerCase().trim() === (it.categoryType || 'Standard').toLowerCase().trim() &&
+          (b.specification || '').toLowerCase().trim() === (it.specification || '').toLowerCase().trim()
+        );
+        if (!exists) {
+          const newItem: BomItem = {
+            id: 'bom-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+            materialGroup: it.groupName || grp,
+            categoryType: it.categoryType || 'Standard',
+            specification: it.specification || '',
+            uom: it.defaultUom || this.getGroupDefaultUom(grp),
+            plannedQty: 0,
+            unitRate: Number(it.unitRate) || 0,
+            estimatedTotalCost: 0,
+            gstPercent: it.gstPercent !== undefined && it.gstPercent !== null ? Number(it.gstPercent) : this.getDefaultGstForGroup(grp),
+            gstAmount: 0,
+            estAmount: 0,
+            allocatedExpenseAmount: 0,
+            expenseSource: 'PO',
+            invoiceRef: '',
+            warehouseUnitsDrawn: 0,
+            isDispatched: false,
+            dispatchedQty: 0,
+            dispatchDate: '',
+            remarks: ''
+          };
+          this.recalculateBomItem(newItem);
+          this.formBomItems.push(newItem);
+          totalAdded++;
+        }
+      });
+    });
+    if (totalAdded > 0) {
+      this.showToast(`Added ${totalAdded} items from AddList into BOM!`, 'success');
+    } else {
+      this.showToast('All configured material groups are already in the BOM.', 'info');
+    }
+    this.cdr.markForCheck();
+  }
+
+  addBomItemToGroup(groupName: string): void {
+    const types = this.getAvailableCategoryTypes(groupName);
+    const cat = types[0] || 'Standard';
+    const specs = this.getAvailableSpecsForType(groupName, cat);
+    const spec = specs[0] || '';
+    const match = this.bomMaterialsMasterList.find(b =>
+      (b.groupName || '').toLowerCase().trim() === groupName.toLowerCase().trim() &&
+      (b.specification || '').toLowerCase().trim() === spec.toLowerCase().trim()
+    );
+
+    const newItem: BomItem = {
+      id: 'bom-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+      materialGroup: groupName,
+      categoryType: cat,
+      specification: spec,
+      uom: match?.defaultUom || this.getGroupDefaultUom(groupName),
+      plannedQty: 0,
+      unitRate: match?.unitRate ? Number(match.unitRate) : 0,
+      estimatedTotalCost: 0,
+      gstPercent: this.getDefaultGstForGroup(groupName),
+      gstAmount: 0,
+      estAmount: 0,
+      allocatedExpenseAmount: 0,
+      expenseSource: 'PO',
+      invoiceRef: '',
+      warehouseUnitsDrawn: 0,
+      isDispatched: false,
+      dispatchedQty: 0,
+      dispatchDate: '',
+      remarks: ''
+    };
+    this.recalculateBomItem(newItem);
+
+    // Insert after the last item of this group, or append
+    let lastIdx = -1;
+    for (let i = this.formBomItems.length - 1; i >= 0; i--) {
+      if ((this.formBomItems[i].materialGroup || '').toLowerCase().trim() === groupName.toLowerCase().trim()) {
+        lastIdx = i;
+        break;
+      }
+    }
+
+    if (lastIdx !== -1) {
+      this.formBomItems.splice(lastIdx + 1, 0, newItem);
+    } else {
+      this.formBomItems.push(newItem);
+    }
+    this.cdr.markForCheck();
+  }
+
+  removeBomGroup(groupName: string): void {
+    const count = this.formBomItems.filter(b => (b.materialGroup || '').toLowerCase().trim() === groupName.toLowerCase().trim()).length;
+    if (confirm(`Are you sure you want to remove the entire "${groupName}" group (${count} items) from BOM?`)) {
+      this.formBomItems = this.formBomItems.filter(b => (b.materialGroup || '').toLowerCase().trim() !== groupName.toLowerCase().trim());
+      this.expandedBomRowIndex = null;
+      this.showToast(`Removed "${groupName}" group from BOM.`, 'info');
+      this.cdr.markForCheck();
+    }
   }
 
   addBomItem(): void {
@@ -1689,19 +2107,19 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     });
   }
 
-  showToast(msg: string, type: 'success' | 'error'): void {
-    if (type === 'success') {
-      this.successMsg = msg;
-      this.cdr.markForCheck();
-      setTimeout(() => {
-        this.successMsg = '';
-        this.cdr.markForCheck();
-      }, 4000);
-    } else {
+  showToast(msg: string, type: 'success' | 'error' | 'info' = 'success'): void {
+    if (type === 'error') {
       this.errorMsg = msg;
       this.cdr.markForCheck();
       setTimeout(() => {
         this.errorMsg = '';
+        this.cdr.markForCheck();
+      }, 4000);
+    } else {
+      this.successMsg = msg;
+      this.cdr.markForCheck();
+      setTimeout(() => {
+        this.successMsg = '';
         this.cdr.markForCheck();
       }, 4000);
     }

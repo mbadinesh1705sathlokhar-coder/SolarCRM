@@ -898,7 +898,7 @@
 
             <!-- TAB 5: Bill of Materials (BOM) & Cost Sheet -->
             <div *ngIf="modalTab === 'bom'" class="row g-3">
-              <!-- KPI Summary Banner -->
+              <!-- KPI Summary Banner (Rupee symbol removed to save space) -->
               <div class="col-12">
                 <div class="p-3 bg-light rounded-3 border d-flex flex-wrap justify-content-between align-items-center gap-3">
                   <div class="d-flex align-items-center gap-3">
@@ -907,7 +907,7 @@
                     </div>
                     <div>
                       <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Base Estimated Cost</div>
-                      <div class="fs-5 fw-bold text-dark font-mono">₹ {{ totalBomBaseCost | number:'1.2-2' }}</div>
+                      <div class="fs-5 fw-bold text-dark font-mono">{{ totalBomBaseCost | number:'1.2-2' }}</div>
                     </div>
                   </div>
 
@@ -917,7 +917,7 @@
                     </div>
                     <div>
                       <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Total GST Amount</div>
-                      <div class="fs-5 fw-bold text-info font-mono">₹ {{ totalBomGstAmount | number:'1.2-2' }}</div>
+                      <div class="fs-5 fw-bold text-info font-mono">{{ totalBomGstAmount | number:'1.2-2' }}</div>
                     </div>
                   </div>
 
@@ -927,7 +927,7 @@
                     </div>
                     <div>
                       <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Total Est. BOM Cost</div>
-                      <div class="fs-5 fw-bold text-primary font-mono">₹ {{ totalBomEstimatedCost | number:'1.2-2' }}</div>
+                      <div class="fs-5 fw-bold text-primary font-mono">{{ totalBomEstimatedCost | number:'1.2-2' }}</div>
                     </div>
                   </div>
 
@@ -937,7 +937,7 @@
                     </div>
                     <div>
                       <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Allocated Expenses</div>
-                      <div class="fs-5 fw-bold text-danger font-mono">₹ {{ totalBomAllocatedExpenses | number:'1.2-2' }}</div>
+                      <div class="fs-5 fw-bold text-danger font-mono">{{ totalBomAllocatedExpenses | number:'1.2-2' }}</div>
                     </div>
                   </div>
 
@@ -948,7 +948,7 @@
                     <div>
                       <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Budget Variance</div>
                       <div class="fs-5 fw-bold font-mono" [class.text-success]="(totalBomEstimatedCost - totalBomAllocatedExpenses) >= 0" [class.text-danger]="(totalBomEstimatedCost - totalBomAllocatedExpenses) < 0">
-                        ₹ {{ (totalBomEstimatedCost - totalBomAllocatedExpenses) | number:'1.2-2' }}
+                        {{ (totalBomEstimatedCost - totalBomAllocatedExpenses) | number:'1.2-2' }}
                       </div>
                     </div>
                   </div>
@@ -960,8 +960,8 @@
                 <div class="alert alert-warning border-warning shadow-sm d-flex align-items-center gap-2 mb-0 rounded-3">
                   <i class="bi bi-exclamation-triangle-fill fs-5 text-warning flex-shrink-0"></i>
                   <div>
-                    <strong class="text-dark">⚠️ Budget Exceeded Warning: Total Estimated BOM Cost (₹ {{ totalBomEstimatedCost | number:'1.2-2' }}) exceeds Agreement Site Value (₹ {{ projectForm.siteValue | number:'1.2-2' }})!</strong>
-                    <div class="small text-secondary">The procurement budget exceeds the agreed client site value by ₹ {{ (totalBomEstimatedCost - projectForm.siteValue) | number:'1.2-2' }}. Please adjust quantities or unit rates.</div>
+                    <strong class="text-dark">⚠️ Budget Exceeded Warning: Total Estimated BOM Cost ({{ totalBomEstimatedCost | number:'1.2-2' }}) exceeds Agreement Site Value ({{ projectForm.siteValue | number:'1.2-2' }})!</strong>
+                    <div class="small text-secondary">The procurement budget exceeds the agreed client site value by {{ (totalBomEstimatedCost - projectForm.siteValue) | number:'1.2-2' }}. Please adjust quantities or unit rates.</div>
                   </div>
                 </div>
               </div>
@@ -970,233 +970,364 @@
               <div class="col-12">
                 <div class="d-flex flex-wrap align-items-center gap-2 p-2 bg-white border rounded-3 small">
                   <span class="fw-bold text-secondary me-2"><i class="bi bi-pie-chart-fill me-1"></i>Incurred Source Breakdown:</span>
-                  <span class="badge bg-primary-subtle text-primary border">PO: ₹ {{ bomExpenseBreakdown.PO | number:'1.0-0' }}</span>
-                  <span class="badge bg-info-subtle text-info border">WO: ₹ {{ bomExpenseBreakdown.WO | number:'1.0-0' }}</span>
-                  <span class="badge bg-warning-subtle text-warning border">Petty Cash: ₹ {{ bomExpenseBreakdown.PettyCash | number:'1.0-0' }}</span>
-                  <span class="badge bg-secondary-subtle text-secondary border">Accounts: ₹ {{ bomExpenseBreakdown.Accounts | number:'1.0-0' }}</span>
-                  <span class="badge bg-danger-subtle text-danger border">Warehouse: ₹ {{ bomExpenseBreakdown.Warehouse | number:'1.0-0' }}</span>
+                  <span class="badge bg-primary-subtle text-primary border">PO: {{ bomExpenseBreakdown.PO | number:'1.0-0' }}</span>
+                  <span class="badge bg-info-subtle text-info border">WO: {{ bomExpenseBreakdown.WO | number:'1.0-0' }}</span>
+                  <span class="badge bg-warning-subtle text-warning border">Petty Cash: {{ bomExpenseBreakdown.PettyCash | number:'1.0-0' }}</span>
+                  <span class="badge bg-secondary-subtle text-secondary border">Accounts: {{ bomExpenseBreakdown.Accounts | number:'1.0-0' }}</span>
+                  <span class="badge bg-danger-subtle text-danger border">Warehouse: {{ bomExpenseBreakdown.Warehouse | number:'1.0-0' }}</span>
                   <span class="badge bg-success-subtle text-success border ms-auto"><i class="bi bi-check-circle me-1"></i>Dispatched: {{ totalBomDispatchedCount }} / {{ formBomItems.length }}</span>
                 </div>
               </div>
 
-              <!-- BOM Items Interactive Table -->
+              <!-- BOM Action Bar with + Add Dropdown (from AddList) -->
+              <div class="col-12">
+                <div class="p-2.5 bg-white border rounded-3 shadow-xs d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="p-1.5 bg-primary-subtle text-primary rounded-2">
+                      <i class="bi bi-box-seam-fill fs-5"></i>
+                    </div>
+                    <div>
+                      <div class="fw-bold text-dark" style="font-size: 0.88rem;">Bill of Materials (BOM)</div>
+                      <div class="small text-secondary" style="font-size: 0.74rem;">Click "+ Add" to import materials configured in AddList (Cables, Panels, Inverters, etc.). Edit rates and quantities below.</div>
+                    </div>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
+                    <!-- + Add Dropdown -->
+                    <div class="dropdown d-inline-block">
+                      <button class="btn btn-sm btn-primary fw-bold px-3 py-1.5 shadow-xs dropdown-toggle d-flex align-items-center gap-1.5"
+                              type="button"
+                              id="bomAddDropdownMenu"
+                              data-bs-toggle="dropdown"
+                              aria-expanded="false"
+                              style="font-size: 0.82rem;">
+                        <i class="bi bi-plus-circle-fill"></i>
+                        <span>+ Add</span>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end shadow-lg p-2 border" aria-labelledby="bomAddDropdownMenu" style="min-width: 280px; max-height: 400px; overflow-y: auto;">
+                        <li>
+                          <h6 class="dropdown-header text-uppercase fw-bold text-secondary px-2 mb-1" style="font-size: 0.70rem; letter-spacing: 0.04em;">
+                            Select Group to Add from AddList:
+                          </h6>
+                        </li>
+                        <li *ngFor="let grp of availableMaterialGroupNames">
+                          <button type="button" 
+                                  class="dropdown-item d-flex align-items-center justify-content-between py-1.5 px-2.5 rounded-2 mb-0.5"
+                                  (click)="addMaterialGroupToBom(grp)">
+                            <div class="d-flex align-items-center gap-2">
+                              <i class="bi" [ngClass]="getGroupTheme(grp).icon" [style.color]="getGroupTheme(grp).text"></i>
+                              <span class="fw-semibold text-dark" style="font-size: 0.82rem;">{{ grp }}</span>
+                            </div>
+                            <span class="badge rounded-pill text-white font-mono ms-2" [style.background-color]="getGroupTheme(grp).badgeBg" style="font-size: 0.68rem;">
+                              {{ getGroupMasterItemsCount(grp) }} specs
+                            </span>
+                          </button>
+                        </li>
+                        <li><hr class="dropdown-divider my-1.5"></li>
+                        <li>
+                          <button type="button" class="dropdown-item fw-semibold text-primary py-1.5 px-2.5 rounded-2" (click)="addAllGroupsFromMaster()" style="font-size: 0.82rem;">
+                            <i class="bi bi-layers-fill me-1.5"></i> + Add All Groups from AddList
+                          </button>
+                        </li>
+                        <li>
+                          <button type="button" class="dropdown-item text-secondary py-1.5 px-2.5 rounded-2" (click)="addBomItem()" style="font-size: 0.82rem;">
+                            <i class="bi bi-plus-lg me-1.5"></i> + Add Custom Blank Row
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <!-- Clear All BOM materials -->
+                    <button *ngIf="formBomItems.length > 0" 
+                            type="button" 
+                            class="btn btn-sm btn-outline-danger px-2.5 py-1.5 shadow-xs d-flex align-items-center gap-1 rounded-2"
+                            style="font-size: 0.78rem;"
+                            (click)="clearAllBomItems()"
+                            title="Clear all materials from BOM">
+                      <i class="bi bi-trash"></i> Clear All
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- BOM Items Grouped Interactive Table (Matching Screenshot 2) -->
               <div class="col-12">
                 <div #bomTableScroll class="table-responsive border rounded-3" (scroll)="onTableHorizontalScroll(bomTableScroll, bomStickyScroll)">
                   <table class="table table-hover align-middle mb-0 custom-table">
                     <thead class="table-light text-uppercase fs-8 text-secondary">
                       <tr>
                         <th style="width: 55px;" class="text-center">S.NO</th>
-                        <th style="min-width: 115px;" class="text-center" title="Dispatched from Warehouse / Gate Pass">Dispatched</th>
-                        <th style="min-width: 180px;">Material Group</th>
-                        <th style="min-width: 180px;">Type / Sub-Group</th>
-                        <th style="min-width: 220px;">Specification / Size</th>
+                        <th style="min-width: 110px;" class="text-center" title="Dispatched from Warehouse / Gate Pass">Dispatched</th>
+                        <th style="min-width: 140px;">Material Group</th>
+                        <th style="min-width: 160px;">Type / Sub-Group</th>
+                        <th style="min-width: 200px;">Specification / Size</th>
                         <th style="min-width: 65px;" class="text-center">UOM</th>
-                        <th class="text-end" style="min-width: 95px;">QTY</th>
-                        <th class="text-end" style="min-width: 110px;">Rate (₹)</th>
-                        <th class="text-end" style="min-width: 100px;">Base Cost (₹)</th>
-                        <th class="text-center" style="width: 80px;">GST (%)</th>
-                        <th class="text-end" style="min-width: 95px;">GST Amt (₹)</th>
-                        <th class="text-end" style="min-width: 115px;">Total Cost</th>
+                        <th class="text-end" style="min-width: 90px;">QTY</th>
+                        <th class="text-end" style="min-width: 100px;">Rate</th>
+                        <th class="text-end" style="min-width: 95px;">Base Cost</th>
+                        <th class="text-center" style="width: 75px;">GST (%)</th>
+                        <th class="text-end" style="min-width: 90px;">GST Amt</th>
+                        <th class="text-end" style="min-width: 110px;">Total Cost</th>
                         <th class="text-center" style="width: 45px;">Action</th>
                       </tr>
                     </thead>
-                    <tbody *ngFor="let item of formBomItems; let i = index">
-                      <tr class="cursor-pointer" [class.table-active]="expandedBomRowIndex === i">
-                        <!-- S.NO & Row Expand Toggle -->
-                        <td class="text-center text-nowrap" (click)="toggleBomRowExpand(i)" title="Click to view/edit Actual Expenses & Bill Ref">
-                          <span class="fw-bold text-secondary me-1 font-mono" style="font-size: 0.85rem;">{{ i + 1 }}</span>
-                          <i class="bi text-primary" [ngClass]="expandedBomRowIndex === i ? 'bi-chevron-down-circle-fill' : 'bi-chevron-right-circle'"></i>
+
+                    <!-- Render Group Sections (Matching Screenshot 2 hierarchy: 1 -> 1.1, 2 -> 2.1, 3 -> 3.1, 3.2, 3.3) -->
+                    <tbody *ngFor="let sec of groupedBomSections" class="bom-group-tbody">
+                      <!-- Group Header Row with unique background color -->
+                      <tr class="bom-group-header-row" 
+                          [style.background-color]="sec.theme.headerBg" 
+                          [style.border-top]="'2px solid ' + sec.theme.border" 
+                          [style.border-bottom]="'1.5px solid ' + sec.theme.border">
+                        <!-- Group Main S.No (e.g. 1, 2, 3...) -->
+                        <td class="text-center fw-bold font-mono" style="font-size: 0.95rem;" [style.color]="sec.theme.text">
+                          {{ sec.groupIndex }}
                         </td>
 
-                        <!-- Dispatched Status Badge (Automatic based on 100% Gate Pass Dispatch Qty) -->
-                        <td class="text-center" (click)="$event.stopPropagation()">
-                          <!-- Fully Dispatched 100% (Light Green BG: #dcfce7, text: #15803d, border: #86efac) -->
-                          <div *ngIf="getBomDispatchStatus(item) === 'full'" 
-                               class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs" 
-                               style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.75rem;" 
-                               title="Fully Dispatched (100% - {{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }}{{ item.dispatchDate ? ' on ' + item.dispatchDate : '' }})">
-                            <i class="bi bi-check2-circle-fill"></i> ✓ Dispatched
+                        <!-- Group Name Header spanning the columns (e.g. "Cables :", "Panels :") -->
+                        <td colspan="12">
+                          <div class="d-flex align-items-center justify-content-between py-1 px-1">
+                            <div class="d-flex align-items-center gap-2">
+                              <i class="bi fs-5" [ngClass]="sec.theme.icon" [style.color]="sec.theme.text"></i>
+                              <span class="fw-bold fst-italic" style="font-size: 0.98rem; letter-spacing: 0.02em;" [style.color]="sec.theme.text">
+                                {{ sec.groupName }} :
+                              </span>
+                              <span class="badge rounded-pill text-white px-2 py-1 shadow-2xs font-mono" [style.background-color]="sec.theme.badgeBg" style="font-size: 0.72rem;">
+                                {{ sec.items.length }} item{{ sec.items.length === 1 ? '' : 's' }}
+                              </span>
+                              <span class="badge bg-white text-secondary border px-2 py-1 font-mono shadow-2xs" style="font-size: 0.72rem;">
+                                Base: {{ sec.subtotalBase | number:'1.2-2' }} | Est. Total: {{ sec.subtotalTotal | number:'1.2-2' }}
+                              </span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2" (click)="$event.stopPropagation()">
+                              <button type="button" 
+                                      class="btn btn-xs btn-white bg-white border shadow-2xs fw-semibold d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-2"
+                                      [style.color]="sec.theme.text"
+                                      (click)="addBomItemToGroup(sec.groupName)" 
+                                      [title]="'Add custom item to ' + sec.groupName">
+                                <i class="bi bi-plus-circle-fill"></i> + Add Item
+                              </button>
+                              <button type="button" 
+                                      class="btn btn-xs btn-danger text-white fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-2 shadow-2xs border-0"
+                                      (click)="removeBomGroup(sec.groupName)" 
+                                      [title]="'Delete entire ' + sec.groupName + ' group from BOM'">
+                                <i class="bi bi-trash3-fill"></i> Delete Group
+                              </button>
+                            </div>
                           </div>
-
-                          <!-- Partially Dispatched (Light Blue BG: #e0f2fe, text: #0369a1, border: #7dd3fc) -->
-                          <div *ngIf="getBomDispatchStatus(item) === 'part'" 
-                               class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs" 
-                               style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 0.75rem;" 
-                               title="Partially Dispatched ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }})">
-                            <i class="bi bi-hourglass-split"></i> Part ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }})
-                          </div>
-
-                          <!-- Not Dispatched: Dash -->
-                          <div *ngIf="getBomDispatchStatus(item) === 'none'" class="d-flex align-items-center justify-content-center">
-                            <span class="text-muted font-mono small">—</span>
-                          </div>
-                        </td>
-
-                        <!-- Group Select -->
-                        <td (click)="$event.stopPropagation()">
-                          <select class="form-select form-select-sm" style="min-width: 170px;" [(ngModel)]="item.materialGroup" (change)="onMaterialGroupChange(item)" name="grp_{{i}}">
-                            <option value="">-- Select Group --</option>
-                            <option *ngFor="let g of materialGroupsList" [value]="g.group">{{ g.group }}</option>
-                          </select>
-                        </td>
-
-                        <!-- Category Type Select -->
-                        <td (click)="$event.stopPropagation()">
-                          <select class="form-select form-select-sm font-semibold text-primary" style="min-width: 170px;" [(ngModel)]="item.categoryType" (change)="onCategoryTypeChange(item)" name="cat_{{i}}">
-                            <option value="">-- Select Type --</option>
-                            <option *ngFor="let t of getAvailableCategoryTypes(item.materialGroup)" [value]="t">{{ t }}</option>
-                          </select>
-                        </td>
-
-                        <!-- Specification Select Dropdown -->
-                        <td (click)="$event.stopPropagation()">
-                          <select class="form-select form-select-sm font-semibold text-dark" 
-                                  style="min-width: 210px;"
-                                  [(ngModel)]="item.specification" 
-                                  (change)="onSpecificationChange(item)" 
-                                  name="spec_{{i}}">
-                            <option value="">-- Select Specification --</option>
-                            <option *ngFor="let s of getAvailableSpecsForType(item.materialGroup, item.categoryType || '')" [value]="s">
-                              {{ s }}
-                            </option>
-                            <option *ngIf="item.specification && !getAvailableSpecsForType(item.materialGroup, item.categoryType || '').includes(item.specification)" [value]="item.specification">
-                              {{ item.specification }}
-                            </option>
-                          </select>
-                        </td>
-
-                        <!-- UOM Select -->
-                        <td (click)="$event.stopPropagation()">
-                          <select class="form-select form-select-sm px-1 text-center" style="width: 65px;" [(ngModel)]="item.uom" name="uom_{{i}}">
-                            <option *ngFor="let u of uomOptions" [value]="u">{{ u }}</option>
-                            <option *ngIf="item.uom && !uomOptions.includes(item.uom)" [value]="item.uom">{{ item.uom }}</option>
-                          </select>
-                        </td>
-
-                        <!-- Planned Qty -->
-                        <td (click)="$event.stopPropagation()">
-                          <input type="number" 
-                                 class="form-control text-end font-mono fw-bold" 
-                                 style="min-width: 90px; height: 35px; font-size: 0.92rem;" 
-                                 [(ngModel)]="item.plannedQty" 
-                                 (input)="recalculateBomItem(item)" 
-                                 name="qty_{{i}}" 
-                                 min="0">
-                        </td>
-
-                        <!-- Unit Rate -->
-                        <td (click)="$event.stopPropagation()">
-                          <input type="number" 
-                                 class="form-control text-end font-mono fw-bold" 
-                                 style="min-width: 105px; height: 35px; font-size: 0.92rem;" 
-                                 [(ngModel)]="item.unitRate" 
-                                 (input)="recalculateBomItem(item)" 
-                                 name="rate_{{i}}" 
-                                 min="0">
-                        </td>
-
-                        <!-- Base Cost (plannedQty * unitRate) -->
-                        <td class="text-end font-mono text-dark fw-semibold" (click)="toggleBomRowExpand(i)">
-                          ₹ {{ item.estimatedTotalCost | number:'1.2-2' }}
-                        </td>
-
-                        <!-- GST (%) (Non-editable badge) -->
-                        <td class="text-center" (click)="$event.stopPropagation()">
-                          <span class="badge bg-light text-dark border px-2 py-1.5 font-mono fw-bold" style="font-size: 0.85rem;" title="Preset GST rate for {{ item.materialGroup }}">
-                            {{ item.gstPercent !== undefined ? item.gstPercent : 18 }}%
-                          </span>
-                        </td>
-
-                        <!-- GST Amount (₹) -->
-                        <td class="text-end font-mono text-info fw-semibold" (click)="toggleBomRowExpand(i)">
-                          ₹ {{ (item.gstAmount || 0) | number:'1.2-2' }}
-                        </td>
-
-                        <!-- Total Cost (Base Cost + GST) -->
-                        <td class="text-end fw-bold font-mono text-dark" (click)="toggleBomRowExpand(i)" style="font-size: 0.95rem;">
-                          ₹ {{ (item.estAmount !== undefined ? item.estAmount : (item.estimatedTotalCost + (item.gstAmount || 0))) | number:'1.2-2' }}
-                        </td>
-
-                        <!-- Action -->
-                        <td class="text-center" (click)="$event.stopPropagation()">
-                          <button type="button" class="btn btn-sm btn-outline-danger p-1 border-0" (click)="removeBomItem(i)" title="Remove item">
-                            <i class="bi bi-trash"></i>
-                          </button>
                         </td>
                       </tr>
 
-                      <!-- EXPANDABLE SUB-PANEL FOR ACTUAL EXPENSES, SOURCE, BILL REF & CHECKPOINTS -->
-                      <tr *ngIf="expandedBomRowIndex === i" class="bg-light">
-                        <td colspan="13" class="p-3 bg-light-subtle border-bottom shadow-inner">
-                          <div class="card border-primary border-opacity-25 rounded-3 p-3 bg-white shadow-xs">
-                            <div class="d-flex align-items-center justify-content-between mb-2 border-bottom pb-2">
-                              <span class="fw-bold text-dark d-flex align-items-center gap-1.5" style="font-size: 0.85rem;">
-                                <i class="bi bi-receipt text-primary"></i> Actual Expenses &amp; Gate Pass Dispatch Tracking for {{ item.materialGroup }} ({{ item.specification }})
-                              </span>
-                              <div class="d-flex align-items-center gap-2">
-                                <span *ngIf="getBomDispatchStatus(item) === 'full'" class="badge bg-success text-white">
-                                  <i class="bi bi-check2-circle me-1"></i>Fully Dispatched 100% ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }})
-                                </span>
-                                <span *ngIf="getBomDispatchStatus(item) === 'part'" class="badge bg-info text-white">
-                                  <i class="bi bi-hourglass-split me-1"></i>Partially Dispatched ({{ getBomDispatchedQty(item) }}/{{ item.plannedQty }} {{ item.uom }})
-                                </span>
-                                <span class="badge" [ngClass]="isBomBudgetExceeded(item) ? 'bg-danger text-white' : 'bg-success-subtle text-success border'">
-                                  {{ isBomBudgetExceeded(item) ? '⚠️ Exceeds BOM Budget' : '✓ Within Budget' }}
-                                </span>
-                              </div>
+                      <!-- Sub-rows under this Material Group (e.g. 3.1, 3.2, 3.3) -->
+                      <ng-container *ngFor="let rowEntry of sec.items">
+                        <tr class="cursor-pointer bom-item-row" 
+                            [style.background-color]="sec.theme.rowBg" 
+                            [style.border-left]="'4px solid ' + sec.theme.border"
+                            [class.table-active]="expandedBomRowIndex === rowEntry.originalIndex">
+                          <!-- S.NO & Row Expand Toggle (e.g. 3.1, 3.2...) -->
+                          <td class="text-center text-nowrap" (click)="toggleBomRowExpand(rowEntry.originalIndex)" title="Click to view/edit Actual Expenses & Bill Ref">
+                            <span class="fw-bold text-secondary me-1 font-mono" style="font-size: 0.85rem;">{{ rowEntry.subIndex }}</span>
+                            <i class="bi text-primary" [ngClass]="expandedBomRowIndex === rowEntry.originalIndex ? 'bi-chevron-down-circle-fill' : 'bi-chevron-right-circle'"></i>
+                          </td>
+
+                          <!-- Dispatched Status Badge -->
+                          <td class="text-center" (click)="$event.stopPropagation()">
+                            <div *ngIf="getBomDispatchStatus(rowEntry.item) === 'full'" 
+                                 class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs" 
+                                 style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.75rem;" 
+                                 title="Fully Dispatched (100% - {{ getBomDispatchedQty(rowEntry.item) }}/{{ rowEntry.item.plannedQty }} {{ rowEntry.item.uom }}{{ rowEntry.item.dispatchDate ? ' on ' + rowEntry.item.dispatchDate : '' }})">
+                              <i class="bi bi-check2-circle-fill"></i> ✓ Dispatched
                             </div>
 
-                            <!-- Budget Warning Checkpoint Alert -->
-                            <div *ngIf="isBomBudgetExceeded(item)" class="alert alert-warning py-2 px-3 small d-flex align-items-center gap-2 mb-3">
-                              <i class="bi bi-exclamation-triangle-fill text-warning fs-6"></i>
-                              <span>{{ getBomExpenseWarningMessage(item) }}</span>
+                            <div *ngIf="getBomDispatchStatus(rowEntry.item) === 'part'" 
+                                 class="badge d-inline-flex align-items-center gap-1 px-2 py-1.5 rounded-2 shadow-xs" 
+                                 style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 0.75rem;" 
+                                 title="Partially Dispatched ({{ getBomDispatchedQty(rowEntry.item) }}/{{ rowEntry.item.plannedQty }} {{ rowEntry.item.uom }})">
+                              <i class="bi bi-hourglass-split"></i> Part ({{ getBomDispatchedQty(rowEntry.item) }}/{{ rowEntry.item.plannedQty }})
                             </div>
 
-                            <div class="d-flex flex-wrap align-items-center gap-3">
-                              <!-- Dispatch Date (Read-Only) -->
-                              <div class="col-md-2" *ngIf="getBomDispatchedQty(item) > 0">
-                                <label class="form-label fs-8 text-secondary mb-1">Dispatch Date</label>
-                                <input type="text" class="form-control form-control-sm font-mono bg-light" [value]="formatDate(item.dispatchDate)" readonly name="ddate_{{i}}">
+                            <div *ngIf="getBomDispatchStatus(rowEntry.item) === 'none'" class="d-flex align-items-center justify-content-center">
+                              <span class="text-muted font-mono small">—</span>
+                            </div>
+                          </td>
+
+                          <!-- Material Group Badge -->
+                          <td (click)="$event.stopPropagation()">
+                            <span class="badge border font-mono px-2 py-1" 
+                                  [style.background-color]="sec.theme.headerBg" 
+                                  [style.color]="sec.theme.text" 
+                                  [style.border-color]="sec.theme.border" 
+                                  style="font-size: 0.76rem;">
+                              {{ sec.groupName }}
+                            </span>
+                          </td>
+
+                          <!-- Category Type Select (e.g. AC Cable, DC Cable, Earth Cable) -->
+                          <td (click)="$event.stopPropagation()">
+                            <select class="form-select form-select-sm font-semibold text-primary" 
+                                    style="min-width: 150px;" 
+                                    [(ngModel)]="rowEntry.item.categoryType" 
+                                    (change)="onCategoryTypeChange(rowEntry.item)" 
+                                    [name]="'cat_' + rowEntry.originalIndex">
+                              <option value="">-- Select Type --</option>
+                              <option *ngFor="let t of getAvailableCategoryTypes(rowEntry.item.materialGroup)" [value]="t">{{ t }}</option>
+                              <option *ngIf="rowEntry.item.categoryType && !getAvailableCategoryTypes(rowEntry.item.materialGroup).includes(rowEntry.item.categoryType)" [value]="rowEntry.item.categoryType">{{ rowEntry.item.categoryType }}</option>
+                            </select>
+                          </td>
+
+                          <!-- Specification Select Dropdown -->
+                          <td (click)="$event.stopPropagation()">
+                            <select class="form-select form-select-sm font-semibold text-dark" 
+                                    style="min-width: 190px;"
+                                    [(ngModel)]="rowEntry.item.specification" 
+                                    (change)="onSpecificationChange(rowEntry.item)" 
+                                    [name]="'spec_' + rowEntry.originalIndex">
+                              <option value="">-- Select Specification --</option>
+                              <option *ngFor="let s of getAvailableSpecsForType(rowEntry.item.materialGroup, rowEntry.item.categoryType || '')" [value]="s">
+                                {{ s }}
+                              </option>
+                              <option *ngIf="rowEntry.item.specification && !getAvailableSpecsForType(rowEntry.item.materialGroup, rowEntry.item.categoryType || '').includes(rowEntry.item.specification)" [value]="rowEntry.item.specification">
+                                {{ rowEntry.item.specification }}
+                              </option>
+                            </select>
+                          </td>
+
+                          <!-- UOM Select -->
+                          <td (click)="$event.stopPropagation()">
+                            <select class="form-select form-select-sm px-1 text-center" style="width: 65px;" [(ngModel)]="rowEntry.item.uom" [name]="'uom_' + rowEntry.originalIndex">
+                              <option *ngFor="let u of uomOptions" [value]="u">{{ u }}</option>
+                              <option *ngIf="rowEntry.item.uom && !uomOptions.includes(rowEntry.item.uom)" [value]="rowEntry.item.uom">{{ rowEntry.item.uom }}</option>
+                            </select>
+                          </td>
+
+                          <!-- Planned Qty -->
+                          <td (click)="$event.stopPropagation()">
+                            <input type="number" 
+                                   class="form-control text-end font-mono fw-bold" 
+                                   style="min-width: 85px; height: 35px; font-size: 0.92rem;" 
+                                   [(ngModel)]="rowEntry.item.plannedQty" 
+                                   (input)="recalculateBomItem(rowEntry.item)" 
+                                   [name]="'qty_' + rowEntry.originalIndex" 
+                                   min="0">
+                          </td>
+
+                          <!-- Unit Rate (No ₹ symbol) -->
+                          <td (click)="$event.stopPropagation()">
+                            <input type="number" 
+                                   class="form-control text-end font-mono fw-bold" 
+                                   style="min-width: 95px; height: 35px; font-size: 0.92rem;" 
+                                   [(ngModel)]="rowEntry.item.unitRate" 
+                                   (input)="recalculateBomItem(rowEntry.item)" 
+                                   [name]="'rate_' + rowEntry.originalIndex" 
+                                   min="0">
+                          </td>
+
+                          <!-- Base Cost (plannedQty * unitRate - No ₹ symbol) -->
+                          <td class="text-end font-mono text-dark fw-semibold" (click)="toggleBomRowExpand(rowEntry.originalIndex)">
+                            {{ rowEntry.item.estimatedTotalCost | number:'1.2-2' }}
+                          </td>
+
+                          <!-- GST (%) -->
+                          <td class="text-center" (click)="$event.stopPropagation()">
+                            <span class="badge bg-light text-dark border px-2 py-1.5 font-mono fw-bold" style="font-size: 0.85rem;" [title]="'Preset GST rate for ' + rowEntry.item.materialGroup">
+                              {{ rowEntry.item.gstPercent !== undefined ? rowEntry.item.gstPercent : 18 }}%
+                            </span>
+                          </td>
+
+                          <!-- GST Amount (No ₹ symbol) -->
+                          <td class="text-end font-mono text-info fw-semibold" (click)="toggleBomRowExpand(rowEntry.originalIndex)">
+                            {{ (rowEntry.item.gstAmount || 0) | number:'1.2-2' }}
+                          </td>
+
+                          <!-- Total Cost (Base Cost + GST - No ₹ symbol) -->
+                          <td class="text-end fw-bold font-mono text-dark" (click)="toggleBomRowExpand(rowEntry.originalIndex)" style="font-size: 0.95rem;">
+                            {{ (rowEntry.item.estAmount !== undefined ? rowEntry.item.estAmount : (rowEntry.item.estimatedTotalCost + (rowEntry.item.gstAmount || 0))) | number:'1.2-2' }}
+                          </td>
+
+                          <!-- Action (Delete item from this group) -->
+                          <td class="text-center" (click)="$event.stopPropagation()">
+                            <button type="button" class="btn btn-sm btn-outline-danger p-1 border-0" (click)="removeBomItem(rowEntry.originalIndex)" [title]="'Remove this item from ' + sec.groupName">
+                              <i class="bi bi-trash"></i>
+                            </button>
+                          </td>
+                        </tr>
+
+                        <!-- EXPANDABLE SUB-PANEL FOR ACTUAL EXPENSES, SOURCE, BILL REF & CHECKPOINTS -->
+                        <tr *ngIf="expandedBomRowIndex === rowEntry.originalIndex" class="bg-light">
+                          <td colspan="13" class="p-3 bg-light-subtle border-bottom shadow-inner">
+                            <div class="card border-primary border-opacity-25 rounded-3 p-3 bg-white shadow-xs">
+                              <div class="d-flex align-items-center justify-content-between mb-2 border-bottom pb-2">
+                                <span class="fw-bold text-dark d-flex align-items-center gap-1.5" style="font-size: 0.85rem;">
+                                  <i class="bi bi-receipt text-primary"></i> Actual Expenses &amp; Gate Pass Dispatch Tracking for {{ rowEntry.item.materialGroup }} ({{ rowEntry.item.specification }})
+                                </span>
+                                <div class="d-flex align-items-center gap-2">
+                                  <span *ngIf="getBomDispatchStatus(rowEntry.item) === 'full'" class="badge bg-success text-white">
+                                    <i class="bi bi-check2-circle me-1"></i>Fully Dispatched 100% ({{ getBomDispatchedQty(rowEntry.item) }}/{{ rowEntry.item.plannedQty }} {{ rowEntry.item.uom }})
+                                  </span>
+                                  <span *ngIf="getBomDispatchStatus(rowEntry.item) === 'part'" class="badge bg-info text-white">
+                                    <i class="bi bi-hourglass-split me-1"></i>Partially Dispatched ({{ getBomDispatchedQty(rowEntry.item) }}/{{ rowEntry.item.plannedQty }} {{ rowEntry.item.uom }})
+                                  </span>
+                                  <span class="badge" [ngClass]="isBomBudgetExceeded(rowEntry.item) ? 'bg-danger text-white' : 'bg-success-subtle text-success border'">
+                                    {{ isBomBudgetExceeded(rowEntry.item) ? '⚠️ Exceeds BOM Budget' : '✓ Within Budget' }}
+                                  </span>
+                                </div>
                               </div>
 
-                              <!-- Units Drawn (Compact) -->
-                              <div style="width: 105px;">
-                                <label class="form-label fs-8 text-secondary mb-1">Units Drawn</label>
-                                <input type="number" class="form-control form-control-sm font-mono text-center" [(ngModel)]="item.dispatchedQty" name="wdrawn_{{i}}" min="0" placeholder="0">
+                              <!-- Budget Warning Checkpoint Alert -->
+                              <div *ngIf="isBomBudgetExceeded(rowEntry.item)" class="alert alert-warning py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-exclamation-triangle-fill text-warning fs-6"></i>
+                                <span>{{ getBomExpenseWarningMessage(rowEntry.item) }}</span>
                               </div>
 
-                              <!-- Actual Expenses (Read-Only auto-loaded from Client Expenses) -->
-                              <div class="col-md-3">
-                                <label class="form-label fs-8 text-secondary mb-1">Actual Expenses (₹) <span class="badge bg-light text-muted border font-mono">Auto-Ledger</span></label>
-                                <input type="number" class="form-control form-control-sm text-end text-danger font-mono fw-bold bg-light" [(ngModel)]="item.allocatedExpenseAmount" readonly name="exp_{{i}}" min="0" placeholder="0" title="Auto-loaded from Client Expenses ledger">
-                              </div>
+                              <div class="d-flex flex-wrap align-items-center gap-3">
+                                <!-- Dispatch Date (Read-Only) -->
+                                <div class="col-md-2" *ngIf="getBomDispatchedQty(rowEntry.item) > 0">
+                                  <label class="form-label fs-8 text-secondary mb-1">Dispatch Date</label>
+                                  <input type="text" class="form-control form-control-sm font-mono bg-light" [value]="formatDate(rowEntry.item.dispatchDate)" readonly [name]="'ddate_' + rowEntry.originalIndex">
+                                </div>
 
-                              <!-- Expense Source (Read-Only) -->
-                              <div class="col-md-2">
-                                <label class="form-label fs-8 text-secondary mb-1">Source <span class="badge bg-light text-muted border font-mono">Auto-Ledger</span></label>
-                                <input type="text" class="form-control form-control-sm fw-semibold bg-light" [value]="item.expenseSource || 'Warehouse'" readonly name="src_{{i}}" title="Auto-loaded from Client Expenses ledger">
-                              </div>
+                                <!-- Units Drawn (Compact) -->
+                                <div style="width: 105px;">
+                                  <label class="form-label fs-8 text-secondary mb-1">Units Drawn</label>
+                                  <input type="number" class="form-control form-control-sm font-mono text-center" [(ngModel)]="rowEntry.item.dispatchedQty" [name]="'wdrawn_' + rowEntry.originalIndex" min="0" placeholder="0">
+                                </div>
 
-                              <!-- Bill / Invoice Ref with Tracking Link -->
-                              <div class="col-md-3">
-                                <label class="form-label fs-8 text-secondary mb-1">Bill / GP Ref</label>
-                                <div class="input-group input-group-sm">
-                                  <input type="text" class="form-control font-mono bg-light" placeholder="e.g. GP-12" [(ngModel)]="item.invoiceRef" readonly name="inv_{{i}}">
-                                  <button type="button" class="btn btn-outline-primary px-1.5" (click)="trackBillRef(item)" title="Track PO/WO or Warehouse Bill Expenses">
-                                    <i class="bi bi-box-arrow-up-right"></i>
-                                  </button>
+                                <!-- Actual Expenses (Read-Only auto-loaded from Client Expenses - No ₹ symbol) -->
+                                <div class="col-md-3">
+                                  <label class="form-label fs-8 text-secondary mb-1">Actual Expenses <span class="badge bg-light text-muted border font-mono">Auto-Ledger</span></label>
+                                  <input type="number" class="form-control form-control-sm text-end text-danger font-mono fw-bold bg-light" [(ngModel)]="rowEntry.item.allocatedExpenseAmount" readonly [name]="'exp_' + rowEntry.originalIndex" min="0" placeholder="0" title="Auto-loaded from Client Expenses ledger">
+                                </div>
+
+                                <!-- Expense Source (Read-Only) -->
+                                <div class="col-md-2">
+                                  <label class="form-label fs-8 text-secondary mb-1">Source <span class="badge bg-light text-muted border font-mono">Auto-Ledger</span></label>
+                                  <input type="text" class="form-control form-control-sm fw-semibold bg-light" [value]="rowEntry.item.expenseSource || 'Warehouse'" readonly [name]="'src_' + rowEntry.originalIndex" title="Auto-loaded from Client Expenses ledger">
+                                </div>
+
+                                <!-- Bill / Invoice Ref with Tracking Link -->
+                                <div class="col-md-3">
+                                  <label class="form-label fs-8 text-secondary mb-1">Bill / GP Ref</label>
+                                  <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control font-mono bg-light" placeholder="e.g. GP-12" [(ngModel)]="rowEntry.item.invoiceRef" readonly [name]="'inv_' + rowEntry.originalIndex">
+                                    <button type="button" class="btn btn-outline-primary px-1.5" (click)="trackBillRef(rowEntry.item)" title="Track PO/WO or Warehouse Bill Expenses">
+                                      <i class="bi bi-box-arrow-up-right"></i>
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
+                          </td>
+                        </tr>
+                      </ng-container>
                     </tbody>
 
+                    <!-- Empty state -->
                     <tbody *ngIf="formBomItems.length === 0">
                       <tr>
-                        <td colspan="13" class="text-center py-4 text-muted">
-                          <i class="bi bi-info-circle me-1"></i> No materials added to Bill of Materials yet. Click <strong>Add Material Row</strong> to allocate materials & track client expenses.
+                        <td colspan="13" class="text-center py-5 text-muted">
+                          <i class="bi bi-collection fs-3 d-block mb-2 text-secondary"></i>
+                          No materials added to Bill of Materials yet.<br>
+                          Click any of the <strong>Material Group buttons</strong> above (e.g. <strong>Cables</strong>, <strong>Panels</strong>, <strong>Consumables</strong>) to populate items from AddList, or click <strong>Add Material Row</strong> below.
                         </td>
                       </tr>
                     </tbody>
@@ -1211,7 +1342,7 @@
                 <!-- Bottom Add Material Row Button & Action Controls -->
                 <div class="d-flex justify-content-between align-items-center mt-3 pt-2">
                   <button type="button" class="btn btn-sm btn-primary fw-semibold d-inline-flex align-items-center gap-1.5 shadow-sm px-3 py-1.5 rounded-2" (click)="addBomItem()">
-                    <i class="bi bi-plus-circle-fill"></i> Add Material Row
+                    <i class="bi bi-plus-circle-fill"></i> Add Custom Material Row
                   </button>
                   <div class="d-flex align-items-center gap-2">
                     <button type="button" *ngIf="formBomItems.length > 0" class="btn btn-xs btn-outline-danger d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-2" (click)="clearAllBomItems()" title="Clear all BOM items">

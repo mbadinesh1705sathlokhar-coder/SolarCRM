@@ -30,17 +30,17 @@
       <a routerLink="/inventory/indent" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-file-earmark-text me-1 text-primary"></i> Indent
       </a>
-      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-box-seam me-1 text-success"></i> Warehouse
+      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none active">
+        <i class="bi bi-cart3 me-1 text-danger"></i> Add to Cart
       </a>
       <a routerLink="/inventory/inward" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-box-arrow-in-down me-1 text-info"></i> Inward
       </a>
-      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-pass me-1 text-warning"></i> Gate Pass
+      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-seam me-1 text-success"></i> WareHouse
       </a>
-      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none active">
-        <i class="bi bi-cart3 me-1 text-danger"></i> Add to cart
+      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-pass me-1 text-warning"></i> Gatepass
       </a>
     </div>
 
@@ -91,7 +91,7 @@
           <div class="d-flex align-items-center gap-3 flex-wrap">
             <span class="small text-muted">Total Materials: <strong class="text-dark font-mono">{{ summary.totalItems }}</strong></span>
             <span class="small text-muted">Total Units: <strong class="text-primary font-mono fw-bold">{{ summary.totalQuantity | number:'1.0-2' }}</strong></span>
-            <span class="small text-muted">Total Value: <strong class="text-success font-mono fw-bold">₹ {{ (summary.totalAmount || 0) | number:'1.2-2' }}</strong></span>
+            <span class="small text-muted">Total Value: <strong class="text-success font-mono fw-bold">{{ (summary.totalAmount || 0) | number:'1.2-2' }}</strong></span>
           </div>
         </div>
       </div>
@@ -166,23 +166,23 @@
 
                 <!-- Total Amount -->
                 <td class="text-end font-mono fw-bold text-success" style="font-size: 0.82rem;">
-                  {{ item.totalAmount ? ('₹ ' + (item.totalAmount | number:'1.2-2')) : '—' }}
+                  {{ item.totalAmount ? (item.totalAmount | number:'1.2-2') : '—' }}
                 </td>
 
                 <!-- Procurement Status Badge -->
                 <td class="text-center">
                   <span class="badge border px-2.5 py-1"
-                        [class.bg-secondary-subtle]="item.procurementStatus === 'Yet to Start'"
-                        [class.text-secondary]="item.procurementStatus === 'Yet to Start'"
-                        [class.bg-warning-subtle]="item.procurementStatus === 'Requested Vendor' || item.procurementStatus === 'Payment In Process'"
-                        [class.text-warning-emphasis]="item.procurementStatus === 'Requested Vendor' || item.procurementStatus === 'Payment In Process'"
-                        [class.bg-info-subtle]="item.procurementStatus === 'PO Processed'"
-                        [class.text-info]="item.procurementStatus === 'PO Processed'"
-                        [class.bg-primary-subtle]="item.procurementStatus === 'Materials on Route'"
-                        [class.text-primary]="item.procurementStatus === 'Materials on Route'"
-                        [class.bg-success-subtle]="item.procurementStatus === 'Delivered to Site'"
-                        [class.text-success]="item.procurementStatus === 'Delivered to Site'"
-                        style="font-size: 0.74rem;">
+                        [class.bg-secondary-subtle]="(item.procurementStatus || '').toLowerCase() === 'yet to start'"
+                        [class.text-secondary]="(item.procurementStatus || '').toLowerCase() === 'yet to start'"
+                        [class.bg-warning-subtle]="(item.procurementStatus || '').toLowerCase().includes('vendor') || (item.procurementStatus || '').toLowerCase().includes('payment')"
+                        [class.text-warning-emphasis]="(item.procurementStatus || '').toLowerCase().includes('vendor') || (item.procurementStatus || '').toLowerCase().includes('payment')"
+                        [class.bg-info-subtle]="(item.procurementStatus || '').toLowerCase().includes('po')"
+                        [class.text-info]="(item.procurementStatus || '').toLowerCase().includes('po')"
+                        [class.bg-primary-subtle]="(item.procurementStatus || '').toLowerCase().includes('transport') || (item.procurementStatus || '').toLowerCase().includes('route')"
+                        [class.text-primary]="(item.procurementStatus || '').toLowerCase().includes('transport') || (item.procurementStatus || '').toLowerCase().includes('route')"
+                        [class.bg-success-subtle]="(item.procurementStatus || '').toLowerCase().includes('dispatch') || (item.procurementStatus || '').toLowerCase().includes('deliver')"
+                        [class.text-success]="(item.procurementStatus || '').toLowerCase().includes('dispatch') || (item.procurementStatus || '').toLowerCase().includes('deliver')"
+                        style="font-size: 0.70rem;">
                     {{ item.procurementStatus }}
                   </span>
                 </td>
@@ -233,18 +233,19 @@
           <!-- =================================================== -->
           <!-- MODE 1: EDIT SINGLE ITEM                            -->
           <!-- =================================================== -->
-          <div *ngIf="isEditMode" class="row g-3">
+          <div *ngIf="isEditMode" class="row g-2.5">
             <!-- Row 1: Order Date & Client/Site Location -->
             <div class="col-md-6">
-              <label class="form-label small fw-bold text-dark mb-1">Order Date <span class="text-danger">*</span></label>
-              <input type="date" class="form-control font-mono shadow-sm" [(ngModel)]="cartForm.orderDate" name="editOrderDate" required>
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.76rem;">Order Date <span class="text-danger">*</span></label>
+              <input type="date" class="form-control form-control-sm font-mono shadow-sm" style="font-size: 0.82rem; height: 32px;" [(ngModel)]="cartForm.orderDate" name="editOrderDate" required>
             </div>
             <div class="col-md-6">
-              <label class="form-label small fw-bold text-dark mb-1">Client / Site Location</label>
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.76rem;">Client / Site Location</label>
               <div class="position-relative">
-                <div class="input-group shadow-sm">
+                <div class="input-group input-group-sm shadow-sm">
                   <input type="text"
-                         class="form-control font-mono"
+                         class="form-control form-control-sm font-mono"
+                         style="font-size: 0.82rem; height: 32px;"
                          placeholder="Type to search client name..."
                          [(ngModel)]="cartForm.clientLocation"
                          name="editClientLocation"
@@ -263,7 +264,7 @@
                           type="button" 
                           (mousedown)="toggleEditClientDropdown($event)"
                           title="Toggle client list">
-                    <i class="bi bi-chevron-down" style="font-size: 0.72rem;"></i>
+                    <i class="bi bi-chevron-down" style="font-size: 0.70rem;"></i>
                   </button>
                 </div>
 
@@ -301,8 +302,9 @@
 
             <!-- Row 2: BOM 3-Tier Hierarchy (Material Group, Category/Type, Specification/Rating) -->
             <div class="col-md-4">
-              <label class="form-label small fw-bold text-dark mb-1">Material Group <span class="text-danger">*</span></label>
-              <select class="form-select shadow-sm fw-bold text-dark" 
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.76rem;">Material Group <span class="text-danger">*</span></label>
+              <select class="form-select form-select-sm shadow-sm fw-bold text-dark" 
+                      style="font-size: 0.82rem; height: 32px;"
                       [(ngModel)]="cartForm.materialGroup" 
                       (change)="onMaterialGroupChange(cartForm)" 
                       name="editMaterialGroup" 
@@ -312,8 +314,9 @@
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label small fw-bold text-dark mb-1">Category / Type (e.g. AC / DC)</label>
-              <select class="form-select shadow-sm text-primary fw-semibold" 
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.76rem;">Category / Type (e.g. AC / DC)</label>
+              <select class="form-select form-select-sm shadow-sm text-primary fw-semibold" 
+                      style="font-size: 0.82rem; height: 32px;"
                       [(ngModel)]="cartForm.categoryType" 
                       (change)="onCategoryTypeChange(cartForm)" 
                       name="editCategoryType">
@@ -321,8 +324,9 @@
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label small fw-bold text-dark mb-1">Specification / Rating <span class="text-danger">*</span></label>
-              <select class="form-select shadow-sm fw-bold text-dark" 
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.76rem;">Specification / Rating <span class="text-danger">*</span></label>
+              <select class="form-select form-select-sm shadow-sm fw-bold text-dark" 
+                      style="font-size: 0.82rem; height: 32px;"
                       [(ngModel)]="cartForm.specification" 
                       (change)="onSpecificationChange(cartForm)" 
                       name="editSpecification" 
@@ -335,33 +339,37 @@
 
             <!-- Row 3: Quantity, Unit, Total Amount, Vendor Name (from Vendor List) -->
             <div class="col-md-3">
-              <label class="form-label small fw-bold text-dark mb-1">Quantity <span class="text-danger">*</span></label>
-              <input type="number" step="any" min="0.01" class="form-control font-mono shadow-sm" placeholder="e.g. 1" [(ngModel)]="cartForm.quantity" (ngModelChange)="updateCartRowFromSpec(cartForm)" name="editQuantity" required>
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.76rem;">Quantity <span class="text-danger">*</span></label>
+              <input type="number" step="any" min="0.01" class="form-control form-control-sm font-mono shadow-sm" style="font-size: 0.82rem; height: 32px;" placeholder="e.g. 1" [(ngModel)]="cartForm.quantity" (ngModelChange)="updateCartRowFromSpec(cartForm)" name="editQuantity" required>
             </div>
             <div class="col-md-3">
-              <label class="form-label small fw-bold text-dark mb-1">Unit <span class="text-danger">*</span></label>
-              <select class="form-select shadow-sm" [(ngModel)]="cartForm.unit" name="editUnit" required>
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.76rem;">Unit <span class="text-danger">*</span></label>
+              <select class="form-select form-select-sm shadow-sm" style="font-size: 0.82rem; height: 32px;" [(ngModel)]="cartForm.unit" name="editUnit" required>
                 <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
                 <option *ngIf="cartForm.unit && !unitOptions.includes(cartForm.unit)" [value]="cartForm.unit">{{ cartForm.unit }}</option>
               </select>
             </div>
             <div class="col-md-3">
-              <label class="form-label small fw-bold text-dark mb-1">Total Amount (₹)</label>
-              <input type="number" step="any" min="0" class="form-control font-mono shadow-sm" placeholder="0.00" [(ngModel)]="cartForm.totalAmount" name="editTotalAmount">
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.76rem;">Total Amount</label>
+              <input type="number" step="any" min="0" class="form-control form-control-sm font-mono shadow-sm" style="font-size: 0.82rem; height: 32px;" placeholder="0.00" [(ngModel)]="cartForm.totalAmount" name="editTotalAmount">
             </div>
             <div class="col-md-3">
-              <label class="form-label small fw-bold text-dark mb-1">Vendor Name</label>
-              <select class="form-select shadow-sm" [(ngModel)]="cartForm.vendorName" name="editVendorName">
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.76rem;">Vendor Name</label>
+              <select class="form-select form-select-sm shadow-sm" style="font-size: 0.82rem; height: 32px;" [(ngModel)]="cartForm.vendorName" name="editVendorName">
                 <option value="">Select Vendor (From Vendor List)</option>
                 <option *ngFor="let v of vendorOptions" [value]="v">{{ v }}</option>
               </select>
             </div>
 
-            <!-- Row 4: Procurement Status -->
+            <!-- Row 4: Procurement Status (Extra Compact Font Size) -->
             <div class="col-12">
-              <label class="form-label small fw-bold text-dark mb-1">Procurement Status <span class="text-danger">*</span></label>
-              <select class="form-select shadow-sm" [(ngModel)]="cartForm.procurementStatus" name="editProcurementStatus" required>
-                <option *ngFor="let st of statusOptions" [value]="st">{{ st }}</option>
+              <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.72rem; letter-spacing: 0.02em;">Procurement Status <span class="text-danger">*</span></label>
+              <select class="form-select form-select-sm shadow-sm status-dropdown-compact" 
+                      style="font-size: 0.72rem !important; height: 28px !important; min-height: 28px !important;"
+                      [(ngModel)]="cartForm.procurementStatus" 
+                      name="editProcurementStatus" 
+                      required>
+                <option *ngFor="let st of statusOptions" [value]="st" style="font-size: 0.72rem !important;">{{ st }}</option>
               </select>
             </div>
           </div>
@@ -444,9 +452,13 @@
                   </select>
                 </div>
                 <div class="col-md-3">
-                  <label class="form-label small fw-bold text-dark mb-1">Procurement Status <span class="text-danger">*</span></label>
-                  <select class="form-select form-select-sm shadow-sm" [(ngModel)]="cartHeader.procurementStatus" name="headerProcurementStatus" required>
-                    <option *ngFor="let st of statusOptions" [value]="st">{{ st }}</option>
+                  <label class="form-label fw-bold text-dark mb-1" style="font-size: 0.72rem; letter-spacing: 0.02em;">Procurement Status <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm shadow-sm status-dropdown-compact" 
+                          style="font-size: 0.72rem !important; height: 28px !important; min-height: 28px !important;"
+                          [(ngModel)]="cartHeader.procurementStatus" 
+                          name="headerProcurementStatus" 
+                          required>
+                    <option *ngFor="let st of statusOptions" [value]="st" style="font-size: 0.72rem !important;">{{ st }}</option>
                   </select>
                 </div>
               </div>
@@ -460,7 +472,22 @@
                 </span>
                 <span class="text-muted small ms-2 d-none d-md-inline">Select materials, specifications, quantities, and units for this procurement order</span>
               </div>
-              <div class="d-flex align-items-center gap-2">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <!-- Quick Import Group from AddList -->
+                <div class="dropdown d-inline-block" *ngIf="bomGroupKeys.length > 0">
+                  <button class="btn btn-sm btn-outline-secondary dropdown-toggle fw-semibold px-2 py-1 shadow-xs" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.78rem;">
+                    <i class="bi bi-collection me-1"></i> + Add Group
+                  </button>
+                  <ul class="dropdown-menu shadow-sm">
+                    <li><h6 class="dropdown-header">Add All Group Items from AddList:</h6></li>
+                    <li *ngFor="let grp of bomGroupKeys">
+                      <a class="dropdown-item small cursor-pointer" (click)="addMaterialGroupToCart(grp)">
+                        <i class="bi bi-plus me-1 text-primary"></i> {{ grp }} ({{ (bomGroupMap[grp] || []).length }})
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+
                 <button *ngIf="hasProjectBomItems(cartHeader.clientLocation)" type="button" 
                         class="btn btn-sm btn-outline-primary fw-bold px-2.5 py-1 shadow-xs d-flex align-items-center gap-1"
                         (click)="populateFromProjectBom()" title="Load materials from this project's Bill of Materials">
@@ -485,7 +512,7 @@
                     <th style="min-width: 180px;">SPECIFICATION / RATING <span class="text-danger">*</span></th>
                     <th style="width: 95px;" class="text-center">QUANTITY <span class="text-danger">*</span></th>
                     <th style="width: 95px;">UNIT <span class="text-danger">*</span></th>
-                    <th style="width: 130px;" class="text-end">TOTAL AMOUNT (₹)</th>
+                    <th style="width: 130px;" class="text-end">TOTAL AMOUNT</th>
                     <th style="width: 45px;" class="text-center">ACTION</th>
                   </tr>
                 </thead>
@@ -561,7 +588,7 @@
                              step="any" 
                              min="0" 
                              class="form-control form-control-sm font-mono text-end shadow-xs fw-bold" 
-                             placeholder="₹ 0.00" 
+                             placeholder="0.00" 
                              [(ngModel)]="row.totalAmount" 
                              [name]="'row_amount_' + i">
                     </td>
@@ -585,7 +612,7 @@
                     <td colspan="4" class="text-end text-uppercase text-secondary">Total:</td>
                     <td class="text-center font-mono text-primary">{{ grandTotalQuantity | number:'1.0-2' }}</td>
                     <td></td>
-                    <td class="text-end font-mono text-success fw-bold">₹ {{ grandTotalAmount | number:'1.2-2' }}</td>
+                    <td class="text-end font-mono text-success fw-bold">{{ grandTotalAmount | number:'1.2-2' }}</td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -601,7 +628,7 @@
             <span class="mx-2">|</span>
             <span>Total Qty: <strong class="text-primary font-mono">{{ grandTotalQuantity | number:'1.0-2' }}</strong></span>
             <span class="mx-2">|</span>
-            <span>Total Amount: <strong class="text-success font-mono">₹ {{ grandTotalAmount | number:'1.2-2' }}</strong></span>
+            <span>Total Amount: <strong class="text-success font-mono">{{ grandTotalAmount | number:'1.2-2' }}</strong></span>
           </div>
           <div *ngIf="isEditMode"></div>
 

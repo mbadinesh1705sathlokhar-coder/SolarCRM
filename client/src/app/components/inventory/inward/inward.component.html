@@ -30,17 +30,17 @@
       <a routerLink="/inventory/indent" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-file-earmark-text me-1 text-primary"></i> Indent
       </a>
-      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-box-seam me-1 text-success"></i> Warehouse
+      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-cart3 me-1 text-danger"></i> Add to Cart
       </a>
       <a routerLink="/inventory/inward" class="tab-pill-btn text-decoration-none active">
         <i class="bi bi-box-arrow-in-down me-1 text-info"></i> Inward
       </a>
-      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-pass me-1 text-warning"></i> Gate Pass
+      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-seam me-1 text-success"></i> WareHouse
       </a>
-      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-cart3 me-1 text-danger"></i> Add to cart
+      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-pass me-1 text-warning"></i> Gatepass
       </a>
     </div>
 
@@ -190,7 +190,7 @@
 <!-- MODAL: CREATE / EDIT INWARD                              -->
 <!-- ======================================================== -->
 <div class="modal fade show d-block modal-backdrop-custom" *ngIf="isModalOpen" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 1100px;">
+  <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 1280px; width: 95vw;">
     <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
       <!-- Modal Header -->
       <div class="modal-header bg-info text-white py-3 px-4 d-flex justify-content-between align-items-center">
@@ -303,36 +303,38 @@
 
             <!-- Material Rows Table -->
             <div class="table-responsive">
-              <table class="table table-borderless align-middle mb-0">
+              <table class="table table-borderless align-middle mb-0" style="min-width: 1220px;">
                 <thead>
                   <tr class="text-uppercase text-secondary" style="font-size: 0.72rem; font-weight: 700;">
-                    <th style="width: 120px;">DATE</th>
-                    <th style="min-width: 140px;">MATERIAL GROUP *</th>
-                    <th style="min-width: 135px;">CATEGORY / TYPE</th>
-                    <th style="min-width: 160px;">SPECIFICATION / RATING *</th>
-                    <th style="width: 85px;">UNIT *</th>
-                    <th style="width: 80px;" class="text-center">QUANTITY *</th>
-                    <th *ngIf="canViewPricing()" style="width: 95px;" class="text-end">RATE (₹)</th>
-                    <th *ngIf="canViewPricing()" style="min-width: 150px;">VENDOR NAME</th>
-                    <th *ngIf="canViewPricing()" style="min-width: 110px; width: 110px;" class="text-end">AMOUNT (₹)</th>
-                    <th style="width: 35px;"></th>
+                    <th style="min-width: 135px; width: 135px;">DATE</th>
+                    <th style="min-width: 145px; width: 145px;">MATERIAL GROUP *</th>
+                    <th style="min-width: 135px; width: 135px;">CATEGORY / TYPE</th>
+                    <th style="min-width: 165px; width: 165px;">SPECIFICATION / RATING *</th>
+                    <th style="min-width: 105px; width: 105px;">UNIT *</th>
+                    <th style="min-width: 90px; width: 90px;" class="text-center">QUANTITY *</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 115px; width: 115px;" class="text-end">RATE (₹)</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 165px; width: 165px;">VENDOR NAME</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 135px; width: 135px;" class="text-end">AMOUNT (₹)</th>
+                    <th style="width: 35px; min-width: 35px;" class="text-center"></th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let m of inwardMaterials; let i = index" class="border-bottom-custom">
                     <!-- DATE -->
-                    <td>
+                    <td style="min-width: 135px;">
                       <input type="date" 
                              class="form-control form-control-sm font-mono shadow-xs rounded-3 text-dark" 
+                             style="min-width: 125px; height: 32px; font-size: 0.82rem;"
                              [(ngModel)]="m.inwardDate" 
                              [name]="'inw_mat_date_' + i">
                     </td>
 
                     <!-- 1. MATERIAL GROUP -->
-                    <td>
+                    <td style="min-width: 145px;">
                       <select class="form-select form-select-sm shadow-xs rounded-3 fw-bold text-dark" 
+                              style="min-width: 140px; height: 32px; font-size: 0.82rem;"
                               [(ngModel)]="m.materialGroup" 
-                              (change)="onMaterialGroupChange(m)"
+                              (change)="onMaterialGroupChange(m)" 
                               [name]="'inw_mat_grp_' + i"
                               required>
                         <option value="">-- Select Group --</option>
@@ -341,20 +343,22 @@
                     </td>
 
                     <!-- 2. CATEGORY / TYPE -->
-                    <td>
+                    <td style="min-width: 135px;">
                       <select class="form-select form-select-sm shadow-xs rounded-3 text-dark" 
+                              style="min-width: 130px; height: 32px; font-size: 0.82rem;"
                               [(ngModel)]="m.categoryType" 
-                              (change)="onMaterialGroupChange(m)"
+                              (change)="onMaterialGroupChange(m)" 
                               [name]="'inw_mat_cat_' + i">
                         <option *ngFor="let cat of getAvailableCategoryTypes(m.materialGroup)" [value]="cat">{{ cat }}</option>
                       </select>
                     </td>
 
                     <!-- 3. SPECIFICATION / RATING -->
-                    <td>
+                    <td style="min-width: 165px;">
                       <select class="form-select form-select-sm shadow-xs rounded-3 fw-medium text-dark font-mono" 
+                              style="min-width: 160px; height: 32px; font-size: 0.82rem;"
                               [(ngModel)]="m.specification" 
-                              (change)="onSpecificationChange(m)"
+                              (change)="onSpecificationChange(m)" 
                               [name]="'inw_mat_spec_' + i"
                               required>
                         <option value="">-- Select Spec --</option>
@@ -364,8 +368,9 @@
                     </td>
 
                     <!-- UNIT -->
-                    <td>
+                    <td style="min-width: 105px;">
                       <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary" 
+                              style="min-width: 100px; width: 100%; height: 32px; font-size: 0.82rem;"
                               [(ngModel)]="m.unit" 
                               [name]="'inw_mat_unit_' + i"
                               required>
@@ -375,11 +380,12 @@
                     </td>
 
                     <!-- QUANTITY -->
-                    <td>
+                    <td style="min-width: 90px;">
                       <input type="number" 
                              min="0.01" 
                              step="any" 
                              class="form-control form-control-sm font-mono text-center shadow-xs rounded-3 fw-bold" 
+                             style="min-width: 85px; width: 100%; height: 32px; font-size: 0.82rem;"
                              [(ngModel)]="m.quantity" 
                              (ngModelChange)="calculateRowAmount(m)"
                              [name]="'inw_mat_qty_' + i"
@@ -387,20 +393,22 @@
                     </td>
 
                     <!-- RATE -->
-                    <td *ngIf="canViewPricing()">
+                    <td *ngIf="canViewPricing()" style="min-width: 115px;">
                       <input type="number" 
                              min="0" 
                              step="any" 
                              placeholder="0.00"
                              class="form-control form-control-sm font-mono text-end shadow-xs rounded-3 fw-bold" 
+                             style="min-width: 110px; width: 100%; height: 32px; font-size: 0.82rem;"
                              [(ngModel)]="m.rate" 
                              (ngModelChange)="calculateRowAmount(m)"
                              [name]="'inw_mat_rate_' + i">
                     </td>
 
                     <!-- VENDOR NAME -->
-                    <td *ngIf="canViewPricing()">
+                    <td *ngIf="canViewPricing()" style="min-width: 165px;">
                       <select class="form-select form-select-sm shadow-xs rounded-3 text-dark" 
+                              style="min-width: 160px; width: 100%; height: 32px; font-size: 0.82rem;"
                               [(ngModel)]="m.vendorName" 
                               [name]="'inw_mat_vendor_' + i">
                         <option value="">Select Vendor</option>
@@ -411,13 +419,13 @@
 
                     <!-- AMOUNT -->
                     <td *ngIf="canViewPricing()" style="min-width: 135px; width: 135px;">
-                      <div class="form-control form-control-sm font-mono text-end fw-bold bg-light text-dark shadow-xs border text-nowrap d-flex align-items-center justify-content-end" style="white-space: nowrap; font-size: 0.82rem; height: 31px;">
+                      <div class="form-control form-control-sm font-mono text-end fw-bold bg-light text-dark shadow-xs border text-nowrap d-flex align-items-center justify-content-end" style="white-space: nowrap; font-size: 0.82rem; height: 32px; min-width: 125px;">
                         <span>₹&nbsp;{{ (m.amount || 0) | number:'1.2-2' }}</span>
                       </div>
                     </td>
 
                     <!-- REMOVE BUTTON -->
-                    <td class="text-center">
+                    <td class="text-center" style="min-width: 35px;">
                       <button type="button" 
                               class="btn btn-link text-danger p-0 border-0 fs-5 text-decoration-none shadow-none" 
                               (click)="removeMaterialRow(i)" 

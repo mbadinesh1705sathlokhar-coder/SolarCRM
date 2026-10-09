@@ -138,4 +138,19 @@
   color: #1d4ed8;
 }
 
+/* Compact Status Dropdown */
+.status-dropdown-compact {
+  font-size: 0.72rem !important;
+  font-weight: 500 !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 2px 24px 2px 8px !important;
+  border-radius: 6px !important;
+}
+
+.status-dropdown-compact option {
+  font-size: 0.72rem !important;
+  padding: 3px 8px !important;
+}
+
 

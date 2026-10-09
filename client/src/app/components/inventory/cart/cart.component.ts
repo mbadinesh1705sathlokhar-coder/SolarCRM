@@ -77,7 +77,7 @@ export class CartComponent implements OnInit {
     orderDate: new Date().toISOString().substring(0, 10),
     clientLocation: '',
     vendorName: '',
-    procurementStatus: 'Yet to Start'
+    procurementStatus: 'Yet to start'
   };
   cartRows: CartRowItem[] = [];
 
@@ -92,12 +92,11 @@ export class CartComponent implements OnInit {
   vendorOptions: string[] = [];
   unitOptions: string[] = ['Nos', 'Meter', 'Set', 'Kg', 'Roll', 'Box', 'Litre', 'Pkt'];
   statusOptions: string[] = [
-    'Yet to Start',
-    'Requested Vendor',
+    'Yet to start',
+    'Requested To Vendor',
     'PO Processed',
-    'Payment In Process',
-    'Materials on Route',
-    'Delivered to Site'
+    'Transporting',
+    'Dispatched'
   ];
 
   // Searchable Client Dropdowns
@@ -539,6 +538,42 @@ export class CartComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
+  addMaterialGroupToCart(groupName: string): void {
+    if (!groupName) return;
+    const normGrp = groupName.toLowerCase().trim();
+    const masterItems = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    if (masterItems.length === 0) {
+      this.showToast(`No items configured for ${groupName} in AddList.`, 'info');
+      return;
+    }
+
+    const newRows: CartRowItem[] = masterItems.map(b => {
+      const grp = b.groupName;
+      const cat = b.categoryType || 'Standard';
+      const spec = b.specification;
+      const autoName = [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec;
+      const rate = Number(b.unitRate) || 0;
+      return {
+        material: autoName,
+        materialGroup: grp,
+        categoryType: cat,
+        specification: spec,
+        quantity: 1,
+        unit: b.defaultUom || (grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos'),
+        totalAmount: rate > 0 ? rate : (null as any),
+        clientLocation: this.cartHeader.clientLocation
+      };
+    });
+
+    if (this.cartRows.length === 1 && !this.cartRows[0].specification && !this.cartRows[0].totalAmount) {
+      this.cartRows = [];
+    }
+
+    this.cartRows.push(...newRows);
+    this.showToast(`Added ${newRows.length} ${groupName} items from AddList into Cart.`, 'success');
+    this.cdr.markForCheck();
+  }
+
   openAddModal(): void {
     if (!this.canAdd()) {
       this.showToast('You do not have permission to add items to cart.', 'danger');
@@ -549,7 +584,7 @@ export class CartComponent implements OnInit {
       orderDate: new Date().toISOString().substring(0, 10),
       clientLocation: '',
       vendorName: '',
-      procurementStatus: 'Yet to Start'
+      procurementStatus: 'Yet to start'
     };
 
     const groups = this.getAvailableMaterialGroups();
@@ -670,6 +705,19 @@ export class CartComponent implements OnInit {
     this.cartForm.materialGroup = grp;
     this.cartForm.categoryType = cat || 'Standard';
     this.cartForm.specification = spec;
+
+    // Standardize status matching the updated status options
+    const curStatus = (item.procurementStatus || '').toLowerCase().trim();
+    if (curStatus === 'requested vendor' || curStatus === 'payment in process') {
+      this.cartForm.procurementStatus = 'Requested To Vendor';
+    } else if (curStatus === 'materials on route') {
+      this.cartForm.procurementStatus = 'Transporting';
+    } else if (curStatus === 'delivered to site') {
+      this.cartForm.procurementStatus = 'Dispatched';
+    } else {
+      const matched = this.statusOptions.find(s => s.toLowerCase() === curStatus);
+      this.cartForm.procurementStatus = matched || item.procurementStatus || 'Yet to start';
+    }
 
     this.loadVendorsFromOffice();
     this.isModalOpen = true;
@@ -798,7 +846,7 @@ export class CartComponent implements OnInit {
       quantity: 1,
       unit: 'Nos',
       vendorName: '',
-      procurementStatus: 'Yet to Start',
+      procurementStatus: 'Yet to start',
       totalAmount: 0
     };
   }

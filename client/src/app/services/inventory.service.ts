@@ -250,7 +250,7 @@ export interface CartItem {
   quantity: number;
   unit: string;
   vendorName?: string;
-  procurementStatus: 'Yet to Start' | 'Requested Vendor' | 'PO Processed' | 'Payment In Process' | 'Materials on Route' | string;
+  procurementStatus: 'Yet to start' | 'Requested To Vendor' | 'PO Processed' | 'Transporting' | 'Dispatched' | string;
   totalAmount: number;
   createdAt?: string;
   updatedAt?: string;

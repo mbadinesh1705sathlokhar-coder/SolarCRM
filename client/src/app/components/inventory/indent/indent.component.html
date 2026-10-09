@@ -30,17 +30,17 @@
       <a routerLink="/inventory/indent" class="tab-pill-btn text-decoration-none active">
         <i class="bi bi-file-earmark-text me-1 text-primary"></i> Indent
       </a>
-      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-box-seam me-1 text-success"></i> Warehouse
+      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-cart3 me-1 text-danger"></i> Add to Cart
       </a>
       <a routerLink="/inventory/inward" class="tab-pill-btn text-decoration-none">
         <i class="bi bi-box-arrow-in-down me-1 text-info"></i> Inward
       </a>
-      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-pass me-1 text-warning"></i> Gate Pass
+      <a routerLink="/inventory/warehouse" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-box-seam me-1 text-success"></i> WareHouse
       </a>
-      <a routerLink="/inventory/cart" class="tab-pill-btn text-decoration-none">
-        <i class="bi bi-cart3 me-1 text-danger"></i> Add to cart
+      <a routerLink="/inventory/gate-pass" class="tab-pill-btn text-decoration-none">
+        <i class="bi bi-pass me-1 text-warning"></i> Gatepass
       </a>
     </div>
 
@@ -291,7 +291,22 @@
                 </h6>
                 <small class="text-muted">Select materials, quantity, unit, status, and PO/WO.</small>
               </div>
-              <div class="d-flex align-items-center gap-2">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <!-- Quick Import Group from AddList -->
+                <div class="dropdown d-inline-block" *ngIf="bomGroupKeys.length > 0">
+                  <button class="btn btn-sm btn-outline-secondary dropdown-toggle fw-semibold px-2 py-1 shadow-xs" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.78rem;">
+                    <i class="bi bi-collection me-1"></i> + Add Group
+                  </button>
+                  <ul class="dropdown-menu shadow-sm">
+                    <li><h6 class="dropdown-header">Add All Group Items from AddList:</h6></li>
+                    <li *ngFor="let grp of bomGroupKeys">
+                      <a class="dropdown-item small cursor-pointer" (click)="addMaterialGroupToIndent(grp)">
+                        <i class="bi bi-plus me-1 text-primary"></i> {{ grp }} ({{ (bomGroupMap[grp] || []).length }})
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+
                 <button *ngIf="hasProjectBomItems()" type="button" class="btn btn-sm btn-outline-primary fw-bold px-2.5 py-1 shadow-xs d-flex align-items-center gap-1"
                         (click)="populateFromProjectBom(true)" title="Reload materials from this project's Bill of Materials">
                   <i class="bi bi-arrow-repeat"></i> Reload BOM

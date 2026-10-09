@@ -662,6 +662,41 @@ export class IndentComponent implements OnInit {
     this.requestedMaterials.splice(index, 1);
   }
 
+  addMaterialGroupToIndent(groupName: string): void {
+    if (!groupName) return;
+    const normGrp = groupName.toLowerCase().trim();
+    const masterItems = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    if (masterItems.length === 0) {
+      this.showToast(`No items configured for ${groupName} in AddList.`, 'info');
+      return;
+    }
+
+    const newRows: IndentMaterial[] = masterItems.map(b => {
+      const grp = b.groupName;
+      const cat = b.categoryType || 'Standard';
+      const spec = b.specification;
+      const autoName = this.formatBomMaterialName(grp, cat, spec);
+      return {
+        materialName: autoName,
+        materialGroup: grp,
+        categoryType: cat,
+        specification: spec,
+        quantity: 1,
+        unit: b.defaultUom || (grp.toLowerCase() === 'cables' ? 'Meter' : 'Nos'),
+        status: 'Ready to issue',
+        poWo: false
+      };
+    });
+
+    if (this.requestedMaterials.length === 1 && !this.requestedMaterials[0].specification) {
+      this.requestedMaterials = [];
+    }
+
+    this.requestedMaterials.push(...newRows);
+    this.showToast(`Added ${newRows.length} ${groupName} items from AddList into Indent.`, 'success');
+    this.cdr.markForCheck();
+  }
+
   saveIndent(): void {
     if (!this.indentForm.clientName?.trim()) {
       this.showToast('Client Name is required.', 'danger');
