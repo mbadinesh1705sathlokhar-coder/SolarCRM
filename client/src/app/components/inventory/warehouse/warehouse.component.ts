@@ -337,6 +337,18 @@ export class WarehouseComponent implements OnInit {
     return d;
   }
 
+  getDisplayMaterialName(m: WarehouseMaterial): string {
+    const spec = this.getCleanSpec(m);
+    if (m.categoryType && m.categoryType !== 'Standard') {
+      const cat = m.categoryType.trim();
+      if (spec.toLowerCase().startsWith(cat.toLowerCase())) {
+        return spec;
+      }
+      return `${cat} ${spec}`.trim();
+    }
+    return spec;
+  }
+
   openAddModal(): void {
     if (!this.canAdd()) {
       this.showToast('You do not have permission to add warehouse materials.', 'danger');
@@ -567,11 +579,11 @@ export class WarehouseComponent implements OnInit {
 
     const body = list.map((m, idx) => [
       idx + 1,
-      m.materialName || '',
-      m.description || '—',
+      this.getDisplayMaterialName(m),
+      this.getCleanDescription(m),
       m.unit || 'Nos',
       Number(m.inStock || 0).toLocaleString('en-IN'),
-      this.computeStockStatus(m.materialName, m.unit, m.inStock)
+      m.status || this.computeStockStatus(m.materialName, m.unit, m.inStock)
     ]);
 
     autoTable(doc, {
@@ -598,11 +610,11 @@ export class WarehouseComponent implements OnInit {
     const headers = ['S.No', 'Material Name', 'Description', 'Unit', 'In Stock', 'Status'];
     const rows = list.map((m, idx) => [
       idx + 1,
-      `"${m.materialName || ''}"`,
-      `"${m.description || ''}"`,
+      `"${this.getDisplayMaterialName(m)}"`,
+      `"${this.getCleanDescription(m)}"`,
       `"${m.unit || ''}"`,
       m.inStock || 0,
-      `"${this.computeStockStatus(m.materialName, m.unit, m.inStock)}"`
+      `"${m.status || this.computeStockStatus(m.materialName, m.unit, m.inStock)}"`
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);

@@ -400,6 +400,8 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   expenseSourceOptions: string[] = ['PO', 'WO', 'Petty Cash', 'Accounts', 'Warehouse', 'Other'];
 
   bomMaterialsMasterList: any[] = [];
+  private categoryTypesCache = new Map<string, string[]>();
+  private specsForTypeCache = new Map<string, string[]>();
 
   loadBomMaterialsMaster(): void {
     this.masterListService.getBomMaterials().subscribe({
@@ -407,6 +409,9 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
         if (res.success && res.data) {
           this.bomMaterialsMasterList = res.data;
           this.syncMaterialGroupsFromBomMaster();
+          this.categoryTypesCache.clear();
+          this.specsForTypeCache.clear();
+          this.refreshAvailableMaterialGroupNames();
           this.cdr.markForCheck();
         }
       },
@@ -449,33 +454,50 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
 
   getAvailableCategoryTypes(groupName: string): string[] {
     const normGrp = (groupName || '').toLowerCase().trim();
-    const matches = this.bomMaterialsMasterList.filter(b => b.groupName.toLowerCase().trim() === normGrp);
-    if (matches.length > 0) {
-      const types = Array.from(new Set(matches.map(m => m.categoryType || 'Standard')));
-      return types;
+    if (this.categoryTypesCache.has(normGrp)) {
+      return this.categoryTypesCache.get(normGrp)!;
     }
-    if (normGrp === 'cables') return ['AC Cable', 'DC Cable'];
-    if (normGrp === 'panels') return ['Mono PERC', 'TOPCon', 'Polycrystalline'];
-    if (normGrp === 'inverters') return ['On Grid', 'Hybrid'];
-    if (normGrp === 'lugs') return ['Cu Lug', 'Al Lug', 'Pin Lug', 'Ring Lug'];
-    return ['Standard'];
+    const matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    let types: string[] = [];
+    if (matches.length > 0) {
+      types = Array.from(new Set(matches.map(m => m.categoryType || 'Standard')));
+    } else if (normGrp === 'cables') {
+      types = ['AC Cable', 'DC Cable'];
+    } else if (normGrp === 'panels') {
+      types = ['Mono PERC', 'TOPCon', 'Polycrystalline'];
+    } else if (normGrp === 'inverters') {
+      types = ['On Grid', 'Hybrid'];
+    } else if (normGrp === 'lugs') {
+      types = ['Cu Lug', 'Al Lug', 'Pin Lug', 'Ring Lug'];
+    } else {
+      types = ['Standard'];
+    }
+    this.categoryTypesCache.set(normGrp, types);
+    return types;
   }
 
   getAvailableSpecsForType(groupName: string, categoryType: string): string[] {
     const normGrp = (groupName || '').toLowerCase().trim();
     const normType = (categoryType || '').toLowerCase().trim();
+    const key = `${normGrp}__${normType}`;
+    if (this.specsForTypeCache.has(key)) {
+      return this.specsForTypeCache.get(key)!;
+    }
     
-    let matches = this.bomMaterialsMasterList.filter(b => b.groupName.toLowerCase().trim() === normGrp);
+    let matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
     if (normType && normType !== 'standard') {
       const filtered = matches.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
       if (filtered.length > 0) matches = filtered;
     }
     
+    let specs: string[] = [];
     if (matches.length > 0) {
-      return Array.from(new Set(matches.map(m => m.specification)));
+      specs = Array.from(new Set(matches.map(m => m.specification)));
+    } else {
+      specs = this.getAvailableSpecs(groupName);
     }
-    
-    return this.getAvailableSpecs(groupName);
+    this.specsForTypeCache.set(key, specs);
+    return specs;
   }
 
   getAvailableSpecs(groupName: string): string[] {
@@ -500,6 +522,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       item.specification = '';
       item.uom = 'Nos';
       this.recalculateBomItem(item);
+      this.rebuildGroupedBomSections();
       return;
     }
     const types = this.getAvailableCategoryTypes(grp);
@@ -514,6 +537,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     }
     item.gstPercent = this.getDefaultGstForGroup(grp);
     this.recalculateBomItem(item);
+    this.rebuildGroupedBomSections();
   }
 
   onCategoryTypeChange(item: BomItem): void {
@@ -522,6 +546,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       item.specification = specs[0];
     }
     this.onSpecificationChange(item);
+    this.rebuildGroupedBomSections();
   }
 
   onSpecificationChange(item: BomItem): void {
@@ -538,6 +563,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       }
     }
     this.recalculateBomItem(item);
+    this.rebuildGroupedBomSections();
   }
 
   recalculateBomItem(item: BomItem): void {
@@ -551,6 +577,15 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     const gstRate = Number(item.gstPercent) || 0;
     item.gstAmount = Number(((item.estimatedTotalCost * gstRate) / 100).toFixed(2));
     item.estAmount = Number((item.estimatedTotalCost + item.gstAmount).toFixed(2));
+
+    const grp = (item.materialGroup || '').trim() || 'Custom / Unassigned';
+    const sec = this.groupedBomSections.find(s => s.groupName === grp);
+    if (sec) {
+      sec.subtotalBase = sec.items.reduce((acc, it) => acc + (Number(it.item.estimatedTotalCost) || 0), 0);
+      sec.subtotalGst = sec.items.reduce((acc, it) => acc + (Number(it.item.gstAmount) || 0), 0);
+      sec.subtotalTotal = sec.items.reduce((acc, it) => acc + (Number(it.item.estAmount !== undefined ? it.item.estAmount : ((Number(it.item.estimatedTotalCost) || 0) + (Number(it.item.gstAmount) || 0))) || 0), 0);
+    }
+    this.recalculateBomExpenseBreakdown();
   }
 
   getBomDispatchStatus(item: BomItem): 'full' | 'part' | 'none' {
@@ -600,7 +635,16 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
 
   selectedGroupToAdd: string = '';
 
+  cachedAvailableMaterialGroupNames: string[] = [];
+
   get availableMaterialGroupNames(): string[] {
+    if (this.cachedAvailableMaterialGroupNames.length === 0) {
+      this.refreshAvailableMaterialGroupNames();
+    }
+    return this.cachedAvailableMaterialGroupNames;
+  }
+
+  refreshAvailableMaterialGroupNames(): void {
     const names = new Set<string>();
     if (this.bomMaterialsMasterList) {
       this.bomMaterialsMasterList.forEach(b => {
@@ -612,7 +656,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
         if (m.group && m.group.trim()) names.add(m.group.trim());
       });
     }
-    return Array.from(names);
+    this.cachedAvailableMaterialGroupNames = Array.from(names);
   }
 
   getGroupMasterItemsCount(groupName: string): number {
@@ -767,8 +811,14 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     };
   }
 
-  get groupedBomSections(): BomGroupSection[] {
-    if (!this.formBomItems || this.formBomItems.length === 0) return [];
+  groupedBomSections: BomGroupSection[] = [];
+
+  rebuildGroupedBomSections(): void {
+    if (!this.formBomItems || this.formBomItems.length === 0) {
+      this.groupedBomSections = [];
+      this.recalculateBomExpenseBreakdown();
+      return;
+    }
 
     const groupMap = new Map<string, { item: BomItem; originalIndex: number }[]>();
     this.formBomItems.forEach((item, index) => {
@@ -805,7 +855,16 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       grpIdx++;
     }
 
-    return sections;
+    this.groupedBomSections = sections;
+    this.recalculateBomExpenseBreakdown();
+  }
+
+  trackByGroupName(index: number, sec: BomGroupSection): string {
+    return sec.groupName;
+  }
+
+  trackByBomRow(index: number, rowEntry: BomSectionItem): any {
+    return rowEntry.item.id || (rowEntry.item.materialGroup + '_' + rowEntry.originalIndex);
   }
 
   addMaterialGroupToBom(groupName: string): void {
@@ -877,6 +936,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       this.showToast(`All ${masterItems.length} items for ${groupName} from AddList are already in the BOM.`, 'info');
     }
     this.selectedGroupToAdd = '';
+    this.rebuildGroupedBomSections();
     this.cdr.markForCheck();
   }
 
@@ -927,6 +987,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     } else {
       this.showToast('All configured material groups are already in the BOM.', 'info');
     }
+    this.rebuildGroupedBomSections();
     this.cdr.markForCheck();
   }
 
@@ -977,6 +1038,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     } else {
       this.formBomItems.push(newItem);
     }
+    this.rebuildGroupedBomSections();
     this.cdr.markForCheck();
   }
 
@@ -985,6 +1047,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     if (confirm(`Are you sure you want to remove the entire "${groupName}" group (${count} items) from BOM?`)) {
       this.formBomItems = this.formBomItems.filter(b => (b.materialGroup || '').toLowerCase().trim() !== groupName.toLowerCase().trim());
       this.expandedBomRowIndex = null;
+      this.rebuildGroupedBomSections();
       this.showToast(`Removed "${groupName}" group from BOM.`, 'info');
       this.cdr.markForCheck();
     }
@@ -1013,13 +1076,16 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       remarks: ''
     };
     this.formBomItems.push(newItem);
+    this.rebuildGroupedBomSections();
     this.expandedBomRowIndex = this.formBomItems.length - 1;
+    this.cdr.markForCheck();
   }
 
   clearAllBomItems(): void {
     if (confirm('Are you sure you want to clear all materials from the Bill of Materials?')) {
       this.formBomItems = [];
       this.expandedBomRowIndex = null;
+      this.rebuildGroupedBomSections();
       this.cdr.markForCheck();
     }
   }
@@ -1041,6 +1107,8 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       this.expandedBomRowIndex = null;
     }
     this.formBomItems.splice(index, 1);
+    this.rebuildGroupedBomSections();
+    this.cdr.markForCheck();
   }
 
   get totalBomBaseCost(): number {
@@ -1067,7 +1135,16 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     return this.formBomItems.reduce((acc, item) => acc + (Number(item.allocatedExpenseAmount) || 0), 0);
   }
 
-  get bomExpenseBreakdown() {
+  cachedBomExpenseBreakdown = {
+    PO: 0,
+    WO: 0,
+    PettyCash: 0,
+    Accounts: 0,
+    Warehouse: 0,
+    Other: 0
+  };
+
+  recalculateBomExpenseBreakdown(): void {
     const summary = {
       PO: 0,
       WO: 0,
@@ -1076,17 +1153,23 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       Warehouse: 0,
       Other: 0
     };
-    this.formBomItems.forEach(item => {
-      const amt = Number(item.allocatedExpenseAmount) || 0;
-      const src = item.expenseSource || 'PO';
-      if (src === 'PO') summary.PO += amt;
-      else if (src === 'WO') summary.WO += amt;
-      else if (src === 'Petty Cash') summary.PettyCash += amt;
-      else if (src === 'Accounts') summary.Accounts += amt;
-      else if (src === 'Warehouse') summary.Warehouse += amt;
-      else summary.Other += amt;
-    });
-    return summary;
+    if (this.formBomItems) {
+      this.formBomItems.forEach(item => {
+        const amt = Number(item.allocatedExpenseAmount) || 0;
+        const src = item.expenseSource || 'PO';
+        if (src === 'PO') summary.PO += amt;
+        else if (src === 'WO') summary.WO += amt;
+        else if (src === 'Petty Cash') summary.PettyCash += amt;
+        else if (src === 'Accounts') summary.Accounts += amt;
+        else if (src === 'Warehouse') summary.Warehouse += amt;
+        else summary.Other += amt;
+      });
+    }
+    this.cachedBomExpenseBreakdown = summary;
+  }
+
+  get bomExpenseBreakdown() {
+    return this.cachedBomExpenseBreakdown;
   }
 
   // Delete modal
@@ -1855,6 +1938,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     });
     this.projectForm.siteId = `SP${maxNum + 1}`;
     this.formBomItems = [];
+    this.rebuildGroupedBomSections();
     this.modalTab = 'basic';
     this.isModalOpen = true;
     this.cdr.markForCheck();
@@ -1898,8 +1982,10 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       this.recalculateBomItem(item);
     });
     this.formBomItems = parsedBom;
+    this.rebuildGroupedBomSections();
     this.modalTab = 'basic';
     this.isModalOpen = true;
+    this.cdr.markForCheck();
   }
 
   closeModal(): void {
