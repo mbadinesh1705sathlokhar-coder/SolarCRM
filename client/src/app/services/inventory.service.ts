@@ -177,6 +177,7 @@ export interface GatePassItem {
   id?: number;
   gatePassId?: number;
   dispatchDate?: string;
+  invoiceNo?: string;
   materialName: string;
   materialGroup?: string;
   categoryType?: string;
@@ -209,6 +210,7 @@ export interface InwardItem {
   id?: number;
   inwardId?: number;
   inwardDate?: string;
+  invoiceNo?: string;
   materialName: string;
   materialGroup?: string;
   categoryType?: string;
@@ -223,6 +225,7 @@ export interface InwardItem {
 export interface Inward {
   id?: number;
   inwardNo?: string;
+  invoiceNo?: string;
   inwardDate: string;
   descriptions?: string;
   unit?: string;

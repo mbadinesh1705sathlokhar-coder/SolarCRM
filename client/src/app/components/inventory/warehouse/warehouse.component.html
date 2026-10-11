@@ -268,10 +268,10 @@
             <!-- Streamlined Selected Summary & Auto Unit / In-Stock Inputs -->
             <div class="col-md-6">
               <label class="form-label small fw-bold text-dark mb-1">Unit (UOM) <span class="text-danger">*</span></label>
-              <select class="form-select shadow-sm fw-bold text-primary" [(ngModel)]="materialForm.unit" name="unit" required>
+              <select class="form-select shadow-sm fw-bold text-primary bg-light" [disabled]="true" [(ngModel)]="materialForm.unit" name="unit" required>
                 <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
               </select>
-              <small class="text-muted" style="font-size: 0.72rem;">Auto-derived (e.g. Meter for Cables, Nos for MC4/Panels)</small>
+              <small class="text-muted" style="font-size: 0.72rem;">Auto-derived from Master (Disabled)</small>
             </div>
             <div class="col-md-6">
               <label class="form-label small fw-bold text-dark mb-1">In-Stock Quantity <span class="text-danger">*</span></label>

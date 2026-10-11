@@ -120,11 +120,20 @@ async function seedProjectsIfEmpty() {
 
 // Initialize Database connection and sync models, then start server
 async function startServer() {
-    try {
-        await Db();
-        await conDb.sync();
-        console.log('Database models synced successfully with MySQL.');
+    let connected = false;
+    while (!connected) {
+        try {
+            await Db();
+            await conDb.sync();
+            console.log('Database models synced successfully with MySQL.');
+            connected = true;
+        } catch (err) {
+            console.error('MySQL connection failed (is MySQL80 running?). Retrying in 5 seconds...', err.message || err);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+    }
 
+    try {
         await seedProjectsIfEmpty();
         await seedLedgersIfEmpty();
         await seedInitialLeadsIfEmpty();
@@ -141,7 +150,7 @@ async function startServer() {
             console.log(`Server is running successfully on port ${PORT}`);
         });
     } catch (err) {
-        console.error('Failed to start server:', err);
+        console.error('Failed to initialize server after DB connection:', err);
         process.exit(1);
     }
 }

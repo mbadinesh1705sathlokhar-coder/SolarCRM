@@ -600,6 +600,12 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     return Number(item.dispatchedQty !== undefined ? item.dispatchedQty : item.warehouseUnitsDrawn) || 0;
   }
 
+  getBomRemainingQty(item: BomItem): number {
+    const planned = Number(item.plannedQty) || 0;
+    const dispatched = this.getBomDispatchedQty(item);
+    return Math.max(0, planned - dispatched);
+  }
+
   expandedBomRowIndex: number | null = null;
 
   toggleBomRowExpand(index: number): void {
@@ -1385,6 +1391,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
 
     this.projectService.getProjects().subscribe({
       next: (res) => {
+        this.errorMsg = '';
         this.projects = (res.data || [])
           .filter(p => (p.siteId || '').toUpperCase() !== 'WAREHOUSE' && !(p.clientName || '').toLowerCase().includes('warehouse'))
           .map(p => ({

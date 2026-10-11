@@ -1221,12 +1221,6 @@
             </div>
           </div>
           <div class="d-flex align-items-center gap-2">
-            <button type="button" 
-                    class="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1.5 shadow-sm fw-semibold px-2.5 py-1 rounded-2"
-                    (click)="exportBreakdownPdf()" 
-                    [title]="'Download PDF Report for ' + getBreakdownTitle()">
-              <i class="bi bi-file-earmark-pdf-fill text-danger"></i> PDF Report
-            </button>
             <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeBreakdownModal()"></button>
           </div>
         </div>
@@ -1273,11 +1267,6 @@
 
             <!-- Search & Actions Inside Breakdown -->
             <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 shadow-xs fw-semibold px-2.5 py-1 rounded-2"
-                      (click)="exportBreakdownPdf()"
-                      [title]="'Export ' + getBreakdownTitle() + ' to PDF'">
-                <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
-              </button>
               <div class="input-group input-group-sm" style="max-width: 220px;">
                 <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
                 <input type="text" 

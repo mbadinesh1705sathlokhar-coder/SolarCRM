@@ -12,6 +12,7 @@ import { lastValueFrom } from 'rxjs';
 import { OfficeService } from '../../services/office.service';
 import { AuthService } from '../../services/auth.service';
 import { MasterListService } from '../../services/master-list.service';
+import { InventoryService } from '../../services/inventory.service';
 
 @Component({
   selector: 'app-expense-ledger',
@@ -25,6 +26,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   private officeService = inject(OfficeService);
   private authService = inject(AuthService);
   private masterListService = inject(MasterListService);
+  private inventoryService = inject(InventoryService);
   private cdr = inject(ChangeDetectorRef);
 
   @ViewChild('topScrollWrapper') topScrollWrapper?: ElementRef<HTMLDivElement>;
@@ -150,6 +152,10 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   invoiceModalExpense: SiteExpense | null = null;
   invoiceModalInput = '';
   invoiceModalDate = '';
+
+  // Inward Mapping state for PO/WO No. auto-fill
+  inwardsList: any[] = [];
+  availableInwardNos: string[] = [];
 
   // Quick Client Picker Modal (when clicking "+ Record New Expense" at top of page)
   isClientPickerOpen = false;
@@ -368,7 +374,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   paymentThroughOptions = ['P.O', 'W.O', 'Warehouse', 'Petty Cash', 'Gatepass', 'Accounts', '(Blanks)'];
 
   // Project BOM Items dynamically loaded when opening a specific client
-  projectBomOptions: { value: string; label: string; group: string; spec: string }[] = [];
+  projectBomOptions: { value: string; label: string; group: string; spec: string; invoiceRef?: string }[] = [];
 
   // Warehouse Bulk Orders / Invoices available for mapping to client expenses
   warehouseStockInvoices: { invoiceNo: string; referenceNo: string; vendorName: string; purpose: string; displayText: string }[] = [];
@@ -489,7 +495,8 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
           value: `${b.materialGroup || 'Material'} - ${b.specification || b.categoryType || 'Standard'}`,
           label: `📋 ${b.materialGroup || 'Material'}: ${b.specification || b.categoryType || 'Standard'} (${b.plannedQty || ''} ${b.uom || ''})`,
           group: b.materialGroup || 'Material',
-          spec: b.specification || b.categoryType || 'Standard'
+          spec: b.specification || b.categoryType || 'Standard',
+          invoiceRef: b.invoiceRef || b.poRef || ''
         }));
       }
     } catch {
@@ -533,6 +540,212 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     } else {
       this.formData.purpose = this.formData.selectedBomGroup;
     }
+
+    const bomMatch = this.findMatchingBomItem(this.formData.selectedBomGroup, this.formData.selectedBomSpec);
+    if (bomMatch && (!this.formData.amount || this.formData.amount === 0)) {
+      const est = Number(bomMatch.estAmount) || (Number(bomMatch.plannedQty) * Number(bomMatch.unitRate)) || 0;
+      if (est > 0) this.formData.amount = est;
+    }
+  }
+
+  parseProjectBom(proj: Project | null): any[] {
+    if (!proj || !proj.bomItems) return [];
+    if (Array.isArray(proj.bomItems)) return proj.bomItems;
+    if (typeof proj.bomItems === 'string') {
+      try { return JSON.parse(proj.bomItems); } catch { return []; }
+    }
+    return [];
+  }
+
+  findMatchingBomItem(groupName?: string, specName?: string): any | null {
+    if (!this.selectedProjectRef || !this.selectedProjectRef.bomItems) return null;
+    const bomList = this.parseProjectBom(this.selectedProjectRef);
+    const grp = (groupName || '').toLowerCase().trim();
+    const spec = (specName || '').toLowerCase().trim();
+    if (!grp && !spec) return null;
+
+    return bomList.find(b => {
+      const bGrp = (b.materialGroup || '').toLowerCase().trim();
+      const bSpec = (b.specification || '').toLowerCase().trim();
+      const bCat = (b.categoryType || '').toLowerCase().trim();
+      if (grp && spec) {
+        return (bGrp === grp || bGrp.includes(grp)) && (bSpec === spec || bSpec.includes(spec) || bCat === spec);
+      }
+      if (grp) return bGrp === grp || bGrp.includes(grp);
+      if (spec) return bSpec === spec || bSpec.includes(spec);
+      return false;
+    }) || null;
+  }
+
+  onReferenceNoChange(): void {
+    const ref = (this.formData.referenceNo || '').trim().toLowerCase();
+    if (!ref) return;
+
+    // 1. Search matching Inward by inwardNo, invoiceNo, or item invoiceNo
+    const matchingInward = this.inwardsList.find((inw: any) => {
+      if (inw.inwardNo && inw.inwardNo.trim().toLowerCase() === ref) return true;
+      if (inw.invoiceNo && inw.invoiceNo.trim().toLowerCase() === ref) return true;
+      if (inw.items && inw.items.some((it: any) => it.invoiceNo && it.invoiceNo.trim().toLowerCase() === ref)) return true;
+      return false;
+    });
+
+    if (matchingInward) {
+      if (matchingInward.supplierName) {
+        this.formData.vendor = matchingInward.supplierName;
+      }
+      if (matchingInward.invoiceNo) {
+        this.formData.invoiceNo = matchingInward.invoiceNo;
+      }
+      this.formData.billVoucher = 'Not Submitted';
+
+      if (matchingInward.items && matchingInward.items.length > 0) {
+        const firstItem = matchingInward.items[0];
+        if (firstItem.materialGroup) {
+          this.formData.selectedBomGroup = firstItem.materialGroup;
+        }
+        if (firstItem.specification) {
+          this.formData.selectedBomSpec = firstItem.specification;
+        } else if (firstItem.categoryType && firstItem.categoryType !== 'Standard') {
+          this.formData.selectedBomSpec = firstItem.categoryType;
+        }
+        this.updatePurposeFromBom();
+
+        if (firstItem.amount !== undefined && firstItem.amount !== null && Number(firstItem.amount) > 0) {
+          this.formData.amount = Number(firstItem.amount);
+        } else if (matchingInward.totalAmount && Number(matchingInward.totalAmount) > 0) {
+          this.formData.amount = Number(matchingInward.totalAmount);
+        }
+      } else if (matchingInward.totalAmount && Number(matchingInward.totalAmount) > 0) {
+        this.formData.amount = Number(matchingInward.totalAmount);
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+
+    // 2. Search matching project BOM item if ref didn't match Inwards
+    if (this.selectedProjectRef && this.projectBomOptions.length > 0) {
+      const matchedBom = this.projectBomOptions.find(b => 
+        (b.invoiceRef && b.invoiceRef.trim().toLowerCase() === ref) ||
+        (b.group && b.group.toLowerCase().includes(ref)) ||
+        (b.spec && b.spec.toLowerCase().includes(ref))
+      );
+      if (matchedBom) {
+        this.formData.selectedBomGroup = matchedBom.group;
+        this.formData.selectedBomSpec = matchedBom.spec;
+        this.updatePurposeFromBom();
+        this.formData.billVoucher = 'Not Submitted';
+        const actualBom = this.findMatchingBomItem(matchedBom.group, matchedBom.spec);
+        if (actualBom) {
+          const est = Number(actualBom.estAmount) || (Number(actualBom.plannedQty) * Number(actualBom.unitRate)) || 0;
+          if (est > 0) this.formData.amount = est;
+        }
+        this.cdr.markForCheck();
+      }
+    }
+  }
+
+  findMatchingBomItemForExpense(e: SiteExpense): any | null {
+    const bomList = this.parseProjectBom(this.selectedProjectRef);
+    if (bomList.length === 0) return null;
+
+    const purpose = (e.purpose || '').toLowerCase().trim();
+    const cat = (e.category || '').toLowerCase().trim();
+    const remarks = (e.remarks || '').toLowerCase().trim();
+
+    for (const b of bomList) {
+      const grp = (b.materialGroup || '').toLowerCase().trim();
+      const spec = (b.specification || '').toLowerCase().trim();
+      const type = (b.categoryType || '').toLowerCase().trim();
+
+      if (spec && (purpose.includes(spec) || remarks.includes(spec))) return b;
+      if (grp && purpose.includes(grp)) {
+        if (type && type !== 'standard' && purpose.includes(type)) return b;
+        return b;
+      }
+    }
+
+    if (cat) {
+      const catMatch = bomList.find(b => (b.materialGroup || '').toLowerCase().trim() === cat);
+      if (catMatch) return catMatch;
+    }
+
+    return null;
+  }
+
+  getExpenseDispatchStatus(e: SiteExpense): 'full' | 'part' | 'none' {
+    const rem = (e.remarks || '').toLowerCase();
+    if (rem.includes('fully dispatched') || rem.includes('(0 left') || rem.includes('(0 nos left') || rem.includes('(0 meter left') || rem.includes('(0 set left') || rem.includes('(0 m left') || rem.includes('(0 to be dispatched')) {
+      return 'full';
+    }
+
+    const b = this.findMatchingBomItemForExpense(e);
+    if (b) {
+      const disp = parseFloat(b.dispatchedQty) || 0;
+      const plan = parseFloat(b.plannedQty) || 0;
+      if (plan > 0) {
+        if (disp >= plan) return 'full';
+        if (disp > 0 && disp < plan) return 'part';
+      } else if (b.isDispatched || disp > 0) {
+        return 'full';
+      }
+    }
+
+    if (e.paymentThrough === 'Gatepass' || (e.paymentNote || '').startsWith('GATEPASS')) {
+      if (rem.includes('left of') || rem.includes('to be dispatched')) {
+        const match = rem.match(/(\d+(?:\.\d+)?)\s*([a-z]+)?\s*(?:left|to be dispatched)\s*of\s*(\d+(?:\.\d+)?)/i);
+        if (match) {
+          const left = parseFloat(match[1]) || 0;
+          return left <= 0 ? 'full' : 'part';
+        }
+      }
+      return 'full';
+    }
+
+    return 'none';
+  }
+
+  getExpenseRemainingDetails(e: SiteExpense): { dispatched: number; remaining: number; uom: string; text: string } | null {
+    const b = this.findMatchingBomItemForExpense(e);
+    if (b) {
+      const disp = parseFloat(b.dispatchedQty) || 0;
+      const plan = parseFloat(b.plannedQty) || 0;
+      const uom = b.uom || 'Nos';
+      const rem = Math.max(0, plan - disp);
+      return {
+        dispatched: disp,
+        remaining: rem,
+        uom: uom,
+        text: `${disp} ${uom} Dispatched • ${rem} ${uom} to be Dispatched`
+      };
+    }
+
+    const rem = e.remarks || '';
+    const match = rem.match(/dispatched\s*(\d+(?:\.\d+)?)\s*([a-z]+)?.*?\((\d+(?:\.\d+)?)\s*(?:[a-z]+)?\s*(?:left|to be dispatched)\s*of\s*(\d+(?:\.\d+)?)/i);
+    if (match) {
+      const disp = parseFloat(match[1]) || 0;
+      const uom = match[2] || '';
+      const remQty = parseFloat(match[3]) || 0;
+      return {
+        dispatched: disp,
+        remaining: remQty,
+        uom: uom,
+        text: `${disp} ${uom} Dispatched • ${remQty} ${uom} to be Dispatched`
+      };
+    }
+
+    return null;
+  }
+
+  getExpenseRemainingShort(e: SiteExpense): string {
+    const d = this.getExpenseRemainingDetails(e);
+    if (!d) return 'Partially Dispatched';
+    return `${d.dispatched} ${d.uom} (${d.remaining} ${d.uom} left)`;
+  }
+
+  getExpenseRemainingDetailed(e: SiteExpense): string {
+    const d = this.getExpenseRemainingDetails(e);
+    if (!d) return 'Partially Dispatched';
+    return `${d.dispatched} ${d.uom} Dispatched • ${d.remaining} ${d.uom} to be Dispatched`;
   }
 
   isPoWo(paymentThrough?: string): boolean {
@@ -548,6 +761,30 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     this.loadEmployeesFromOffice();
     this.loadBomMaterialsFromService();
     this.loadEngineers();
+    this.loadInwards();
+  }
+
+  loadInwards(): void {
+    this.inventoryService.getInwards().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.inwardsList = res.data;
+          const nos: string[] = [];
+          res.data.forEach((inw: any) => {
+            if (inw.inwardNo && inw.inwardNo.trim()) nos.push(inw.inwardNo.trim());
+            if (inw.invoiceNo && inw.invoiceNo.trim()) nos.push(inw.invoiceNo.trim());
+            if (inw.items && inw.items.length > 0) {
+              inw.items.forEach((it: any) => {
+                if (it.invoiceNo && it.invoiceNo.trim()) nos.push(it.invoiceNo.trim());
+              });
+            }
+          });
+          this.availableInwardNos = Array.from(new Set(nos));
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
   }
 
   ngAfterViewInit(): void {
@@ -1138,6 +1375,9 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     const defaultPurpose = `${defaultGroup} - ${defaultSpec}`;
 
     this.isLegacyPurpose = false;
+    const firstBom = this.findMatchingBomItem(defaultGroup, defaultSpec);
+    const initialAmount = firstBom ? (Number(firstBom.estAmount) || (Number(firstBom.plannedQty) * Number(firstBom.unitRate)) || null) : null;
+
     this.formData = {
       dateInput: this.getTodayDisplayDate(),
       siteId: this.selectedProjectRef.siteId,
@@ -1154,9 +1394,9 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       paidBy: 'OFFICE',
       vendor: '',
       remarks: isWh ? 'Materials received in warehouse' : '',
-      billVoucher: 'Submitted',
+      billVoucher: 'Not Submitted',
       invoiceNo: '',
-      amount: null
+      amount: initialAmount
     };
 
     this.scrollToExpenseForm();

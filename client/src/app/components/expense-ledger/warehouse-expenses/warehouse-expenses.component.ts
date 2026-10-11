@@ -7,6 +7,7 @@ import { SiteExpense } from '../../../models/project.model';
 import { OfficeService } from '../../../services/office.service';
 import { AuthService } from '../../../services/auth.service';
 import { MasterListService } from '../../../services/master-list.service';
+import { InventoryService } from '../../../services/inventory.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -23,6 +24,7 @@ export class WarehouseExpensesComponent implements OnInit {
   private officeService = inject(OfficeService);
   private authService = inject(AuthService);
   private masterListService = inject(MasterListService);
+  private inventoryService = inject(InventoryService);
   private cdr = inject(ChangeDetectorRef);
 
   expenses: SiteExpense[] = [];
@@ -321,13 +323,17 @@ export class WarehouseExpensesComponent implements OnInit {
     paidBy: 'OFFICE',
     vendor: '',
     remarks: '',
-    billVoucher: 'Submitted',
+    billVoucher: 'Not Submitted',
     referenceNo: '',
     invoiceNo: '',
     amount: null as number | null
   };
 
   paymentThroughOptions = ['P.O', 'W.O', 'Petty Cash', 'Gatepass', 'Accounts', '(Blanks)'];
+
+  // Inward Mapping state for PO/WO No. auto-fill
+  inwardsList: any[] = [];
+  availableInwardNos: string[] = [];
 
   // BOM Material Master Groups & Specifications
   bomMaterialGroups: { group: string; specifications: string[] }[] = [
@@ -370,6 +376,7 @@ export class WarehouseExpensesComponent implements OnInit {
     this.loadVendorsFromOffice();
     this.loadEmployeesFromOffice();
     this.loadBomMaterialsFromService();
+    this.loadInwards();
   }
 
   loadBomMaterialsFromService(): void {
@@ -420,6 +427,74 @@ export class WarehouseExpensesComponent implements OnInit {
       this.formData.purpose = `${this.formData.selectedBomGroup} - ${this.formData.selectedBomSpec}`;
     } else {
       this.formData.purpose = this.formData.selectedBomGroup;
+    }
+  }
+
+  loadInwards(): void {
+    this.inventoryService.getInwards().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.inwardsList = res.data;
+          const nos: string[] = [];
+          res.data.forEach((inw: any) => {
+            if (inw.inwardNo && inw.inwardNo.trim()) nos.push(inw.inwardNo.trim());
+            if (inw.invoiceNo && inw.invoiceNo.trim()) nos.push(inw.invoiceNo.trim());
+            if (inw.items && inw.items.length > 0) {
+              inw.items.forEach((it: any) => {
+                if (it.invoiceNo && it.invoiceNo.trim()) nos.push(it.invoiceNo.trim());
+              });
+            }
+          });
+          this.availableInwardNos = Array.from(new Set(nos));
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  onReferenceNoChange(): void {
+    const ref = (this.formData.referenceNo || '').trim().toLowerCase();
+    if (!ref) return;
+
+    // Search matching Inward by inwardNo, invoiceNo, or item invoiceNo
+    const matchingInward = this.inwardsList.find((inw: any) => {
+      if (inw.inwardNo && inw.inwardNo.trim().toLowerCase() === ref) return true;
+      if (inw.invoiceNo && inw.invoiceNo.trim().toLowerCase() === ref) return true;
+      if (inw.items && inw.items.some((it: any) => it.invoiceNo && it.invoiceNo.trim().toLowerCase() === ref)) return true;
+      return false;
+    });
+
+    if (matchingInward) {
+      if (matchingInward.supplierName) {
+        this.formData.vendor = matchingInward.supplierName;
+      }
+      if (matchingInward.invoiceNo) {
+        this.formData.invoiceNo = matchingInward.invoiceNo;
+      }
+      this.formData.billVoucher = 'Not Submitted';
+
+      if (matchingInward.items && matchingInward.items.length > 0) {
+        const firstItem = matchingInward.items[0];
+        if (firstItem.materialGroup) {
+          this.formData.selectedBomGroup = firstItem.materialGroup;
+        }
+        if (firstItem.specification) {
+          this.formData.selectedBomSpec = firstItem.specification;
+        } else if (firstItem.categoryType && firstItem.categoryType !== 'Standard') {
+          this.formData.selectedBomSpec = firstItem.categoryType;
+        }
+        this.updatePurposeFromBom();
+
+        if (firstItem.amount !== undefined && firstItem.amount !== null && Number(firstItem.amount) > 0) {
+          this.formData.amount = Number(firstItem.amount);
+        } else if (matchingInward.totalAmount && Number(matchingInward.totalAmount) > 0) {
+          this.formData.amount = Number(matchingInward.totalAmount);
+        }
+      } else if (matchingInward.totalAmount && Number(matchingInward.totalAmount) > 0) {
+        this.formData.amount = Number(matchingInward.totalAmount);
+      }
+      this.cdr.markForCheck();
     }
   }
 
@@ -545,7 +620,7 @@ export class WarehouseExpensesComponent implements OnInit {
       paidBy: 'OFFICE',
       vendor: '',
       remarks: 'Material stock received in Central Warehouse',
-      billVoucher: 'Submitted',
+      billVoucher: 'Not Submitted',
       referenceNo: '',
       invoiceNo: '',
       amount: null
@@ -668,7 +743,7 @@ export class WarehouseExpensesComponent implements OnInit {
       paidBy: this.formData.paidBy,
       vendorName: this.formData.vendor || '',
       remarks: this.formData.remarks || '',
-      billVoucher: this.formData.billVoucher || 'Submitted',
+      billVoucher: this.formData.billVoucher || 'Not Submitted',
       referenceNo: this.formData.referenceNo ? this.formData.referenceNo.trim() : '',
       invoiceNo: this.formData.invoiceNo ? this.formData.invoiceNo.trim() : ''
     };

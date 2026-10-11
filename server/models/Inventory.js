@@ -255,6 +255,12 @@ const GatePassItem = conDb.define('GatePassItem', {
         allowNull: true,
         field: 'dispatch_date'
     },
+    invoiceNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        defaultValue: '',
+        field: 'invoice_no'
+    },
     materialName: {
         type: DataTypes.STRING(255),
         allowNull: false,
@@ -326,6 +332,11 @@ const Inward = conDb.define('Inward', {
         type: DataTypes.STRING(100),
         allowNull: true,
         field: 'inward_no'
+    },
+    invoiceNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'invoice_no'
     },
     inwardDate: {
         type: DataTypes.DATEONLY,
@@ -406,6 +417,11 @@ const InwardItem = conDb.define('InwardItem', {
         type: DataTypes.DATEONLY,
         allowNull: true,
         field: 'inward_date'
+    },
+    invoiceNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'invoice_no'
     },
     materialName: {
         type: DataTypes.STRING(255),

@@ -419,8 +419,13 @@
                   <input type="text" 
                          class="form-control form-control-sm font-mono" 
                          [(ngModel)]="formData.referenceNo" 
+                         (ngModelChange)="onReferenceNoChange()"
+                         list="expenseInwardNosList"
                          name="referenceNo" 
                          [placeholder]="formData.paymentThrough === 'W.O' ? 'e.g. SOLAR/' + formData.siteId + '/WO-001' : (formData.paymentThrough === 'P.O' ? 'e.g. SOLAR/' + formData.siteId + '/PO-001' : 'Auto (PC-1, PC-2...)')">
+                  <datalist id="expenseInwardNosList">
+                    <option *ngFor="let no of availableInwardNos" [value]="no">{{ no }}</option>
+                  </datalist>
                 </div>
 
                 <!-- Warehouse Stock Invoice / Bulk PO Selection (Shown when Payment Through is Warehouse or bulk invoices exist) -->
@@ -597,7 +602,9 @@
                       </div>
                     </td>
                   </tr>
-                  <tr *ngFor="let e of clientExpensesList; let idx = index" [class.table-active]="editingExpenseId === e.id">
+                  <tr *ngFor="let e of clientExpensesList; let idx = index" 
+                      [class.table-active]="editingExpenseId === e.id"
+                      [style.background-color]="getExpenseDispatchStatus(e) === 'full' ? '#f0fdf4' : (getExpenseDispatchStatus(e) === 'part' ? '#fefce8' : '')">
                     <!-- Date: text-nowrap, never broken! -->
                     <td class="fw-semibold text-dark font-mono small text-nowrap">
                       {{ toDisplayDate(e.formattedDate || e.expenseDate) }}
@@ -638,6 +645,18 @@
                               style="font-size: 0.68rem;">
                           {{ e.referenceNo }}
                         </span>
+                        <!-- Dispatch status badge: full = tick mark; part = remaining qty -->
+                        <span *ngIf="getExpenseDispatchStatus(e) === 'full'" 
+                              class="badge d-inline-flex align-items-center gap-1 font-mono fw-bold text-success border border-success-subtle bg-white shadow-xs px-2 py-0.5" 
+                              style="font-size: 0.68rem;">
+                          <i class="bi bi-check-circle-fill text-success"></i> ✔ Dispatched
+                        </span>
+                        <span *ngIf="getExpenseDispatchStatus(e) === 'part'" 
+                              class="badge d-inline-flex align-items-center gap-1 font-mono fw-bold text-warning-emphasis border border-warning-subtle bg-white shadow-xs px-2 py-0.5" 
+                              style="font-size: 0.68rem;" 
+                              [title]="getExpenseRemainingDetailed(e)">
+                          <i class="bi bi-hourglass-split text-warning"></i> {{ getExpenseRemainingShort(e) }}
+                        </span>
                       </div>
                     </td>
                     <!-- Expense Amount: Prominently placed in Column 5 -->
@@ -652,8 +671,11 @@
                     <td class="small fw-semibold text-dark text-truncate" style="max-width: 110px;" [title]="e.paidBy || ''">
                       {{ e.paidBy || 'OFFICE' }}
                     </td>
-                    <td class="text-dark small fw-medium text-truncate" style="max-width: 150px;" [title]="e.remarks || ''">
-                      {{ e.remarks || '—' }}
+                    <td class="text-dark small fw-medium" style="max-width: 170px;" [title]="e.remarks || ''">
+                      <div class="text-truncate">{{ e.remarks || '—' }}</div>
+                      <div *ngIf="getExpenseDispatchStatus(e) === 'part'" class="badge bg-warning text-dark font-mono mt-1 text-truncate" style="font-size: 0.68rem; max-width: 165px;" [title]="getExpenseRemainingDetailed(e)">
+                        <i class="bi bi-hourglass-split me-1"></i>{{ getExpenseRemainingDetailed(e) }}
+                      </div>
                     </td>
                     <!-- Bill Voucher: Only applicable for W.O or P.O -->
                     <td class="text-center">

@@ -591,7 +591,10 @@ export class InwardComponent implements OnInit {
       return;
     }
 
-    validMaterials.forEach(m => this.calculateRowAmount(m));
+    validMaterials.forEach(m => {
+      this.calculateRowAmount(m);
+      m.vendorName = this.inwardForm.supplierName?.trim() || m.vendorName || '';
+    });
 
     const descriptions = validMaterials.map(m => `${m.materialName} (${m.quantity} ${m.unit})`).join(', ');
     const quantity = validMaterials.length === 1 ? (parseFloat(validMaterials[0].quantity as any) || 1) : 0;
@@ -678,6 +681,7 @@ export class InwardComponent implements OnInit {
   getEmptyInward(): Partial<Inward> {
     return {
       inwardNo: '',
+      invoiceNo: '',
       inwardDate: new Date().toISOString().substring(0, 10),
       descriptions: '',
       unit: 'Nos',

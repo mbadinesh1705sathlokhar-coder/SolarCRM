@@ -361,6 +361,7 @@
                     <th style="min-width: 160px;">SPECIFICATION / RATING *</th>
                     <th style="width: 85px;">UNIT *</th>
                     <th style="width: 80px;" class="text-center">QUANTITY *</th>
+                    <th style="min-width: 120px;">INVOICE NO.</th>
                     <th *ngIf="canViewPricing()" style="width: 95px;" class="text-end">RATE (₹)</th>
                     <th *ngIf="canViewPricing()" style="min-width: 150px;">VENDOR NAME</th>
                     <th *ngIf="canViewPricing()" style="min-width: 110px; width: 110px;" class="text-end">AMOUNT (₹)</th>
@@ -412,11 +413,12 @@
                       </select>
                     </td>
 
-                    <!-- UNIT -->
+                    <!-- UNIT (Disabled as specified) -->
                     <td>
-                      <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary" 
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary bg-light" 
                               [(ngModel)]="m.unit" 
                               [name]="'mat_unit_' + i"
+                              [disabled]="true"
                               required>
                         <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
                         <option *ngIf="m.unit && !unitOptions.includes(m.unit)" [value]="m.unit">{{ m.unit }}</option>
@@ -435,6 +437,17 @@
                              required>
                     </td>
 
+                    <!-- INVOICE NO. (Mapped with Inwards) -->
+                    <td>
+                      <input type="text" 
+                             class="form-control form-control-sm font-mono shadow-xs rounded-3" 
+                             placeholder="Inv / Inward No"
+                             list="gpInwardInvoicesList"
+                             [(ngModel)]="m.invoiceNo" 
+                             (ngModelChange)="onInvoiceNoChange(m)"
+                             [name]="'mat_inv_' + i">
+                    </td>
+
                     <!-- RATE -->
                     <td *ngIf="canViewPricing()">
                       <input type="number" 
@@ -447,7 +460,7 @@
                              [name]="'mat_rate_' + i">
                     </td>
 
-                    <!-- VENDOR NAME (From Add List) -->
+                    <!-- VENDOR NAME (From Add List / Inward) -->
                     <td *ngIf="canViewPricing()">
                       <select class="form-select form-select-sm shadow-xs rounded-3 text-dark" 
                               [(ngModel)]="m.vendorName" 
@@ -598,7 +611,8 @@
               <thead class="table-light text-uppercase text-secondary">
                 <tr>
                   <th style="width: 40px;" class="text-center">#</th>
-                  <th style="width: 100px;">Date</th>
+                  <th style="width: 95px;">Date</th>
+                  <th style="width: 110px;">Invoice No</th>
                   <th>Material / Description</th>
                   <th style="width: 75px;" class="text-center">Unit</th>
                   <th style="width: 75px;" class="text-center">Qty</th>
@@ -613,6 +627,7 @@
                   <tr *ngFor="let it of selectedGatePassForView.items; let idx = index">
                     <td class="text-center font-mono text-muted">{{ idx + 1 }}</td>
                     <td class="font-mono text-nowrap small text-muted">{{ formatDate(it.dispatchDate || selectedGatePassForView.gatePassDate) }}</td>
+                    <td class="font-mono text-nowrap small text-dark">{{ it.invoiceNo || '—' }}</td>
                     <td class="fw-medium text-dark">{{ cleanMaterialName(it.materialName) }}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">{{ it.unit || 'Nos' }}</span></td>
                     <td class="text-center font-mono fw-semibold">{{ it.quantity }}</td>
@@ -634,6 +649,7 @@
                   <tr>
                     <td class="text-center font-mono text-muted">1</td>
                     <td class="font-mono text-nowrap small text-muted">{{ formatDate(selectedGatePassForView.gatePassDate) }}</td>
+                    <td class="font-mono text-nowrap small text-muted">—</td>
                     <td class="fw-medium text-dark">{{ cleanDescription(selectedGatePassForView.descriptions) }}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">{{ selectedGatePassForView.unit }}</span></td>
                     <td class="text-center font-mono fw-semibold">{{ selectedGatePassForView.quantity }}</td>
@@ -647,7 +663,7 @@
               </tbody>
               <tfoot *ngIf="canViewPricing()" class="table-light">
                 <tr>
-                  <th colspan="7" class="text-end text-uppercase fw-bold desc-total-label">Total Amount:</th>
+                  <th colspan="8" class="text-end text-uppercase fw-bold desc-total-label">Total Amount:</th>
                   <th class="text-end font-mono text-primary text-nowrap desc-total-amount">
                     ₹ {{ getGatePassTotal(selectedGatePassForView) | number:'1.2-2' }}
                   </th>
@@ -675,3 +691,8 @@
     </div>
   </div>
 </div>
+
+<!-- Datalist for inward invoice suggestions in Gate Pass -->
+<datalist id="gpInwardInvoicesList">
+  <option *ngFor="let inv of availableInwardInvoices" [value]="inv">{{ inv }}</option>
+</datalist>

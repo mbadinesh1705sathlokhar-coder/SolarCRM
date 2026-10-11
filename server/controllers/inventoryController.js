@@ -407,10 +407,20 @@ async function deductWarehouseStock(items) {
                 }
             });
         }
+        if (!mat && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    [Op.or]: [
+                        { specification: { [Op.like]: `%${spec}%` } },
+                        { materialName: { [Op.like]: `%${spec}%` } }
+                    ]
+                }
+            });
+        }
         if (!mat && name) {
             mat = await WarehouseMaterial.findOne({
                 where: {
-                    materialName: { [Op.like]: name }
+                    materialName: { [Op.like]: `%${name}%` }
                 }
             });
         }
@@ -451,10 +461,20 @@ async function restoreWarehouseStock(items) {
                 }
             });
         }
+        if (!mat && spec) {
+            mat = await WarehouseMaterial.findOne({
+                where: {
+                    [Op.or]: [
+                        { specification: { [Op.like]: `%${spec}%` } },
+                        { materialName: { [Op.like]: `%${spec}%` } }
+                    ]
+                }
+            });
+        }
         if (!mat && name) {
             mat = await WarehouseMaterial.findOne({
                 where: {
-                    materialName: { [Op.like]: name }
+                    materialName: { [Op.like]: `%${name}%` }
                 }
             });
         }
@@ -586,13 +606,29 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
         await SiteExpenseLedger.destroy({
             where: {
                 siteId: siteId,
-                billVoucher: {
-                    [Op.or]: [
-                        `GP-${gpId}`,
-                        `GP-${gpId}-TRANS`
-                    ]
-                }
+                [Op.or]: [
+                    { paymentNote: `GATEPASS-${gpId}` },
+                    { paymentNote: `GATEPASS-${gpId}-TRANS` },
+                    { billVoucher: `GP-${gpId}` },
+                    { billVoucher: `GP-${gpId}-TRANS` }
+                ]
             }
+        });
+
+        // Parse ProjectMaster.bomItems
+        let bomItems = [];
+        if (project.bomItems) {
+            if (typeof project.bomItems === 'string') {
+                try { bomItems = JSON.parse(project.bomItems); } catch(e) { bomItems = []; }
+            } else if (Array.isArray(project.bomItems)) {
+                bomItems = [...project.bomItems];
+            }
+        }
+
+        // Fetch all client gate passes to calculate accurate movement tracking
+        const allClientPasses = await GatePass.findAll({
+            where: { clientName: gatePass.clientName },
+            include: [{ model: GatePassItem, as: 'items' }]
         });
 
         // 2. Create expense entry for materials dispatched
@@ -602,6 +638,62 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
             const rate = parseFloat(it.rate) || 0;
             const amt = it.amount !== undefined && it.amount !== null ? (parseFloat(it.amount) || 0) : (qty * rate);
 
+            const itGrp = (it.materialGroup || '').toLowerCase().trim();
+            const itCat = (it.categoryType || '').toLowerCase().trim();
+            const itSpec = (it.specification || '').toLowerCase().trim();
+            const matName = (it.materialName || '').toLowerCase().trim();
+
+            // Find matching BOM item
+            let matched = bomItems.find(b => {
+                const grp = (b.materialGroup || '').toLowerCase().trim();
+                const cat = (b.categoryType || '').toLowerCase().trim();
+                const spec = (b.specification || '').toLowerCase().trim();
+
+                if (itGrp && itSpec && grp === itGrp && spec === itSpec) return true;
+                if (itSpec && spec === itSpec) return true;
+                return matName.includes(grp) || grp.includes(matName) || 
+                       matName.includes(spec) || spec.includes(matName);
+            });
+
+            // Calculate cumulative dispatched for this material across all gate passes for this client
+            let cumulativeDispatched = 0;
+            for (const gp of allClientPasses) {
+                if (gp.id === gpId) {
+                    cumulativeDispatched += qty;
+                } else if (gp.items && gp.items.length > 0) {
+                    for (const gpIt of gp.items) {
+                        const gpGrp = (gpIt.materialGroup || '').toLowerCase().trim();
+                        const gpSpec = (gpIt.specification || '').toLowerCase().trim();
+                        const gpMatName = (gpIt.materialName || '').toLowerCase().trim();
+                        if ((itGrp && gpGrp === itGrp && gpSpec === itSpec) || (itSpec && gpSpec === itSpec) || gpMatName === matName) {
+                            cumulativeDispatched += (parseFloat(gpIt.quantity) || 0);
+                        }
+                    }
+                }
+            }
+            if (cumulativeDispatched === 0) cumulativeDispatched = qty;
+
+            const plannedQty = matched ? (parseFloat(matched.plannedQty) || 0) : 0;
+            const remaining = plannedQty > 0 ? Math.max(0, plannedQty - cumulativeDispatched) : 0;
+            const uom = matched?.uom || it.unit || 'Nos';
+
+            // Construct movement remarks reflecting quantity moved and remaining balance in BOM
+            let movementRemarks = '';
+            if (plannedQty > 0) {
+                if (remaining <= 0) {
+                    movementRemarks = `Dispatched ${qty} ${uom} via Gate Pass (Fully Dispatched - 0 ${uom} left of ${plannedQty} ${uom} BOM allocation)`;
+                } else {
+                    movementRemarks = `Dispatched ${qty} ${uom} via Gate Pass (${remaining} ${uom} to be dispatched of ${plannedQty} ${uom} BOM allocation)`;
+                }
+            } else {
+                movementRemarks = `Dispatched ${qty} ${uom} via Gate Pass (Fully Dispatched)`;
+            }
+            if (gatePass.remarks && gatePass.remarks.trim()) {
+                movementRemarks += ` | Note: ${gatePass.remarks.trim()}`;
+            }
+
+            const invNo = (it.invoiceNo || '').trim() || (gatePass.gatePassNo || '').trim() || `GP-${gpId}`;
+
             await SiteExpenseLedger.create({
                 expenseDate: it.dispatchDate || gatePass.gatePassDate || new Date().toISOString().substring(0, 10),
                 siteId: siteId,
@@ -609,13 +701,33 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
                 clientSiteName: project.location || project.clientName,
                 mop: 'Warehouse',
                 category: 'Warehouse',
-                paymentThrough: 'GatePass',
+                paymentThrough: 'Gatepass',
                 paidBy: gatePass.siteEngineer || 'Warehouse Dispatch',
-                billVoucher: `GP-${gpId}`,
-                purpose: `Gate Pass: ${it.materialName || 'Material'} (${qty} ${it.unit || 'Nos'})`,
+                billVoucher: 'Submitted',
+                invoiceNo: invNo,
+                referenceNo: it.invoiceNo ? it.invoiceNo.trim() : (gatePass.gatePassNo ? gatePass.gatePassNo.trim() : `GP-${gpId}`),
+                vendorName: (it.vendorName || '').trim(),
+                purpose: it.materialName || 'Material',
                 amount: amt,
-                remarks: gatePass.remarks || ''
+                paymentNote: `GATEPASS-${gpId}`,
+                remarks: movementRemarks
             });
+
+            // Update matching BOM item
+            if (matched) {
+                matched.isDispatched = true;
+                matched.dispatchedQty = cumulativeDispatched;
+                matched.dispatchDate = it.dispatchDate || gatePass.gatePassDate;
+                matched.allocatedExpenseAmount = (matched.allocatedExpenseAmount || 0) + amt;
+                matched.expenseSource = 'Warehouse';
+                matched.invoiceRef = invNo;
+                matched.warehouseUnitsDrawn = cumulativeDispatched;
+                if (remaining <= 0) {
+                    matched.remarks = `Dispatched ${cumulativeDispatched} ${uom} (Fully Dispatched - 0 left of ${plannedQty} ${uom} BOM)`;
+                } else {
+                    matched.remarks = `Dispatched ${cumulativeDispatched} ${uom} (${remaining} ${uom} to be dispatched of ${plannedQty} ${uom} BOM)`;
+                }
+            }
         }
 
         // 3. Create expense entry for transportCost if > 0
@@ -626,81 +738,39 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
                 siteId: siteId,
                 clientName: project.clientName,
                 clientSiteName: project.location || project.clientName,
-                mop: 'GatePass',
+                mop: 'Gatepass',
                 category: 'Warehouse',
-                paymentThrough: 'GatePass',
+                paymentThrough: 'Gatepass',
                 paidBy: gatePass.siteEngineer || 'Warehouse Dispatch',
-                billVoucher: `GP-${gpId}-TRANS`,
+                billVoucher: 'Submitted',
+                invoiceNo: gatePass.gatePassNo || `GP-${gpId}`,
+                referenceNo: `GP-${gpId}-TRANS`,
                 purpose: `Transport Cost - Gate Pass #${gpId}`,
                 amount: transportCost,
-                remarks: gatePass.remarks || ''
+                paymentNote: `GATEPASS-${gpId}-TRANS`,
+                remarks: gatePass.remarks || 'Site Material Transport'
             });
+
+            let transItem = bomItems.find(b => (b.materialGroup || '').toLowerCase().includes('transport'));
+            if (transItem) {
+                transItem.isDispatched = true;
+                transItem.allocatedExpenseAmount = (transItem.allocatedExpenseAmount || 0) + transportCost;
+                transItem.expenseSource = 'Warehouse';
+                transItem.invoiceRef = gatePass.gatePassNo || `GP-${gpId}`;
+            }
         }
 
-        // 4. Recalculate ProjectMaster.siteExpenses from SiteExpenseLedger
+        // 4. Save updated BOM items
+        if (bomItems.length > 0) {
+            project.bomItems = JSON.stringify(bomItems);
+        }
+
+        // 5. Recalculate ProjectMaster.siteExpenses, margin, and marginPercentage
         const totalExp = await SiteExpenseLedger.sum('amount', { where: { siteId: siteId } }) || 0;
         project.siteExpenses = parseFloat(Number(totalExp).toFixed(2));
-
-        // 5. Update ProjectMaster.bomItems
-        let bomItems = [];
-        if (project.bomItems) {
-            if (typeof project.bomItems === 'string') {
-                try { bomItems = JSON.parse(project.bomItems); } catch(e) { bomItems = []; }
-            } else if (Array.isArray(project.bomItems)) {
-                bomItems = [...project.bomItems];
-            }
-        }
-
-        if (bomItems.length > 0) {
-            validItems.forEach(it => {
-                const matName = (it.materialName || '').toLowerCase().trim();
-                const itQty = parseFloat(it.quantity) || 0;
-                const itAmt = it.amount !== undefined && it.amount !== null ? (parseFloat(it.amount) || 0) : (itQty * (parseFloat(it.rate) || 0));
-
-                const itGrp = (it.materialGroup || '').toLowerCase().trim();
-                const itCat = (it.categoryType || '').toLowerCase().trim();
-                const itSpec = (it.specification || '').toLowerCase().trim();
-
-                let matched = bomItems.find(b => {
-                    const grp = (b.materialGroup || '').toLowerCase().trim();
-                    const cat = (b.categoryType || '').toLowerCase().trim();
-                    const spec = (b.specification || '').toLowerCase().trim();
-
-                    // 1. Exact match on group and specification
-                    if (itGrp && itSpec && grp === itGrp && spec === itSpec) {
-                        if (!itCat || !cat || itCat === cat) return true;
-                    }
-                    // 2. Exact match on specification
-                    if (itSpec && spec === itSpec) return true;
-
-                    // 3. Fallback to substring matching on materialName
-                    return matName.includes(grp) || grp.includes(matName) || 
-                           matName.includes(cat) || cat.includes(matName) ||
-                           matName.includes(spec) || spec.includes(matName);
-                });
-
-                if (matched) {
-                    matched.isDispatched = true;
-                    matched.dispatchedQty = (matched.dispatchedQty || 0) + itQty;
-                    matched.dispatchDate = it.dispatchDate || gatePass.gatePassDate;
-                    matched.allocatedExpenseAmount = (matched.allocatedExpenseAmount || 0) + itAmt;
-                    matched.expenseSource = 'Warehouse';
-                    matched.invoiceRef = `GP-${gpId}`;
-                    matched.warehouseUnitsDrawn = (matched.warehouseUnitsDrawn || 0) + itQty;
-                }
-            });
-
-            if (transportCost > 0) {
-                let transItem = bomItems.find(b => (b.materialGroup || '').toLowerCase().includes('transport'));
-                if (transItem) {
-                    transItem.isDispatched = true;
-                    transItem.allocatedExpenseAmount = (transItem.allocatedExpenseAmount || 0) + transportCost;
-                    transItem.expenseSource = 'Warehouse';
-                    transItem.invoiceRef = `GP-${gpId}`;
-                }
-            }
-
-            project.bomItems = JSON.stringify(bomItems);
+        if (project.siteValue) {
+            project.margin = parseFloat(Number(project.siteValue - totalExp).toFixed(2));
+            project.marginPercentage = project.siteValue > 0 ? parseFloat(((project.margin / project.siteValue) * 100).toFixed(1)) : 0;
         }
 
         await project.save();
@@ -722,16 +792,65 @@ async function removeGatePassExpensesAndRestoreStock(gatePass) {
             await SiteExpenseLedger.destroy({
                 where: {
                     siteId: project.siteId,
-                    billVoucher: {
-                        [Op.or]: [
-                            `GP-${gpId}`,
-                            `GP-${gpId}-TRANS`
-                        ]
-                    }
+                    [Op.or]: [
+                        { paymentNote: `GATEPASS-${gpId}` },
+                        { paymentNote: `GATEPASS-${gpId}-TRANS` },
+                        { billVoucher: `GP-${gpId}` },
+                        { billVoucher: `GP-${gpId}-TRANS` }
+                    ]
                 }
             });
+
+            // Re-sync BOM dispatched quantities without this deleted pass
+            const remainingPasses = await GatePass.findAll({
+                where: {
+                    clientName: gatePass.clientName,
+                    id: { [Op.ne]: gpId }
+                },
+                include: [{ model: GatePassItem, as: 'items' }]
+            });
+
+            let bomItems = [];
+            if (project.bomItems) {
+                if (typeof project.bomItems === 'string') {
+                    try { bomItems = JSON.parse(project.bomItems); } catch(e) { bomItems = []; }
+                } else if (Array.isArray(project.bomItems)) {
+                    bomItems = [...project.bomItems];
+                }
+            }
+
+            if (bomItems.length > 0) {
+                bomItems.forEach(b => {
+                    const grp = (b.materialGroup || '').toLowerCase().trim();
+                    const spec = (b.specification || '').toLowerCase().trim();
+                    let remainingDisp = 0;
+                    for (const rp of remainingPasses) {
+                        if (rp.items) {
+                            for (const rIt of rp.items) {
+                                const rGrp = (rIt.materialGroup || '').toLowerCase().trim();
+                                const rSpec = (rIt.specification || '').toLowerCase().trim();
+                                if ((grp && rGrp === grp && rSpec === spec) || (spec && rSpec === spec)) {
+                                    remainingDisp += (parseFloat(rIt.quantity) || 0);
+                                }
+                            }
+                        }
+                    }
+                    b.dispatchedQty = remainingDisp;
+                    b.warehouseUnitsDrawn = remainingDisp;
+                    b.isDispatched = remainingDisp > 0;
+                    const planned = parseFloat(b.plannedQty) || 0;
+                    const rem = planned > 0 ? Math.max(0, planned - remainingDisp) : 0;
+                    b.remarks = remainingDisp > 0 ? (rem > 0 ? `Dispatched ${remainingDisp} ${b.uom || ''} (${rem} ${b.uom || ''} to be dispatched of ${planned})` : `Dispatched ${remainingDisp} ${b.uom || ''} (Fully Dispatched)`) : '';
+                });
+                project.bomItems = JSON.stringify(bomItems);
+            }
+
             const totalExp = await SiteExpenseLedger.sum('amount', { where: { siteId: project.siteId } }) || 0;
             project.siteExpenses = parseFloat(Number(totalExp).toFixed(2));
+            if (project.siteValue) {
+                project.margin = parseFloat(Number(project.siteValue - totalExp).toFixed(2));
+                project.marginPercentage = project.siteValue > 0 ? parseFloat(((project.margin / project.siteValue) * 100).toFixed(1)) : 0;
+            }
             await project.save();
         }
     } catch (err) {
@@ -797,6 +916,7 @@ async function createGatePass(req, res) {
                 return {
                     gatePassId: created.id,
                     dispatchDate: m.dispatchDate || gatePassDate || new Date().toISOString().substring(0, 10),
+                    invoiceNo: (m.invoiceNo || '').trim(),
                     materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
                     materialGroup: grp || null,
                     categoryType: cat || null,
@@ -891,6 +1011,7 @@ async function updateGatePass(req, res) {
                     return {
                         gatePassId: id,
                         dispatchDate: m.dispatchDate || pass.gatePassDate || new Date().toISOString().substring(0, 10),
+                        invoiceNo: (m.invoiceNo || '').trim(),
                         materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
                         materialGroup: grp || null,
                         categoryType: cat || null,
@@ -964,11 +1085,12 @@ async function getAllInwards(req, res) {
 
 async function createInward(req, res) {
     try {
-        let { inwardNo, inwardDate, descriptions, unit, quantity, supplierName, clientName, receivedBy, siteEngineer, remarks, items, transportCost } = req.body;
+        let { inwardNo, invoiceNo, inwardDate, descriptions, unit, quantity, supplierName, clientName, receivedBy, siteEngineer, remarks, items, transportCost } = req.body;
         
         const finalSupplier = (supplierName || clientName || '').trim();
         const finalReceiver = (receivedBy || siteEngineer || 'Soundarajan').trim();
         const parsedTransportCost = transportCost !== undefined ? (parseFloat(transportCost) || 0) : 0;
+        const finalInvoiceNo = (invoiceNo || inwardNo || '').trim();
 
         let calculatedTotalAmount = 0;
         if (Array.isArray(items) && items.length > 0) {
@@ -993,6 +1115,7 @@ async function createInward(req, res) {
 
         const created = await Inward.create({
             inwardNo: inwardNo ? inwardNo.trim() : null,
+            invoiceNo: finalInvoiceNo || null,
             inwardDate: inwardDate || new Date().toISOString().substring(0, 10),
             descriptions: descriptions.trim(),
             unit: unit || 'Nos',
@@ -1016,6 +1139,7 @@ async function createInward(req, res) {
                 return {
                     inwardId: created.id,
                     inwardDate: m.inwardDate || inwardDate || new Date().toISOString().substring(0, 10),
+                    invoiceNo: (m.invoiceNo || finalInvoiceNo || '').trim(),
                     materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
                     materialGroup: grp || null,
                     categoryType: cat || null,
@@ -1049,7 +1173,7 @@ async function createInward(req, res) {
 async function updateInward(req, res) {
     try {
         const { id } = req.params;
-        let { inwardNo, inwardDate, descriptions, unit, quantity, supplierName, clientName, receivedBy, siteEngineer, remarks, items, totalAmount, transportCost } = req.body;
+        let { inwardNo, invoiceNo, inwardDate, descriptions, unit, quantity, supplierName, clientName, receivedBy, siteEngineer, remarks, items, totalAmount, transportCost } = req.body;
         
         const existing = await Inward.findByPk(id, {
             include: [{ model: InwardItem, as: 'items' }]
@@ -1066,6 +1190,7 @@ async function updateInward(req, res) {
         const finalSupplier = supplierName !== undefined ? supplierName.trim() : (clientName !== undefined ? clientName.trim() : existing.supplierName);
         const finalReceiver = receivedBy !== undefined ? receivedBy.trim() : (siteEngineer !== undefined ? siteEngineer.trim() : existing.receivedBy);
         const parsedTransportCost = transportCost !== undefined ? (parseFloat(transportCost) || 0) : (existing.transportCost || 0);
+        const finalInvoiceNo = invoiceNo !== undefined ? (invoiceNo ? invoiceNo.trim() : null) : (inwardNo ? inwardNo.trim() : existing.invoiceNo);
 
         let calculatedTotalAmount = totalAmount !== undefined ? parseFloat(totalAmount) || 0 : (existing.totalAmount || 0);
         if (Array.isArray(items) && items.length > 0) {
@@ -1083,6 +1208,7 @@ async function updateInward(req, res) {
 
         await existing.update({
             inwardNo: inwardNo !== undefined ? (inwardNo ? inwardNo.trim() : null) : existing.inwardNo,
+            invoiceNo: finalInvoiceNo,
             inwardDate: inwardDate || existing.inwardDate,
             descriptions: descriptions !== undefined ? descriptions.trim() : existing.descriptions,
             unit: unit !== undefined ? unit : existing.unit,
@@ -1108,6 +1234,7 @@ async function updateInward(req, res) {
                     return {
                         inwardId: id,
                         inwardDate: m.inwardDate || existing.inwardDate || new Date().toISOString().substring(0, 10),
+                        invoiceNo: (m.invoiceNo || finalInvoiceNo || '').trim(),
                         materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
                         materialGroup: grp || null,
                         categoryType: cat || null,
@@ -1378,6 +1505,15 @@ async function seedInventoryIfEmpty() {
         } catch (e) {
             // Column already exists or table alter not required
         }
+        try {
+            await conDb.query("ALTER TABLE inventory_gate_pass_items ADD COLUMN invoice_no VARCHAR(100) NULL AFTER dispatch_date;");
+        } catch (e) {}
+        try {
+            await conDb.query("ALTER TABLE inventory_inwards ADD COLUMN invoice_no VARCHAR(100) NULL AFTER inward_no;");
+        } catch (e) {}
+        try {
+            await conDb.query("ALTER TABLE inventory_inward_items ADD COLUMN invoice_no VARCHAR(100) NULL AFTER inward_date;");
+        } catch (e) {}
         return;
     } catch (err) {
         console.error('Error seeding Inventory module:', err);

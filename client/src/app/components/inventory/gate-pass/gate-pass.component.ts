@@ -76,6 +76,8 @@ export class GatePassComponent implements OnInit {
   engineers: string[] = ['Soundarajan', 'Sathish', 'V Sharath', 'K Karthikeyen', 'S Karthikeyen', 'Rahul', 'Vairamani'];
   clientOptions: string[] = [];
   vendorOptions: string[] = [];
+  inwardsList: any[] = [];
+  availableInwardInvoices: string[] = [];
 
   // View Descriptions Modal State (User clicks Unit to view all descriptions)
   isViewDescriptionsOpen = false;
@@ -226,6 +228,81 @@ export class GatePassComponent implements OnInit {
     this.loadVendorsFromAddList();
     this.loadEngineersFromOffice();
     this.loadAwardedClients();
+    this.loadInwardInvoices();
+  }
+
+  loadInwardInvoices(): void {
+    this.inventoryService.getInwards().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.inwardsList = res.data;
+          const invoices: string[] = [];
+          res.data.forEach((inw: any) => {
+            if (inw.invoiceNo && inw.invoiceNo.trim()) {
+              invoices.push(inw.invoiceNo.trim());
+            }
+            if (inw.inwardNo && inw.inwardNo.trim()) {
+              invoices.push(inw.inwardNo.trim());
+            }
+            if (inw.items && inw.items.length > 0) {
+              inw.items.forEach((it: any) => {
+                if (it.invoiceNo && it.invoiceNo.trim()) {
+                  invoices.push(it.invoiceNo.trim());
+                }
+              });
+            }
+          });
+          this.availableInwardInvoices = Array.from(new Set(invoices));
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  onInvoiceNoChange(m: GatePassItem): void {
+    const rawInv = (m.invoiceNo || '').trim().toLowerCase();
+    if (!rawInv) return;
+
+    // Look for matching inward or inward item
+    const matchingInward = this.inwardsList.find((inw: any) => {
+      if (inw.invoiceNo && inw.invoiceNo.trim().toLowerCase() === rawInv) return true;
+      if (inw.inwardNo && inw.inwardNo.trim().toLowerCase() === rawInv) return true;
+      if (inw.items && inw.items.some((it: any) => it.invoiceNo && it.invoiceNo.trim().toLowerCase() === rawInv)) return true;
+      return false;
+    });
+
+    if (matchingInward) {
+      if (matchingInward.supplierName) {
+        m.vendorName = matchingInward.supplierName;
+      }
+      if (matchingInward.items && matchingInward.items.length > 0) {
+        const matName = (m.materialName || '').toLowerCase().trim();
+        const spec = (m.specification || '').toLowerCase().trim();
+        const grp = (m.materialGroup || '').toLowerCase().trim();
+
+        const itemMatch = matchingInward.items.find((it: any) => {
+          const itName = (it.materialName || '').toLowerCase().trim();
+          const itSpec = (it.specification || '').toLowerCase().trim();
+          const itGrp = (it.materialGroup || '').toLowerCase().trim();
+          if (itName && matName && (itName === matName || matName.includes(itName) || itName.includes(matName))) return true;
+          if (itSpec && spec && (itSpec === spec || spec.includes(itSpec) || itSpec.includes(spec))) return true;
+          if (itGrp && grp && itGrp === grp) return true;
+          return false;
+        }) || matchingInward.items[0];
+
+        if (itemMatch) {
+          if (itemMatch.vendorName) {
+            m.vendorName = itemMatch.vendorName;
+          }
+          if (itemMatch.rate) {
+            m.rate = Number(itemMatch.rate);
+            this.calculateRowAmount(m);
+          }
+        }
+      }
+      this.cdr.markForCheck();
+    }
   }
 
   loadVendorsFromAddList(): void {
@@ -356,6 +433,7 @@ export class GatePassComponent implements OnInit {
       const r = Number(b.rate) || 0;
       return {
         dispatchDate: defaultDate,
+        invoiceNo: b.invoiceRef || '',
         materialName: autoName,
         materialGroup: grp,
         categoryType: cat,
@@ -642,6 +720,7 @@ export class GatePassComponent implements OnInit {
 
     const row: GatePassItem = {
       dispatchDate: today,
+      invoiceNo: '',
       materialName: autoName,
       materialGroup: grp,
       categoryType: cat,
@@ -699,6 +778,7 @@ export class GatePassComponent implements OnInit {
 
         return {
           ...m,
+          invoiceNo: m.invoiceNo || '',
           materialGroup: grp,
           categoryType: cat || 'Standard',
           specification: spec || m.materialName,
@@ -718,6 +798,7 @@ export class GatePassComponent implements OnInit {
 
       this.dispatchMaterials = [{
         dispatchDate: defaultDate,
+        invoiceNo: '',
         materialName: gp.descriptions,
         materialGroup: grp,
         categoryType: cat,
@@ -739,6 +820,7 @@ export class GatePassComponent implements OnInit {
 
       const row: GatePassItem = {
         dispatchDate: defaultDate,
+        invoiceNo: '',
         materialName: autoName,
         materialGroup: grp,
         categoryType: cat,
@@ -791,6 +873,7 @@ export class GatePassComponent implements OnInit {
 
     const newRow: GatePassItem = {
       dispatchDate: defaultDate,
+      invoiceNo: '',
       materialName: autoName,
       materialGroup: grp,
       categoryType: cat,
@@ -1020,6 +1103,7 @@ export class GatePassComponent implements OnInit {
       if (gp.items && gp.items.length > 0) {
         matDetails = gp.items.map(it => {
           let line = `${this.cleanMaterialName(it.materialName)} (${it.quantity} ${it.unit})`;
+          if (it.invoiceNo) line += ` [Inv: ${it.invoiceNo}]`;
           if (it.dispatchDate) line += ` [${this.formatDate(it.dispatchDate)}]`;
           if (showPrice) {
             if (it.rate) line += ` @ Rs.${it.rate}`;
@@ -1141,8 +1225,8 @@ export class GatePassComponent implements OnInit {
 
     const showPrice = this.canViewPricing();
     const tableHeaders = showPrice
-      ? [['#', 'Date', 'Material / Description', 'Unit', 'Qty', 'Rate (Rs.)', 'Vendor Name', 'Amount (Rs.)']]
-      : [['#', 'Date', 'Material / Description', 'Unit', 'Qty']];
+      ? [['#', 'Date', 'Invoice No', 'Material / Description', 'Unit', 'Qty', 'Rate (Rs.)', 'Vendor Name', 'Amount (Rs.)']]
+      : [['#', 'Date', 'Invoice No', 'Material / Description', 'Unit', 'Qty']];
 
     const tableBody: any[] = [];
     if (gp.items && gp.items.length > 0) {
@@ -1151,6 +1235,7 @@ export class GatePassComponent implements OnInit {
           tableBody.push([
             idx + 1,
             this.formatDate(it.dispatchDate || gp.gatePassDate),
+            it.invoiceNo || '—',
             this.cleanMaterialName(it.materialName) || '—',
             it.unit || 'Nos',
             it.quantity || 0,
@@ -1164,6 +1249,7 @@ export class GatePassComponent implements OnInit {
           tableBody.push([
             idx + 1,
             this.formatDate(it.dispatchDate || gp.gatePassDate),
+            it.invoiceNo || '—',
             this.cleanMaterialName(it.materialName) || '—',
             it.unit || 'Nos',
             it.quantity || 0
@@ -1175,6 +1261,7 @@ export class GatePassComponent implements OnInit {
         tableBody.push([
           1,
           this.formatDate(gp.gatePassDate),
+          '—',
           this.cleanDescription(gp.descriptions) || '—',
           gp.unit || 'Nos',
           gp.quantity || 1,
@@ -1186,6 +1273,7 @@ export class GatePassComponent implements OnInit {
         tableBody.push([
           1,
           this.formatDate(gp.gatePassDate),
+          '—',
           this.cleanDescription(gp.descriptions) || '—',
           gp.unit || 'Nos',
           gp.quantity || 1
@@ -1197,7 +1285,7 @@ export class GatePassComponent implements OnInit {
     if (showPrice) {
       const totalAmount = this.getGatePassTotal(gp);
       tableFooters.push([
-        { content: 'Total Dispatch Value:', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
+        { content: 'Total Dispatch Value:', colSpan: 8, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
         { content: `Rs. ${Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fontSize: 9, textColor: [22, 101, 52] } }
       ]);
     }
@@ -1212,20 +1300,22 @@ export class GatePassComponent implements OnInit {
       footStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42] },
       alternateRowStyles: { fillColor: [254, 252, 232] },
       columnStyles: showPrice ? {
-        0: { halign: 'center', cellWidth: 10 },
-        1: { cellWidth: 22 },
-        2: { fontStyle: 'bold', cellWidth: 48 },
-        3: { halign: 'center', cellWidth: 14 },
-        4: { halign: 'center', cellWidth: 14 },
-        5: { halign: 'right', cellWidth: 24 },
-        6: { cellWidth: 28 },
-        7: { halign: 'right', cellWidth: 22 }
+        0: { halign: 'center', cellWidth: 8 },
+        1: { cellWidth: 19 },
+        2: { cellWidth: 20 },
+        3: { fontStyle: 'bold', cellWidth: 42 },
+        4: { halign: 'center', cellWidth: 12 },
+        5: { halign: 'center', cellWidth: 12 },
+        6: { halign: 'right', cellWidth: 22 },
+        7: { cellWidth: 24 },
+        8: { halign: 'right', cellWidth: 21 }
       } : {
-        0: { halign: 'center', cellWidth: 14 },
-        1: { cellWidth: 32 },
-        2: { fontStyle: 'bold', cellWidth: 90 },
-        3: { halign: 'center', cellWidth: 24 },
-        4: { halign: 'center', cellWidth: 22 }
+        0: { halign: 'center', cellWidth: 10 },
+        1: { cellWidth: 26 },
+        2: { cellWidth: 28 },
+        3: { fontStyle: 'bold', cellWidth: 72 },
+        4: { halign: 'center', cellWidth: 22 },
+        5: { halign: 'center', cellWidth: 22 }
       }
     });
 

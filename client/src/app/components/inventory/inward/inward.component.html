@@ -210,11 +210,15 @@
               <span class="badge bg-info text-white px-2.5 py-1 fw-bold">1. Inward Header Details</span>
             </div>
             <div class="row g-3">
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <label class="form-label small fw-bold text-dark mb-1">Inward No.</label>
                 <input type="text" class="form-control form-control-sm font-mono shadow-sm" placeholder="e.g. INW-001" [(ngModel)]="inwardForm.inwardNo" name="inwardNo">
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
+                <label class="form-label small fw-bold text-dark mb-1">Invoice No.</label>
+                <input type="text" class="form-control form-control-sm font-mono shadow-sm" placeholder="e.g. INV-1001" [(ngModel)]="inwardForm.invoiceNo" name="invoiceNo">
+              </div>
+              <div class="col-md-2">
                 <label class="form-label small fw-bold text-dark mb-1">Date <span class="text-danger">*</span></label>
                 <input type="date" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="inwardForm.inwardDate" name="inwardDate" required>
               </div>
@@ -303,7 +307,7 @@
 
             <!-- Material Rows Table -->
             <div class="table-responsive">
-              <table class="table table-borderless align-middle mb-0" style="min-width: 1220px;">
+              <table class="table table-borderless align-middle mb-0" style="min-width: 1050px;">
                 <thead>
                   <tr class="text-uppercase text-secondary" style="font-size: 0.72rem; font-weight: 700;">
                     <th style="min-width: 135px; width: 135px;">DATE</th>
@@ -313,7 +317,6 @@
                     <th style="min-width: 105px; width: 105px;">UNIT *</th>
                     <th style="min-width: 90px; width: 90px;" class="text-center">QUANTITY *</th>
                     <th *ngIf="canViewPricing()" style="min-width: 115px; width: 115px;" class="text-end">RATE (₹)</th>
-                    <th *ngIf="canViewPricing()" style="min-width: 165px; width: 165px;">VENDOR NAME</th>
                     <th *ngIf="canViewPricing()" style="min-width: 135px; width: 135px;" class="text-end">AMOUNT (₹)</th>
                     <th style="width: 35px; min-width: 35px;" class="text-center"></th>
                   </tr>
@@ -367,12 +370,13 @@
                       </select>
                     </td>
 
-                    <!-- UNIT -->
+                    <!-- UNIT (Disabled) -->
                     <td style="min-width: 105px;">
-                      <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary" 
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary bg-light" 
                               style="min-width: 100px; width: 100%; height: 32px; font-size: 0.82rem;"
                               [(ngModel)]="m.unit" 
                               [name]="'inw_mat_unit_' + i"
+                              [disabled]="true"
                               required>
                         <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
                         <option *ngIf="m.unit && !unitOptions.includes(m.unit)" [value]="m.unit">{{ m.unit }}</option>
@@ -403,18 +407,6 @@
                              [(ngModel)]="m.rate" 
                              (ngModelChange)="calculateRowAmount(m)"
                              [name]="'inw_mat_rate_' + i">
-                    </td>
-
-                    <!-- VENDOR NAME -->
-                    <td *ngIf="canViewPricing()" style="min-width: 165px;">
-                      <select class="form-select form-select-sm shadow-xs rounded-3 text-dark" 
-                              style="min-width: 160px; width: 100%; height: 32px; font-size: 0.82rem;"
-                              [(ngModel)]="m.vendorName" 
-                              [name]="'inw_mat_vendor_' + i">
-                        <option value="">Select Vendor</option>
-                        <option *ngFor="let v of vendorOptions" [value]="v">{{ v }}</option>
-                        <option *ngIf="m.vendorName && !vendorOptions.includes(m.vendorName)" [value]="m.vendorName">{{ m.vendorName }}</option>
-                      </select>
                     </td>
 
                     <!-- AMOUNT -->

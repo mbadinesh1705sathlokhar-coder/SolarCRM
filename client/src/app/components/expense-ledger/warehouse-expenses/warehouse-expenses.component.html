@@ -316,7 +316,16 @@
                 </label>
                 <div class="input-group input-group-sm">
                   <span class="input-group-text bg-white text-muted"><i class="bi bi-file-earmark-text"></i></span>
-                  <input type="text" class="form-control form-control-sm font-mono" [(ngModel)]="formData.referenceNo" name="referenceNo" placeholder="e.g. SOLAR/SWH/PO-118">
+                  <input type="text" 
+                         class="form-control form-control-sm font-mono" 
+                         [(ngModel)]="formData.referenceNo" 
+                         (ngModelChange)="onReferenceNoChange()"
+                         list="whExpenseInwardNosList"
+                         name="referenceNo" 
+                         placeholder="e.g. SOLAR/SWH/PO-118">
+                  <datalist id="whExpenseInwardNosList">
+                    <option *ngFor="let no of availableInwardNos" [value]="no">{{ no }}</option>
+                  </datalist>
                 </div>
               </div>
 
@@ -402,8 +411,20 @@
                 </div>
               </div>
 
+              <!-- Bill Voucher Status -->
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  Bill Voucher Status
+                </label>
+                <select class="form-select form-select-sm" [(ngModel)]="formData.billVoucher" name="billVoucher">
+                  <option value="Not Submitted">Not Submitted</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="(Blanks)">(Blanks)</option>
+                </select>
+              </div>
+
               <!-- Remarks -->
-              <div class="col-12">
+              <div class="col-12 col-md-6">
                 <label class="form-label small fw-bold text-dark mb-1">
                   Remarks / Description
                 </label>

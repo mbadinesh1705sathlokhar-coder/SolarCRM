@@ -381,10 +381,11 @@
                              [name]="'mat_qty_' + i">
                     </td>
 
-                    <!-- UNIT -->
+                    <!-- UNIT (Disabled) -->
                     <td>
-                      <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary" 
+                      <select class="form-select form-select-sm shadow-xs rounded-3 text-secondary bg-light" 
                               [(ngModel)]="m.unit" 
+                              [disabled]="true"
                               [name]="'mat_unit_' + i">
                         <option *ngFor="let u of unitOptions" [value]="u">{{ u }}</option>
                         <option *ngIf="m.unit && !unitOptions.includes(m.unit)" [value]="m.unit">{{ m.unit }}</option>
