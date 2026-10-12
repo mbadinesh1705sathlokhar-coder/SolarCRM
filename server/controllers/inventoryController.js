@@ -382,48 +382,82 @@ async function findMatchingProject(clientName) {
     return proj;
 }
 
+async function findMatchingWarehouseMaterial(it) {
+    const name = (it.materialName || '').trim();
+    const grp = (it.materialGroup || '').trim();
+    const cat = (it.categoryType || '').trim();
+    const spec = (it.specification || '').trim();
+    if (!name && !spec && !grp) return null;
+
+    let mat = null;
+    // 1. Match by group and specification
+    if (grp && spec) {
+        mat = await WarehouseMaterial.findOne({
+            where: {
+                materialGroup: grp,
+                specification: spec
+            }
+        });
+    }
+
+    // 2. Match by exact specification
+    if (!mat && spec) {
+        mat = await WarehouseMaterial.findOne({
+            where: {
+                specification: spec
+            }
+        });
+    }
+
+    // 3. Match by exact materialName
+    if (!mat && name) {
+        mat = await WarehouseMaterial.findOne({
+            where: {
+                materialName: name
+            }
+        });
+    }
+
+    // 4. Substring match by specification
+    if (!mat && spec) {
+        mat = await WarehouseMaterial.findOne({
+            where: {
+                [Op.or]: [
+                    { specification: { [Op.like]: `%${spec}%` } },
+                    { materialName: { [Op.like]: `%${spec}%` } }
+                ]
+            }
+        });
+    }
+
+    // 5. Substring match by materialName
+    if (!mat && name) {
+        mat = await WarehouseMaterial.findOne({
+            where: {
+                materialName: { [Op.like]: `%${name}%` }
+            }
+        });
+    }
+
+    // 6. Match by group alone if spec is empty
+    if (!mat && grp && !spec) {
+        mat = await WarehouseMaterial.findOne({
+            where: {
+                materialGroup: grp
+            }
+        });
+    }
+
+    return mat;
+}
+
 async function deductWarehouseStock(items) {
     if (!Array.isArray(items) || items.length === 0) return;
     for (const it of items) {
-        const name = (it.materialName || '').trim();
-        const grp = (it.materialGroup || '').trim();
-        const spec = (it.specification || '').trim();
         const qty = parseFloat(it.quantity) || 0;
-        if ((!name && !spec) || qty <= 0) continue;
+        if (qty <= 0) continue;
 
-        let mat = null;
-        if (grp && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    materialGroup: grp,
-                    specification: spec
-                }
-            });
-        }
-        if (!mat && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    specification: spec
-                }
-            });
-        }
-        if (!mat && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    [Op.or]: [
-                        { specification: { [Op.like]: `%${spec}%` } },
-                        { materialName: { [Op.like]: `%${spec}%` } }
-                    ]
-                }
-            });
-        }
-        if (!mat && name) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    materialName: { [Op.like]: `%${name}%` }
-                }
-            });
-        }
+        let mat = await findMatchingWarehouseMaterial(it);
         if (mat) {
             const currentStock = parseFloat(mat.inStock) || 0;
             const newStock = Math.max(0, currentStock - qty);
@@ -432,6 +466,22 @@ async function deductWarehouseStock(items) {
                 inStock: newStock,
                 status: autoStatus
             });
+        } else {
+            const name = (it.materialName || '').trim();
+            const grp = (it.materialGroup || '').trim();
+            const cat = (it.categoryType || '').trim();
+            const spec = (it.specification || '').trim();
+            const unit = (it.unit || 'Nos').trim();
+            const autoName = name || [grp, cat, spec].filter(Boolean).join(' - ') || 'Material';
+            await WarehouseMaterial.create({
+                materialName: autoName,
+                materialGroup: grp || null,
+                categoryType: cat || null,
+                specification: spec || null,
+                unit: unit || 'Nos',
+                inStock: 0,
+                status: 'Out of Stock'
+            });
         }
     }
 }
@@ -439,45 +489,10 @@ async function deductWarehouseStock(items) {
 async function restoreWarehouseStock(items) {
     if (!Array.isArray(items) || items.length === 0) return;
     for (const it of items) {
-        const name = (it.materialName || '').trim();
-        const grp = (it.materialGroup || '').trim();
-        const spec = (it.specification || '').trim();
         const qty = parseFloat(it.quantity) || 0;
-        if ((!name && !spec) || qty <= 0) continue;
+        if (qty <= 0) continue;
 
-        let mat = null;
-        if (grp && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    materialGroup: grp,
-                    specification: spec
-                }
-            });
-        }
-        if (!mat && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    specification: spec
-                }
-            });
-        }
-        if (!mat && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    [Op.or]: [
-                        { specification: { [Op.like]: `%${spec}%` } },
-                        { materialName: { [Op.like]: `%${spec}%` } }
-                    ]
-                }
-            });
-        }
-        if (!mat && name) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    materialName: { [Op.like]: `%${name}%` }
-                }
-            });
-        }
+        let mat = await findMatchingWarehouseMaterial(it);
         if (mat) {
             const currentStock = parseFloat(mat.inStock) || 0;
             const newStock = currentStock + qty;
@@ -499,41 +514,21 @@ async function addWarehouseStock(items) {
         const spec = (it.specification || '').trim();
         const unit = (it.unit || 'Nos').trim();
         const qty = parseFloat(it.quantity) || 0;
-        if ((!name && !spec) || qty <= 0) continue;
+        if ((!name && !spec && !grp) || qty <= 0) continue;
 
-        let mat = null;
-        if (grp && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    materialGroup: grp,
-                    specification: spec
-                }
-            });
-        }
-        if (!mat && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    specification: spec
-                }
-            });
-        }
-        if (!mat && name) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    materialName: { [Op.like]: name }
-                }
-            });
-        }
+        let mat = await findMatchingWarehouseMaterial(it);
         if (mat) {
             const currentStock = parseFloat(mat.inStock) || 0;
             const newStock = currentStock + qty;
             const autoStatus = computeWarehouseStockStatus(mat.materialName, mat.unit || unit, newStock);
             await mat.update({
                 inStock: newStock,
-                status: autoStatus
+                status: autoStatus,
+                materialGroup: mat.materialGroup || grp || null,
+                categoryType: cat || null,
+                specification: mat.specification || spec || null
             });
         } else {
-            // Material doesn't exist yet in warehouse stock, auto-create it!
             const autoName = name || [grp, cat, spec].filter(Boolean).join(' - ') || 'Material';
             const autoStatus = computeWarehouseStockStatus(autoName, unit, qty);
             await WarehouseMaterial.create({
@@ -552,35 +547,10 @@ async function addWarehouseStock(items) {
 async function revertInwardWarehouseStock(items) {
     if (!Array.isArray(items) || items.length === 0) return;
     for (const it of items) {
-        const name = (it.materialName || '').trim();
-        const grp = (it.materialGroup || '').trim();
-        const spec = (it.specification || '').trim();
         const qty = parseFloat(it.quantity) || 0;
-        if ((!name && !spec) || qty <= 0) continue;
+        if (qty <= 0) continue;
 
-        let mat = null;
-        if (grp && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    materialGroup: grp,
-                    specification: spec
-                }
-            });
-        }
-        if (!mat && spec) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    specification: spec
-                }
-            });
-        }
-        if (!mat && name) {
-            mat = await WarehouseMaterial.findOne({
-                where: {
-                    materialName: { [Op.like]: name }
-                }
-            });
-        }
+        let mat = await findMatchingWarehouseMaterial(it);
         if (mat) {
             const currentStock = parseFloat(mat.inStock) || 0;
             const newStock = Math.max(0, currentStock - qty);
