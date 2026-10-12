@@ -118,6 +118,31 @@ async function seedProjectsIfEmpty() {
     }
 }
 
+async function ensureInventoryColumns() {
+    try {
+        const qi = conDb.getQueryInterface();
+        const checkAndAdd = async (table, col, def) => {
+            try {
+                const cols = await qi.describeTable(table);
+                if (!cols[col]) {
+                    await conDb.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${col}\` ${def};`);
+                }
+            } catch (e) {}
+        };
+        await checkAndAdd('inventory_warehouse_materials', 'material_group', 'VARCHAR(150) NULL');
+        await checkAndAdd('inventory_warehouse_materials', 'category_type', 'VARCHAR(150) NULL');
+        await checkAndAdd('inventory_warehouse_materials', 'specification', 'VARCHAR(255) NULL');
+        await checkAndAdd('inventory_gate_pass_items', 'material_group', 'VARCHAR(150) NULL');
+        await checkAndAdd('inventory_gate_pass_items', 'category_type', 'VARCHAR(150) NULL');
+        await checkAndAdd('inventory_gate_pass_items', 'specification', 'VARCHAR(255) NULL');
+        await checkAndAdd('inventory_inward_items', 'material_group', 'VARCHAR(150) NULL');
+        await checkAndAdd('inventory_inward_items', 'category_type', 'VARCHAR(150) NULL');
+        await checkAndAdd('inventory_inward_items', 'specification', 'VARCHAR(255) NULL');
+    } catch (e) {
+        console.error('Error in ensureInventoryColumns:', e);
+    }
+}
+
 // Initialize Database connection and sync models, then start server
 async function startServer() {
     let connected = false;
@@ -125,6 +150,7 @@ async function startServer() {
         try {
             await Db();
             await conDb.sync();
+            await ensureInventoryColumns();
             console.log('Database models synced successfully with MySQL.');
             connected = true;
         } catch (err) {
