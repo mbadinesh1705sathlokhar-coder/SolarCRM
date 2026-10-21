@@ -17,6 +17,7 @@ const {
     updateGatePass,
     deleteGatePass,
     deleteAllGatePasses,
+    getClientPos,
     getAllInwards,
     createInward,
     updateInward,
@@ -26,7 +27,8 @@ const {
     createCartItem,
     updateCartItem,
     deleteCartItem,
-    deleteAllCartItems
+    deleteAllCartItems,
+    dispatchCartItem
 } = require('../controllers/inventoryController');
 
 // 1. Indent Routes
@@ -45,6 +47,7 @@ router.put('/warehouse/:id', updateWarehouseMaterial);
 router.delete('/warehouse/:id', deleteWarehouseMaterial);
 
 // 3. Gate Pass Routes
+router.get('/client-pos', getClientPos);
 router.get('/gate-pass', getAllGatePasses);
 router.delete('/gate-pass/all', deleteAllGatePasses);
 router.post('/gate-pass', createGatePass);
@@ -62,6 +65,7 @@ router.delete('/inward/:id', deleteInward);
 router.get('/cart', getCartItems);
 router.delete('/cart/all', deleteAllCartItems);
 router.post('/cart', createCartItem);
+router.post('/cart/:id/dispatch', dispatchCartItem);
 router.put('/cart/:id', updateCartItem);
 router.delete('/cart/:id', deleteCartItem);
 

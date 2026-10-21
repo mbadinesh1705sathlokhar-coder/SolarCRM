@@ -51,6 +51,11 @@ export interface OfficeVendor {
   creditDays: string;
   description?: string;
   materialRates?: { [material: string]: number } | string;
+  accountNumber?: string;
+  ccAccNo?: string;
+  bankName?: string;
+  ifscCode?: string;
+  branch?: string;
   createdAt?: string;
   updatedAt?: string;
 }

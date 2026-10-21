@@ -1922,6 +1922,43 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
   }
 
   // Modal Open / Close
+  awardedDateInput: string = '';
+
+  onAwardedDateInputChange(val: string): void {
+    this.awardedDateInput = val;
+    if (val && val.trim().length >= 8) {
+      this.projectForm.awardedDate = this.normalizeToIsoDate(val);
+    }
+  }
+
+  onAwardedDatePickerChange(isoDate: string): void {
+    if (isoDate) {
+      this.projectForm.awardedDate = isoDate;
+      this.awardedDateInput = this.toDisplayDate(isoDate);
+      this.cdr.markForCheck();
+      this.cdr.detectChanges();
+    }
+  }
+
+  openAwardedDatePicker(picker: HTMLInputElement): void {
+    if (!picker) return;
+    try {
+      if (typeof picker.showPicker === 'function') {
+        picker.showPicker();
+      } else {
+        picker.focus();
+        picker.click();
+      }
+    } catch {
+      try {
+        picker.focus();
+        picker.click();
+      } catch (err) {
+        console.error('Failed to open date picker:', err);
+      }
+    }
+  }
+
   openAddModal(): void {
     if (!this.canAdd()) {
       this.showToast('You do not have permission to add new projects.', 'error');
@@ -1933,6 +1970,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     this.isEditMode = false;
     this.currentProjectId = null;
     this.projectForm = this.getEmptyProject();
+    this.awardedDateInput = this.toDisplayDate(this.projectForm.awardedDate) || this.getTodayDisplayDate();
     let maxNum = 400;
     this.projects.forEach(p => {
       if (p.siteId) {
@@ -1971,6 +2009,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       systemType: this.normalizeSystemType(project.systemType),
       siteCategory: this.normalizeSiteCategory(project.siteCategory)
     };
+    this.awardedDateInput = this.toDisplayDate(project.awardedDate) || this.getTodayDisplayDate();
     if (this.projectForm.systemType && !this.masterSystemTypes.includes(this.projectForm.systemType)) {
       this.masterSystemTypes.push(this.projectForm.systemType);
     }
@@ -2129,6 +2168,10 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
       return;
     }
 
+    if (this.awardedDateInput && this.awardedDateInput.trim()) {
+      this.projectForm.awardedDate = this.normalizeToIsoDate(this.awardedDateInput);
+    }
+
     if (this.isEditMode && this.currentProjectId) {
       const existing = this.projects.find(p => p.id === this.currentProjectId);
       if (existing) {
@@ -2258,8 +2301,15 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
         const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
         if (!isNaN(jsDate.getTime())) {
           const yyyy = jsDate.getUTCFullYear();
-          const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-          const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+          let m = jsDate.getUTCMonth() + 1;
+          let d = jsDate.getUTCDate();
+          if (d <= 12) {
+            const temp = m;
+            m = d;
+            d = temp;
+          }
+          const mm = String(m).padStart(2, '0');
+          const dd = String(d).padStart(2, '0');
           return `${yyyy}-${mm}-${dd}`;
         }
       }
@@ -2273,7 +2323,6 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     if (str.includes('-') || str.includes('/') || str.includes('.')) {
-      const isSlash = str.includes('/');
       const parts = str.split(/[-/.]/).map(p => p.trim());
 
       if (parts.length === 3) {
@@ -2293,24 +2342,13 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
           } else {
             if (year < 100) year += 2000;
 
-            if (isSlash) {
-              // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
-              if (p0 > 12 && p1 <= 12) {
-                day = p0;
-                month = p1;
-              } else {
-                month = p0;
-                day = p1;
-              }
+            // Always default to DD-MM-YYYY / DD/MM/YYYY (Indian format)
+            if (p1 > 12 && p0 <= 12) {
+              month = p0;
+              day = p1;
             } else {
-              // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
-              if (p1 > 12 && p0 <= 12) {
-                month = p0;
-                day = p1;
-              } else {
-                day = p0;
-                month = p1;
-              }
+              day = p0;
+              month = p1;
             }
           }
 
@@ -2544,7 +2582,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     ];
 
     const rows = this.filteredProjects.map(p => [
-      p.awardedDate || '',
+      this.formatDate(p.awardedDate),
       `"${p.siteId || ''}"`,
       `"${p.clientName || ''}"`,
       `"${p.location || ''}"`,
@@ -2718,7 +2756,7 @@ export class ProjectMasterComponent implements OnInit, OnDestroy, AfterViewInit 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(`${p.siteCapacity || '5'} kW  |  ${p.siteType || 'Residential'}  |  ${p.location || 'Chennai'}  |  Awarded: ${p.awardedDate || '-'}  |  Manager: ${p.orderBy || '-'}`, margin, currentY + 5);
+    doc.text(`${p.siteCapacity || '5'} kW  |  ${p.siteType || 'Residential'}  |  ${p.location || 'Chennai'}  |  Awarded: ${this.formatDate(p.awardedDate)}  |  Manager: ${p.orderBy || '-'}`, margin, currentY + 5);
 
     currentY += 9;
 

@@ -49,12 +49,15 @@ async function getVendorWithLedger(req, res) {
         });
 
         // Fetch matching Expenses from SiteExpenseLedger by vendor name
-        const vendorNameClean = vendor.vendorName.trim();
+        const vendorNameClean = vendor.vendorName.replace(/^M\/s\.?\s*/i, '').replace(/,+$/, '').trim();
         let syncedExpenses = [];
         try {
             syncedExpenses = await SiteExpenseLedger.findAll({
                 where: {
-                    vendorName: { [Op.like]: `%${vendorNameClean}%` }
+                    [Op.or]: [
+                        { vendorName: { [Op.like]: `%${vendor.vendorName.trim()}%` } },
+                        ...(vendorNameClean ? [{ vendorName: { [Op.like]: `%${vendorNameClean}%` } }] : [])
+                    ]
                 },
                 order: [['expenseDate', 'DESC']]
             });
@@ -65,11 +68,14 @@ async function getVendorWithLedger(req, res) {
         // Auto-generate PO/WO records from matching Expenses Ledger entries
         const existingPoNums = new Set(poWos.map(p => (p.poWoNumber || '').trim().toLowerCase()));
         const expensePoWos = syncedExpenses.map(exp => {
-            const voucher = (exp.invoiceNo && exp.invoiceNo.trim())
-                ? exp.invoiceNo.trim()
-                : ((exp.billVoucher && exp.billVoucher !== 'Submitted' && exp.billVoucher !== 'Not Submitted')
-                    ? exp.billVoucher
-                    : (exp.paymentThrough ? `${exp.paymentThrough.replace(/\./g, '')}-${exp.id}` : `PO-${exp.id}`));
+            const refClean = (exp.referenceNo || '').trim();
+            const voucher = refClean
+                ? refClean
+                : ((exp.invoiceNo && exp.invoiceNo.trim())
+                    ? exp.invoiceNo.trim()
+                    : ((exp.billVoucher && exp.billVoucher !== 'Submitted' && exp.billVoucher !== 'Not Submitted')
+                        ? exp.billVoucher
+                        : (exp.paymentThrough ? `${exp.paymentThrough.replace(/\./g, '')}-${exp.id}` : `PO-${exp.id}`)));
             return {
                 id: `exp_${exp.id}`,
                 expenseId: exp.id,
@@ -79,8 +85,8 @@ async function getVendorWithLedger(req, res) {
                 poWoNumber: voucher,
                 orderValue: parseFloat(exp.amount) || 0,
                 materialDescription: exp.purpose || '',
-                clientName: exp.clientName + (exp.siteId ? ` (${exp.siteId})` : ''),
-                orderType: (exp.paymentThrough === 'W.O' || exp.paymentThrough === 'WO') ? 'W.O' : 'P.O',
+                clientName: exp.siteId === 'WAREHOUSE' ? 'Central Warehouse (SWH)' : (exp.clientName + (exp.siteId ? ` (${exp.siteId})` : '')),
+                orderType: (exp.paymentThrough === 'W.O' || exp.paymentThrough === 'WO' || voucher.toUpperCase().includes('/WO-')) ? 'W.O' : 'P.O',
                 generatedBy: exp.paidBy || 'OFFICE',
                 billVoucherStatus: exp.claimStatus || (exp.billVoucher === 'Submitted' ? 'Submitted' : 'Not Submitted'),
                 invoiceNo: exp.invoiceNo || '',
@@ -141,7 +147,7 @@ async function getVendorWithLedger(req, res) {
 // --- CREATE VENDOR ---
 async function createVendor(req, res) {
     try {
-        const { vendorName, salesCoordinator, phoneNo, location, gstNo, materialsSpec, creditDays, description, materialRates } = req.body;
+        const { vendorName, salesCoordinator, phoneNo, location, gstNo, materialsSpec, creditDays, description, materialRates, accountNumber, ccAccNo, bankName, ifscCode, branch } = req.body;
         if (!vendorName?.trim()) {
             return res.status(400).json({ success: false, message: 'Vendor Name is required.' });
         }
@@ -160,7 +166,12 @@ async function createVendor(req, res) {
             materialsSpec: Array.isArray(materialsSpec) ? materialsSpec.join(', ') : (materialsSpec || ''),
             creditDays: creditDays || '30 Days',
             description: description || '',
-            materialRates: ratesJson
+            materialRates: ratesJson,
+            accountNumber: accountNumber ? String(accountNumber).trim() : '',
+            ccAccNo: ccAccNo ? String(ccAccNo).trim() : '',
+            bankName: bankName ? String(bankName).trim() : '',
+            ifscCode: ifscCode ? String(ifscCode).trim() : '',
+            branch: branch ? String(branch).trim() : ''
         });
 
         // Insert into vendor_material_rates table

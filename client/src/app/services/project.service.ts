@@ -210,7 +210,7 @@ export class ProjectService {
     );
   }
 
-  createExpense(expense: Partial<SiteExpense>): Observable<{ success: boolean; message: string; data: SiteExpense; updatedProject?: any }> {
+  createExpense(expense: Partial<SiteExpense> & { poWoDoc?: any; bomTemplateUpdate?: any }): Observable<{ success: boolean; message: string; data: SiteExpense; updatedProject?: any }> {
     return this.http.post<{ success: boolean; message: string; data: SiteExpense; updatedProject?: any }>(`${this.ledgerUrl}/expenses`, expense).pipe(
       tap(res => {
         if (res.success && res.data && this.cachedExpenses) {
@@ -220,7 +220,7 @@ export class ProjectService {
     );
   }
 
-  updateExpense(id: number, expense: Partial<SiteExpense>): Observable<{ success: boolean; message: string; data: SiteExpense; updatedProject?: any }> {
+  updateExpense(id: number, expense: Partial<SiteExpense> & { poWoDoc?: any; bomTemplateUpdate?: any }): Observable<{ success: boolean; message: string; data: SiteExpense; updatedProject?: any }> {
     return this.http.put<{ success: boolean; message: string; data: SiteExpense; updatedProject?: any }>(`${this.ledgerUrl}/expenses/${id}`, expense).pipe(
       tap(res => {
         if (res.success && res.data && this.cachedExpenses) {
@@ -241,6 +241,33 @@ export class ProjectService {
         }
       })
     );
+  }
+
+  // --- PO / WO LETTERHEAD & AUTO-NUMBERING ---
+  getPoWoConfig(): Observable<{ success: boolean; folderPath?: string; data: any }> {
+    return this.http.get<{ success: boolean; folderPath?: string; data: any }>(`${this.ledgerUrl}/po-wo/config`);
+  }
+
+  updatePoWoConfig(payload: any): Observable<{ success: boolean; message: string; data: any }> {
+    return this.http.put<{ success: boolean; message: string; data: any }>(`${this.ledgerUrl}/po-wo/config`, payload);
+  }
+
+  uploadPoWoLetterhead(payload: {
+    type: 'PO' | 'WO';
+    fileName?: string;
+    fileBase64?: string;
+    termsPages?: string[];
+    headerImageBase64?: string;
+    footerImageBase64?: string;
+    headerTextLines?: string[];
+    defaultTermsTable?: { label: string; value: string }[];
+  }): Observable<{ success: boolean; message: string; folderPath?: string; data: any }> {
+    return this.http.post<{ success: boolean; message: string; folderPath?: string; data: any }>(`${this.ledgerUrl}/po-wo/letterhead`, payload);
+  }
+
+  getNextPoWoNumber(siteId: string, type: string): Observable<{ success: boolean; nextNumber: string }> {
+    const params = new HttpParams().set('siteId', siteId || 'SWH').set('type', type || 'PO');
+    return this.http.get<{ success: boolean; nextNumber: string }>(`${this.ledgerUrl}/po-wo/next-number`, { params });
   }
 
   clearCache(): void {
@@ -269,3 +296,4 @@ export class ProjectService {
     );
   }
 }
+

@@ -164,10 +164,20 @@
 
             <!-- PO/WO No. (Shows SOLAR/SWH/PO-xxx etc) -->
             <td class="font-mono small text-nowrap">
-              <span *ngIf="e.referenceNo && !['P.O','W.O','Petty Cash','Accounts','WAREHOUSE','Not Submitted','Submitted','-'].includes(e.referenceNo)" class="badge bg-light text-dark border font-mono">
-                <i class="bi bi-file-earmark-text me-1 text-primary"></i>{{ e.referenceNo }}
-              </span>
-              <span *ngIf="!e.referenceNo || ['P.O','W.O','Petty Cash','Accounts','WAREHOUSE','Not Submitted','Submitted','-'].includes(e.referenceNo)" class="text-muted small">—</span>
+              <div class="d-flex flex-column align-items-start gap-1">
+                <span *ngIf="e.referenceNo && !['P.O','W.O','Petty Cash','Accounts','WAREHOUSE','Not Submitted','Submitted','-'].includes(e.referenceNo)" class="badge bg-light text-dark border font-mono">
+                  <i class="bi bi-file-earmark-text me-1 text-primary"></i>{{ e.referenceNo }}
+                </span>
+                <button *ngIf="getSource(e) === 'P.O' || getSource(e) === 'W.O'"
+                        type="button"
+                        class="btn btn-xs btn-outline-primary py-0 px-1.5 font-mono fw-bold d-inline-flex align-items-center gap-1"
+                        style="font-size: 0.65rem;"
+                        (click)="openPoWoLetterheadForExpense(e)"
+                        title="Open editable PO/WO Letterhead &amp; PDF">
+                  <i class="bi bi-file-earmark-richtext"></i> Letterhead
+                </button>
+                <span *ngIf="(!e.referenceNo || ['P.O','W.O','Petty Cash','Accounts','WAREHOUSE','Not Submitted','Submitted','-'].includes(e.referenceNo)) && getSource(e) !== 'P.O' && getSource(e) !== 'W.O'" class="text-muted small">—</span>
+              </div>
             </td>
 
             <!-- Invoice No -->
@@ -309,10 +319,10 @@
                 </div>
               </div>
 
-              <!-- PO / WO Number -->
+              <!-- Ref Id -->
               <div class="col-12 col-md-4">
                 <label class="form-label small fw-bold text-dark mb-1">
-                  PO / WO No.
+                  Ref Id
                 </label>
                 <div class="input-group input-group-sm">
                   <span class="input-group-text bg-white text-muted"><i class="bi bi-file-earmark-text"></i></span>
@@ -597,3 +607,106 @@
     </div>
   </div>
 </div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: CHOOSE WAREHOUSE EXPENSE TYPE (P.O / W.O / Petty Cash)             -->
+<!-- ========================================================================= -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isExpenseTypeSelectorOpen" tabindex="-1" role="dialog" style="z-index: 1075;">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content shadow-2xl border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-primary text-white py-3 px-4">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-layers-fill fs-5"></i>
+          <div>
+            <h6 class="modal-title fw-bold mb-0">Select Warehouse Expense Type (Central Store — SWH)</h6>
+            <small class="opacity-75" style="font-size: 0.75rem;">
+              Choose P.O or W.O to open the editable Letterhead Generator, or Petty Cash for direct entry.
+            </small>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" (click)="isExpenseTypeSelectorOpen = false"></button>
+      </div>
+      <div class="modal-body p-4 bg-light">
+        <div class="row g-3">
+          <!-- Option 1: P.O -->
+          <div class="col-12 col-md-4">
+            <button type="button"
+                    class="btn btn-outline-primary bg-white w-100 h-100 p-3 rounded-3 text-start d-flex flex-column justify-content-between border-2 shadow-sm"
+                    (click)="selectWarehouseExpenseType('P.O')">
+              <div>
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <span class="badge bg-primary text-white px-2.5 py-1 fw-bold">
+                    <i class="bi bi-file-earmark-text-fill me-1"></i> P.O
+                  </span>
+                  <i class="bi bi-arrow-up-right-circle-fill fs-5 text-primary"></i>
+                </div>
+                <div class="fw-bold text-dark mb-1">Purchase Order Letterhead</div>
+                <div class="text-muted small" style="font-size: 0.74rem;">
+                  Auto-generates <span class="font-mono fw-bold text-primary">SOLAR/SWH/PO-xxx</span> with Vendor auto-fill, BOM material descriptions, Rupees in words &amp; Word Terms.
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Option 2: W.O -->
+          <div class="col-12 col-md-4">
+            <button type="button"
+                    class="btn btn-outline-info bg-white w-100 h-100 p-3 rounded-3 text-start d-flex flex-column justify-content-between border-2 shadow-sm"
+                    (click)="selectWarehouseExpenseType('W.O')">
+              <div>
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <span class="badge bg-info text-dark px-2.5 py-1 fw-bold">
+                    <i class="bi bi-briefcase-fill me-1"></i> W.O
+                  </span>
+                  <i class="bi bi-arrow-up-right-circle-fill fs-5 text-info"></i>
+                </div>
+                <div class="fw-bold text-dark mb-1">Work Order Letterhead</div>
+                <div class="text-muted small" style="font-size: 0.74rem;">
+                  Auto-generates <span class="font-mono fw-bold text-info-emphasis">SOLAR/SWH/WO-xxx</span> with Contractor/Vendor details, scope of work &amp; Word Terms.
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Option 3: Petty Cash -->
+          <div class="col-12 col-md-4">
+            <button type="button"
+                    class="btn btn-outline-success bg-white w-100 h-100 p-3 rounded-3 text-start d-flex flex-column justify-content-between border-2 shadow-sm"
+                    (click)="selectWarehouseExpenseType('Petty Cash')">
+              <div>
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <span class="badge bg-success text-white px-2.5 py-1 fw-bold">
+                    <i class="bi bi-wallet2 me-1"></i> Petty Cash
+                  </span>
+                  <i class="bi bi-arrow-right-circle-fill fs-5 text-success"></i>
+                </div>
+                <div class="fw-bold text-dark mb-1">Petty Cash / Direct Form</div>
+                <div class="text-muted small" style="font-size: 0.74rem;">
+                  Record direct Petty Cash, local freight, or quick warehouse expenses using the standard form.
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- EDITABLE PO / WO LETTERHEAD GENERATOR MODAL (WAREHOUSE SWH)               -->
+<!-- ========================================================================= -->
+<app-po-wo-letterhead-modal
+  [isOpen]="isPoWoLetterheadOpen"
+  [orderType]="poWoLetterheadType"
+  [project]="null"
+  [isWarehouse]="true"
+  [projectBomOptions]="[]"
+  [bomMaterialGroups]="bomMaterialGroups"
+  [paidByOptions]="paidByOptions"
+  [editingExpense]="poWoEditingExpense"
+  (close)="isPoWoLetterheadOpen = false"
+  (saved)="onPoWoLetterheadSaved($event)">
+</app-po-wo-letterhead-modal>
+
+

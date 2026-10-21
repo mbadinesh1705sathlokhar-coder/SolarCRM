@@ -51,6 +51,31 @@ const OfficeVendor = conDb.define('OfficeVendor', {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'material_rates'
+    },
+    accountNumber: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'account_number'
+    },
+    ccAccNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'cc_acc_no'
+    },
+    bankName: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'bank_name'
+    },
+    ifscCode: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'ifsc_code'
+    },
+    branch: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'branch'
     }
 }, {
     tableName: 'office_vendors',

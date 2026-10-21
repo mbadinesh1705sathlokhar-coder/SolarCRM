@@ -178,6 +178,7 @@ export interface GatePassItem {
   gatePassId?: number;
   dispatchDate?: string;
   invoiceNo?: string;
+  poWoNo?: string;
   materialName: string;
   materialGroup?: string;
   categoryType?: string;
@@ -192,6 +193,7 @@ export interface GatePassItem {
 export interface GatePass {
   id?: number;
   gatePassNo?: string;
+  poWoNo?: string;
   gatePassDate: string;
   descriptions?: string;
   unit?: string;
@@ -255,6 +257,8 @@ export interface CartItem {
   vendorName?: string;
   procurementStatus: 'Yet to start' | 'Requested To Vendor' | 'PO Processed' | 'Transporting' | 'Dispatched' | string;
   totalAmount: number;
+  invoiceNo?: string;
+  poWoNo?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -314,6 +318,13 @@ export class InventoryService {
   }
 
   // 3. GATE PASS
+  getClientPos(clientName?: string, siteId?: string): Observable<{ success: boolean; data: any[] }> {
+    const params = new URLSearchParams();
+    if (clientName) params.set('clientName', clientName);
+    if (siteId) params.set('siteId', siteId);
+    return this.http.get<{ success: boolean; data: any[] }>(`${this.apiUrl}/client-pos?${params.toString()}`);
+  }
+
   getGatePasses(): Observable<{ success: boolean; data: GatePass[] }> {
     return this.http.get<{ success: boolean; data: GatePass[] }>(`${this.apiUrl}/gate-pass`);
   }
@@ -362,6 +373,10 @@ export class InventoryService {
 
   updateCartItem(id: number, item: Partial<CartItem>): Observable<{ success: boolean; data: CartItem }> {
     return this.http.put<{ success: boolean; data: CartItem }>(`${this.apiUrl}/cart/${id}`, item);
+  }
+
+  dispatchCartItem(id: number, payload: { date: string; invoiceNo: string; poWoNo: string }): Observable<{ success: boolean; message: string; data?: any }> {
+    return this.http.post<{ success: boolean; message: string; data?: any }>(`${this.apiUrl}/cart/${id}/dispatch`, payload);
   }
 
   deleteCartItem(id: number): Observable<{ success: boolean; message: string }> {

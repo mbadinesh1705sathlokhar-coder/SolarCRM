@@ -164,7 +164,12 @@ export class VendorsComponent implements OnInit {
       phoneNo: '',
       location: '',
       materialsSpec: '',
-      creditDays: '30 Days'
+      creditDays: '30 Days',
+      accountNumber: '',
+      ccAccNo: '',
+      bankName: '',
+      ifscCode: '',
+      branch: ''
     };
   }
 

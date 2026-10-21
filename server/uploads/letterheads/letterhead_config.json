@@ -1,0 +1,135 @@
+{
+  "po": {
+    "fileName": "",
+    "uploadedAt": null,
+    "headerImageBase64": "",
+    "footerImageBase64": "",
+    "headerTextLines": [
+      "SATHLOKHAR SYNERGYS E&C GLOBAL LIMITED",
+      "Plot No.5171, F2, Sathlokhar, 9th Street, Ram Nagar North Extension, Madipakkam, Chennai, Tamil Nadu - 600091",
+      "GSTIN: 33AACCL5566B1ZT"
+    ],
+    "defaultTermsTable": [
+      {
+        "label": "Specifications",
+        "value": "As per ISI Standard,"
+      },
+      {
+        "label": "Delivery schedule",
+        "value": "Immediate"
+      },
+      {
+        "label": "GST",
+        "value": "Included"
+      },
+      {
+        "label": "Loading",
+        "value": "Included"
+      },
+      {
+        "label": "Transportation charges",
+        "value": "Included"
+      },
+      {
+        "label": "Payment terms",
+        "value": "7 Days on Credit"
+      }
+    ],
+    "termsPages": [
+      "ANNEXURE - I : GENERAL TERMS & CONDITIONS OF PURCHASE ORDER\n\n1. SCOPE OF SUPPLY:\nThe Supplier shall supply the Solar PV materials / equipment strictly in accordance with the technical specifications, make, and quantities specified in this Purchase Order.\n\n2. QUALITY & STANDARDS:\nAll materials supplied against this Purchase Order must be brand new, unused, and conform to relevant MNRE / IEC / BIS / ISI standards. Test certificates and warranty certificates shall be furnished along with the dispatch documents.\n\n3. PACKAGING & DISPATCH:\nMaterials shall be securely packed to prevent any transit damage. Each consignment must be accompanied by Tax Invoice, Delivery Challan, E-Way Bill, and Packing List clearly mentioning our Purchase Order Number.\n\n4. INSPECTION & REJECTION:\nAll materials are subject to inspection and verification at the delivery site / warehouse by Sathlokhar Synergys E&C Global Limited. Any defective, damaged, or non-conforming materials shall be replaced by the Supplier immediately at their own cost.",
+      "5. DELIVERY SCHEDULE & LIQUIDATED DAMAGES:\nTime is the essence of this Purchase Order. Delivery must be completed within the stipulated delivery schedule mentioned on Page 1. Any delay in delivery without prior written approval may attract liquidated damages.\n\n6. WARRANTY & GUARANTEE:\nThe Supplier warrants that all goods supplied under this Purchase Order shall be free from defects in design, material, and workmanship for the standard manufacturer warranty period from the date of commissioning or supply.\n\n7. INVOICING & PAYMENT TERMS:\nOriginal Tax Invoices mentioning GSTIN 33AACCL5566B1ZT and the Purchase Order Number must be submitted to our Accounts Department. Payment shall be processed as per the agreed credit terms specified in this Purchase Order.\n\n8. JURISDICTION:\nAny disputes arising out of or in connection with this Purchase Order shall be subject to the exclusive jurisdiction of the Courts at Chennai, Tamil Nadu."
+    ]
+  },
+  "wo": {
+    "fileName": "",
+    "uploadedAt": null,
+    "headerImageBase64": "",
+    "footerImageBase64": "",
+    "headerTextLines": [
+      "SATHLOKHAR SYNERGYS E&C GLOBAL LIMITED",
+      "Plot No.5171, F2, Sathlokhar, 9th Street, Ram Nagar North Extension, Madipakkam, Chennai, Tamil Nadu - 600091",
+      "GSTIN: 33AACCL5566B1ZT"
+    ],
+    "defaultTermsTable": [
+      {
+        "label": "Scope of Work",
+        "value": "As per Site Plan & MNRE / TANGEDCO Standards"
+      },
+      {
+        "label": "Completion schedule",
+        "value": "Immediate / As per Site Schedule"
+      },
+      {
+        "label": "GST",
+        "value": "Included"
+      },
+      {
+        "label": "Tools & Tackles",
+        "value": "Contractor Scope"
+      },
+      {
+        "label": "Transportation & Shifting",
+        "value": "Included"
+      },
+      {
+        "label": "Payment terms",
+        "value": "After Completion & Site Engineer Certification"
+      }
+    ],
+    "termsPages": [
+      "ANNEXURE - I : GENERAL TERMS & CONDITIONS OF WORK ORDER\n\n1. SCOPE OF WORK:\nThe Contractor shall execute the Solar PV installation, structure erection, electrical cabling, earthing, and commissioning works strictly as per the approved drawings and instructions of our Site Engineer.\n\n2. SAFETY & WORKMANSHIP:\nThe Contractor must ensure that all workmen wear required Personal Protective Equipment (PPE) including safety helmets, safety shoes, and safety harnesses during rooftop work. Workmanship shall be neat, plumb, and compliant with CEIG / TANGEDCO safety norms.\n\n3. TOOLS, TACKLES & CONSUMABLES:\nAll necessary tools, drilling machines, crimping tools, testing instruments, and manpower required for executing the work are in the Contractor's scope.\n\n4. SITE CLEARANCE & HANDOVER:\nUpon completion of installation, the Contractor shall clear all debris, test the system string voltages and earthing continuity, and hand over the site with joint measurement certification signed by the Project Engineer.",
+      "5. DEFECT LIABILITY:\nAny installation defects, loose terminations, or water leakage caused during structure mounting shall be rectified by the Contractor free of cost within the defect liability period.\n\n6. BILLING & PAYMENT:\nBills must be submitted along with the Work Completion Certificate signed by the Site Engineer and Project Manager. Statutory TDS deductions as applicable under the Income Tax Act shall be made.\n\n7. JURISDICTION:\nAll disputes arising out of this Work Order shall be subject to the exclusive jurisdiction of the Courts at Chennai, Tamil Nadu."
+    ]
+  },
+  "bomMaterialDescriptions": {
+    "Structure": {
+      "description": "Supply of Solar Module Mounting Structures (2X5),\nNorth Leg 2.7MTR (72 X 72 X 2)mm Square Tube 3 Nos\nSouth Leg 2.2MTR (72 X 72 X 2)mm Square Tube 3 Nos\nRafter (75 X 75 X 2)mm Galvanized Dip Channel\nPurlin (80 X 40 X 1.6)mm Galvanized Dip Channel\nMid Clamp as required\nEnd Clamp as required\nAnchor Bolt & Nut as required",
+      "unit": "KW",
+      "gstPct": 18,
+      "rate": 5500
+    },
+    "Solar MMS": {
+      "description": "Supply of Solar Module Mounting Structures (2X5),\nNorth Leg 2.7MTR (72 X 72 X 2)mm Square Tube 3 Nos\nSouth Leg 2.2MTR (72 X 72 X 2)mm Square Tube 3 Nos\nRafter (75 X 75 X 2)mm Galvanized Dip Channel\nPurlin (80 X 40 X 1.6)mm Galvanized Dip Channel\nMid Clamp as required\nEnd Clamp as required\nAnchor Bolt & Nut as required",
+      "unit": "KW",
+      "gstPct": 18,
+      "rate": 5500
+    },
+    "Cables": {
+      "description": "Supply of Solar DC & AC Cables (ISI / TUV Certified),\nDC Cable - XLPO 4 Sqmm Red & Black UV Protected Copper Flexible Cable\nAC Cable - 4 Sqmm / 6 Sqmm Multi-strand Copper Armoured / Flexible Cable\nConduit Pipes, Bends, Saddles, Cable Glands & Lugs as per site requirement",
+      "unit": "Mtr",
+      "gstPct": 18,
+      "rate": 65
+    },
+    "Panels": {
+      "description": "Supply of Solar Photovoltaic Modules (ALMM Approved / BIS Certified),\nMono PERC / TOPCon Bifacial Half-Cut High Efficiency Solar PV Modules\nWith IP68 Junction Box, MC4 Compatible Connectors & Anodized Aluminium Frame",
+      "unit": "Nos",
+      "gstPct": 12,
+      "rate": 14500
+    },
+    "Inverters": {
+      "description": "Supply of Grid-Tied String Solar Inverter (MNRE / BIS Certified),\nWith Built-in DC Switch, IP65 Protection, Wi-Fi / Remote Monitoring Dongle\nStandard Manufacturer Warranty Certificate included",
+      "unit": "Nos",
+      "gstPct": 12,
+      "rate": 28000
+    },
+    "Earthing Materials": {
+      "description": "Supply of Earthing & Lightning Protection Materials,\nCopper Bonded Chemical Earthing Electrode Rod with Backfill Compound (BFC) Bag\nEarth Pit Chamber Cover, ESE / Copper Spike Lightning Arrester & GI/Copper Strip",
+      "unit": "Set",
+      "gstPct": 18,
+      "rate": 4500
+    },
+    "DB Boxes": {
+      "description": "Supply of Solar ACDB & DCDB Protection Boxes (IP65 Polycarbonate Enclosure),\nDCDB with 1000V DC MCB / Fuse & Type-2 DC SPD\nACDB with AC MCB, Type-2 AC SPD, L&T / Secure Solar Net Meter Box & Wiring",
+      "unit": "Set",
+      "gstPct": 18,
+      "rate": 4200
+    },
+    "Consumables": {
+      "description": "Supply of Solar Installation Consumables & Hardware Accessories,\nSS304 Allen Bolts, Hex Bolts, Spring & Flat Washers, Anchor Fasteners,\nUV Stabilized Cable Ties, MC4 Connectors, Ferrules & Insulation Tapes",
+      "unit": "LS",
+      "gstPct": 18,
+      "rate": 3500
+    }
+  },
+  "savedPoWoDocs": {}
+}

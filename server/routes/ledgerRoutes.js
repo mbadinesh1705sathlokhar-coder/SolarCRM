@@ -16,4 +16,10 @@ router.put('/expenses/:id', ledgerController.updateExpense);
 router.delete('/expenses/site/:siteId', ledgerController.deleteExpensesBySiteId);
 router.delete('/expenses/:id', ledgerController.deleteExpense);
 
+// PO / WO Letterhead & Config routes
+router.get('/po-wo/config', ledgerController.getPoWoConfig);
+router.put('/po-wo/config', ledgerController.updatePoWoConfig);
+router.post('/po-wo/letterhead', ledgerController.uploadPoWoLetterhead);
+router.get('/po-wo/next-number', ledgerController.getNextPoWoNumber);
+
 module.exports = router;

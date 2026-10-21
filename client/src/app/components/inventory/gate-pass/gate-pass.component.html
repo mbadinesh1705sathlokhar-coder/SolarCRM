@@ -145,12 +145,17 @@
             </td>
             <!-- Client Name: Clickable to edit -->
             <td>
-              <a href="javascript:void(0)" 
-                 class="fw-semibold text-dark text-decoration-none hover-link"
-                 (click)="openEditModal(gp)" 
-                 title="Click to view and edit gate pass">
-                {{ gp.clientName }}
-              </a>
+              <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                <a href="javascript:void(0)" 
+                   class="fw-semibold text-dark text-decoration-none hover-link"
+                   (click)="openEditModal(gp)" 
+                   title="Click to view and edit gate pass">
+                  {{ gp.clientName }}
+                </a>
+                <span *ngIf="gp.poWoNo" class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono" style="font-size: 0.68rem;" title="Linked PO/WO">
+                  <i class="bi bi-receipt me-0.5"></i>{{ gp.poWoNo }}
+                </span>
+              </div>
             </td>
             <!-- SiteEngineer -->
             <td>
@@ -306,7 +311,28 @@
                   </div>
                 </div>
               </div>
-              <div class="col-12">
+
+              <!-- Linked Client PO / WO No. -->
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                  <span>Linked Client PO / WO No.</span>
+                  <span *ngIf="clientPosList.length > 0" class="badge bg-primary-subtle text-primary border border-primary-subtle font-mono" style="font-size: 0.68rem;">
+                    {{ clientPosList.length }} PO(s) found
+                  </span>
+                </label>
+                <input type="text"
+                       class="form-control form-control-sm font-mono shadow-sm"
+                       placeholder="Select or enter PO/WO No..."
+                       list="gpHeaderClientPosList"
+                       [(ngModel)]="passForm.poWoNo"
+                       (ngModelChange)="onHeaderPoSelect($event)"
+                       name="headerPoWoNo">
+                <div *ngIf="clientPosList.length > 0" class="text-muted mt-1" style="font-size: 0.72rem;">
+                  Links to client expense PO & prevents duplicate expenses.
+                </div>
+              </div>
+
+              <div class="col-md-8">
                 <label class="form-label small fw-bold text-dark mb-1">Description / Remarks</label>
                 <input type="text" class="form-control form-control-sm shadow-sm" placeholder="e.g. Dispatched via vehicle TN-05-AB-1234 with driver Mr. Ramesh" [(ngModel)]="passForm.remarks" name="remarks">
               </div>
@@ -355,16 +381,17 @@
               <table class="table table-borderless align-middle mb-0">
                 <thead>
                   <tr class="text-uppercase text-secondary" style="font-size: 0.72rem; font-weight: 700;">
-                    <th style="width: 120px;">DATE</th>
-                    <th style="min-width: 140px;">MATERIAL GROUP *</th>
-                    <th style="min-width: 135px;">CATEGORY / TYPE</th>
-                    <th style="min-width: 160px;">SPECIFICATION / RATING *</th>
-                    <th style="width: 85px;">UNIT *</th>
-                    <th style="width: 80px;" class="text-center">QUANTITY *</th>
-                    <th style="min-width: 120px;">INVOICE NO.</th>
-                    <th *ngIf="canViewPricing()" style="width: 95px;" class="text-end">RATE (₹)</th>
-                    <th *ngIf="canViewPricing()" style="min-width: 150px;">VENDOR NAME</th>
-                    <th *ngIf="canViewPricing()" style="min-width: 110px; width: 110px;" class="text-end">AMOUNT (₹)</th>
+                    <th style="width: 110px;">DATE</th>
+                    <th style="min-width: 135px;">MATERIAL GROUP *</th>
+                    <th style="min-width: 125px;">CATEGORY / TYPE</th>
+                    <th style="min-width: 150px;">SPECIFICATION / RATING *</th>
+                    <th style="width: 80px;">UNIT *</th>
+                    <th style="width: 75px;" class="text-center">QUANTITY *</th>
+                    <th style="min-width: 125px;">PO / WO NO.</th>
+                    <th style="min-width: 115px;">INVOICE NO.</th>
+                    <th *ngIf="canViewPricing()" style="width: 90px;" class="text-end">RATE (₹)</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 140px;">VENDOR NAME</th>
+                    <th *ngIf="canViewPricing()" style="min-width: 105px; width: 105px;" class="text-end">AMOUNT (₹)</th>
                     <th style="width: 35px;"></th>
                   </tr>
                 </thead>
@@ -435,6 +462,17 @@
                              (ngModelChange)="calculateRowAmount(m)"
                              [name]="'mat_qty_' + i"
                              required>
+                    </td>
+
+                    <!-- PO / WO NO. (Mapped with Client POs) -->
+                    <td>
+                      <input type="text" 
+                             class="form-control form-control-sm font-mono shadow-xs rounded-3" 
+                             placeholder="PO / WO No"
+                             list="gpClientPosList"
+                             [(ngModel)]="m.poWoNo" 
+                             (ngModelChange)="onRowPoSelect(m)"
+                             [name]="'mat_po_' + i">
                     </td>
 
                     <!-- INVOICE NO. (Mapped with Inwards) -->
@@ -612,6 +650,7 @@
                 <tr>
                   <th style="width: 40px;" class="text-center">#</th>
                   <th style="width: 95px;">Date</th>
+                  <th style="width: 110px;">PO / WO No</th>
                   <th style="width: 110px;">Invoice No</th>
                   <th>Material / Description</th>
                   <th style="width: 75px;" class="text-center">Unit</th>
@@ -627,6 +666,7 @@
                   <tr *ngFor="let it of selectedGatePassForView.items; let idx = index">
                     <td class="text-center font-mono text-muted">{{ idx + 1 }}</td>
                     <td class="font-mono text-nowrap small text-muted">{{ formatDate(it.dispatchDate || selectedGatePassForView.gatePassDate) }}</td>
+                    <td class="font-mono text-nowrap small text-primary fw-semibold">{{ it.poWoNo || selectedGatePassForView.poWoNo || '—' }}</td>
                     <td class="font-mono text-nowrap small text-dark">{{ it.invoiceNo || '—' }}</td>
                     <td class="fw-medium text-dark">{{ cleanMaterialName(it.materialName) }}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">{{ it.unit || 'Nos' }}</span></td>
@@ -649,6 +689,7 @@
                   <tr>
                     <td class="text-center font-mono text-muted">1</td>
                     <td class="font-mono text-nowrap small text-muted">{{ formatDate(selectedGatePassForView.gatePassDate) }}</td>
+                    <td class="font-mono text-nowrap small text-primary fw-semibold">{{ selectedGatePassForView.poWoNo || '—' }}</td>
                     <td class="font-mono text-nowrap small text-muted">—</td>
                     <td class="fw-medium text-dark">{{ cleanDescription(selectedGatePassForView.descriptions) }}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">{{ selectedGatePassForView.unit }}</span></td>
@@ -663,7 +704,7 @@
               </tbody>
               <tfoot *ngIf="canViewPricing()" class="table-light">
                 <tr>
-                  <th colspan="8" class="text-end text-uppercase fw-bold desc-total-label">Total Amount:</th>
+                  <th colspan="9" class="text-end text-uppercase fw-bold desc-total-label">Total Amount:</th>
                   <th class="text-end font-mono text-primary text-nowrap desc-total-amount">
                     ₹ {{ getGatePassTotal(selectedGatePassForView) | number:'1.2-2' }}
                   </th>
@@ -691,6 +732,19 @@
     </div>
   </div>
 </div>
+
+<!-- Datalist for Client PO / WO suggestions in Gate Pass -->
+<datalist id="gpHeaderClientPosList">
+  <option *ngFor="let po of clientPosList" [value]="po.poWoNo">
+    {{ po.poWoNo }} - {{ po.purpose }} (₹ {{ po.amount | number:'1.2-2' }}) [{{ po.claimStatus }}]
+  </option>
+</datalist>
+
+<datalist id="gpClientPosList">
+  <option *ngFor="let po of clientPosList" [value]="po.poWoNo">
+    {{ po.poWoNo }} - {{ po.purpose }} (₹ {{ po.amount | number:'1.2-2' }}) [{{ po.claimStatus }}]
+  </option>
+</datalist>
 
 <!-- Datalist for inward invoice suggestions in Gate Pass -->
 <datalist id="gpInwardInvoicesList">

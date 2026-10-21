@@ -13,11 +13,12 @@ import { OfficeService } from '../../services/office.service';
 import { AuthService } from '../../services/auth.service';
 import { MasterListService } from '../../services/master-list.service';
 import { InventoryService } from '../../services/inventory.service';
+import { PoWoLetterheadModalComponent } from '../shared/po-wo-letterhead-modal/po-wo-letterhead-modal.component';
 
 @Component({
   selector: 'app-expense-ledger',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, PoWoLetterheadModalComponent],
   templateUrl: './expense-ledger.component.html',
   styleUrls: ['./expense-ledger.component.css']
 })
@@ -673,6 +674,9 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   getExpenseDispatchStatus(e: SiteExpense): 'full' | 'part' | 'none' {
+    if (e.claimStatus === 'Dispatched') {
+      return 'full';
+    }
     const rem = (e.remarks || '').toLowerCase();
     if (rem.includes('fully dispatched') || rem.includes('(0 left') || rem.includes('(0 nos left') || rem.includes('(0 meter left') || rem.includes('(0 set left') || rem.includes('(0 m left') || rem.includes('(0 to be dispatched')) {
       return 'full';
@@ -1149,8 +1153,15 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
         const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
         if (!isNaN(jsDate.getTime())) {
           const yyyy = jsDate.getUTCFullYear();
-          const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-          const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+          let m = jsDate.getUTCMonth() + 1;
+          let d = jsDate.getUTCDate();
+          if (d <= 12) {
+            const temp = m;
+            m = d;
+            d = temp;
+          }
+          const mm = String(m).padStart(2, '0');
+          const dd = String(d).padStart(2, '0');
           return `${yyyy}-${mm}-${dd}`;
         }
       }
@@ -1164,7 +1175,6 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     }
 
     if (str.includes('-') || str.includes('/') || str.includes('.')) {
-      const isSlash = str.includes('/');
       const parts = str.split(/[-/.]/).map(p => p.trim());
 
       if (parts.length === 3) {
@@ -1184,24 +1194,13 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
           } else {
             if (year < 100) year += 2000;
 
-            if (isSlash) {
-              // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
-              if (p0 > 12 && p1 <= 12) {
-                day = p0;
-                month = p1;
-              } else {
-                month = p0;
-                day = p1;
-              }
+            // Always default to DD-MM-YYYY / DD/MM/YYYY (Indian format)
+            if (p1 > 12 && p0 <= 12) {
+              month = p0;
+              day = p1;
             } else {
-              // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
-              if (p1 > 12 && p0 <= 12) {
-                month = p0;
-                day = p1;
-              } else {
-                day = p0;
-                month = p1;
-              }
+              day = p0;
+              month = p1;
             }
           }
 
@@ -1351,9 +1350,14 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     });
   }
 
+  // --- EXPENSE TYPE SELECTOR (PO / WO / Petty Cash) & PO/WO LETTERHEAD MODAL STATE ---
+  isExpenseTypeSelectorOpen = false;
+  isPoWoLetterheadOpen = false;
+  poWoLetterheadType: 'P.O' | 'W.O' = 'P.O';
+  poWoEditingExpense: SiteExpense | null = null;
+
   /**
-   * Reveal the "+ Add New Expense" form specifically for this client/warehouse.
-   * Site ID is automatically filled and locked.
+   * When clicking "+ Add New Expense", prompt the user to choose P.O, W.O, or Petty Cash.
    */
   startAddNewExpense(): void {
     if (!this.selectedProjectRef) return;
@@ -1362,6 +1366,73 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
 
+    this.extractProjectBomOptions(this.selectedProjectRef);
+    this.isExpenseTypeSelectorOpen = true;
+    this.isAddingOrEditingExpense = false;
+    this.isEditingPastRecord = false;
+    this.editingExpenseId = null;
+    this.cdr.markForCheck();
+  }
+
+  selectExpenseTypeAndProceed(chosenType: 'P.O' | 'W.O' | 'Petty Cash' | 'Warehouse'): void {
+    if (!this.selectedProjectRef) return;
+    this.isExpenseTypeSelectorOpen = false;
+
+    if (chosenType === 'P.O' || chosenType === 'W.O') {
+      this.openPoWoLetterheadModal(chosenType, null);
+      return;
+    }
+
+    this.openStandardExpenseForm(chosenType);
+  }
+
+  openPoWoLetterheadModal(type: 'P.O' | 'W.O', expenseToEdit: SiteExpense | null = null): void {
+    if (!this.selectedProjectRef) return;
+    this.extractProjectBomOptions(this.selectedProjectRef);
+    this.poWoLetterheadType = type;
+    this.poWoEditingExpense = expenseToEdit;
+    this.isPoWoLetterheadOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  openPoWoLetterheadForExpense(e: SiteExpense): void {
+    const src = this.getSource(e);
+    const type: 'P.O' | 'W.O' = src === 'W.O' ? 'W.O' : 'P.O';
+    this.openPoWoLetterheadModal(type, e);
+  }
+
+  onPoWoLetterheadSaved(savedExpense: SiteExpense): void {
+    if (!this.selectedProjectRef) return;
+    const isWh = this.selectedProjectRef.siteId.toUpperCase() === 'WAREHOUSE';
+    this.showAlert(
+      `${savedExpense.paymentThrough || 'P.O'} (${savedExpense.referenceNo}) for ₹ ${Number(savedExpense.amount).toLocaleString('en-IN')} generated & synced across Expense Ledger and Vendor Ledger!`,
+      'success'
+    );
+    this.loadClientExpenses(this.selectedProjectRef.siteId);
+    this.loadExpenses();
+    if (!isWh) this.loadProjects();
+  }
+
+  onPaymentThroughChange(): void {
+    if (!this.selectedProjectRef) return;
+    const pt = this.formData.paymentThrough;
+    if (pt === 'P.O' || pt === 'W.O') {
+      const siteCode = this.selectedProjectRef.siteId.toUpperCase() === 'WAREHOUSE' ? 'SWH' : this.selectedProjectRef.siteId;
+      this.projectService.getNextPoWoNumber(siteCode, pt === 'W.O' ? 'WO' : 'PO').subscribe({
+        next: (res) => {
+          if (res.success && res.nextNumber) {
+            this.formData.referenceNo = res.nextNumber;
+            this.cdr.markForCheck();
+          }
+        }
+      });
+    } else if (pt === 'Petty Cash') {
+      this.formData.referenceNo = '';
+    }
+  }
+
+  openStandardExpenseForm(initialPaymentThrough: string = 'Petty Cash'): void {
+    if (!this.selectedProjectRef) return;
     this.isAddingOrEditingExpense = true;
     this.isEditingPastRecord = false;
     this.editingExpenseId = null;
@@ -1385,7 +1456,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       clientSiteName: isWh
         ? 'Warehouse : Sathlokhar H.O'
         : `${this.selectedProjectRef.siteId} : ${this.selectedProjectRef.siteCapacity || '5'}KW, ${this.selectedProjectRef.clientName}, ${this.selectedProjectRef.location || 'Chennai'}`,
-      paymentThrough: isWh ? 'P.O' : 'P.O',
+      paymentThrough: initialPaymentThrough,
       referenceNo: '',
       purpose: defaultPurpose,
       selectedBomGroup: defaultGroup,
@@ -1398,6 +1469,10 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       invoiceNo: '',
       amount: initialAmount
     };
+
+    if (initialPaymentThrough === 'P.O' || initialPaymentThrough === 'W.O') {
+      this.onPaymentThroughChange();
+    }
 
     this.scrollToExpenseForm();
   }
@@ -1412,6 +1487,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
 
+    this.isExpenseTypeSelectorOpen = false;
     this.isAddingOrEditingExpense = true;
     this.isEditingPastRecord = true;
     this.editingExpenseId = e.id || null;
@@ -1489,6 +1565,7 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   cancelExpenseSubForm(): void {
+    this.isExpenseTypeSelectorOpen = false;
     this.isAddingOrEditingExpense = false;
     this.isEditingPastRecord = false;
     this.editingExpenseId = null;
@@ -1498,6 +1575,8 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
 
   closeClientModal(): void {
     this.isClientModalOpen = false;
+    this.isPoWoLetterheadOpen = false;
+    this.isExpenseTypeSelectorOpen = false;
     this.selectedProjectRef = null;
     this.clientExpensesList = [];
     this.cancelExpenseSubForm();

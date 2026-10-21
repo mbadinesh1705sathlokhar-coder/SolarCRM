@@ -18,6 +18,7 @@ import { WarehouseComponent } from './components/inventory/warehouse/warehouse.c
 import { GatePassComponent } from './components/inventory/gate-pass/gate-pass.component';
 import { InwardComponent } from './components/inventory/inward/inward.component';
 import { CartComponent } from './components/inventory/cart/cart.component';
+import { InvoiceBillingComponent } from './components/billing/invoice-billing/invoice-billing.component';
 import { LoginComponent } from './components/login/login.component';
 import { authGuard } from './guards/auth.guard';
 import { moduleGuard } from './guards/module.guard';
@@ -37,6 +38,10 @@ export const routes: Routes = [
   { path: 'sales/awarded sites', redirectTo: 'awarded-sites', pathMatch: 'full' },
   { path: 'sales/awarded_sites', redirectTo: 'awarded-sites', pathMatch: 'full' },
   { path: 'finances', redirectTo: 'payment-ledger', pathMatch: 'full' },
+  // Billing routes
+  { path: 'billing', redirectTo: 'billing/invoice-billing', pathMatch: 'full' },
+  { path: 'billing/invoice-billing', component: InvoiceBillingComponent, canActivate: [authGuard] },
+  { path: 'invoice-billing', redirectTo: 'billing/invoice-billing', pathMatch: 'full' },
   // Activity routes (new canonical paths)
   { path: 'activity', redirectTo: 'activity/meetings', pathMatch: 'full' },
   { path: 'activity/meetings', component: ContactsComponent, canActivate: [authGuard, moduleGuard('activity')] },

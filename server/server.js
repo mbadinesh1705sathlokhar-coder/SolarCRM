@@ -18,6 +18,7 @@ const { Indent, IndentMaterial, WarehouseMaterial, GatePass, GatePassItem, CartI
 const { MasterList, MasterListItem } = require('./models/MasterList');
 const { SitePlan } = require('./models/SitePlan');
 const { BomMaterialMaster } = require('./models/BomMaterialMaster');
+const { InvoiceBilling } = require('./models/InvoiceBilling');
 
 const projectRoutes = require('./routes/projectRoutes');
 const ledgerRoutes = require('./routes/ledgerRoutes');
@@ -31,6 +32,7 @@ const sitePlanRoutes = require('./routes/sitePlanRoutes');
 const vendorRoutes = require('./routes/vendorRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const bomMaterialRoutes = require('./routes/bomMaterialRoutes');
+const invoiceBillingRoutes = require('./routes/invoiceBillingRoutes');
 const { initReminderScheduler } = require('./services/reminderScheduler');
 const { seedLedgersIfEmpty } = require('./seedLedgers');
 const { seedInitialLeadsIfEmpty } = require('./controllers/salesController');
@@ -69,6 +71,7 @@ app.use('/api/site-plans', sitePlanRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/bom-materials', bomMaterialRoutes);
+app.use('/api/invoice-billings', invoiceBillingRoutes);
 
 const PORT = process.env.PORT || 2000;
 
@@ -135,9 +138,19 @@ async function ensureInventoryColumns() {
         await checkAndAdd('inventory_gate_pass_items', 'material_group', 'VARCHAR(150) NULL');
         await checkAndAdd('inventory_gate_pass_items', 'category_type', 'VARCHAR(150) NULL');
         await checkAndAdd('inventory_gate_pass_items', 'specification', 'VARCHAR(255) NULL');
+        await checkAndAdd('inventory_gate_pass_items', 'po_wo_no', 'VARCHAR(100) NULL');
+        await checkAndAdd('inventory_gate_passes', 'po_wo_no', 'VARCHAR(100) NULL');
+        await checkAndAdd('inventory_cart_items', 'invoice_no', 'VARCHAR(100) NULL');
+        await checkAndAdd('inventory_cart_items', 'po_wo_no', 'VARCHAR(100) NULL');
         await checkAndAdd('inventory_inward_items', 'material_group', 'VARCHAR(150) NULL');
         await checkAndAdd('inventory_inward_items', 'category_type', 'VARCHAR(150) NULL');
         await checkAndAdd('inventory_inward_items', 'specification', 'VARCHAR(255) NULL');
+        // Vendor Bank Account Columns
+        await checkAndAdd('office_vendors', 'account_number', 'VARCHAR(100) NULL');
+        await checkAndAdd('office_vendors', 'cc_acc_no', 'VARCHAR(100) NULL');
+        await checkAndAdd('office_vendors', 'bank_name', 'VARCHAR(150) NULL');
+        await checkAndAdd('office_vendors', 'ifsc_code', 'VARCHAR(50) NULL');
+        await checkAndAdd('office_vendors', 'branch', 'VARCHAR(150) NULL');
     } catch (e) {
         console.error('Error in ensureInventoryColumns:', e);
     }

@@ -17,6 +17,7 @@ export class SidebarComponent {
   isSalesOpen = false;
   isFinancesOpen = false;
   isExpensesLedgerOpen = false;
+  isBillingOpen = false;
   isActivityOpen = false;
   isOfficeOpen = false;
   isInventoryOpen = false;
@@ -31,6 +32,10 @@ export class SidebarComponent {
 
   toggleExpensesLedger(): void {
     this.isExpensesLedgerOpen = !this.isExpensesLedgerOpen;
+  }
+
+  toggleBilling(): void {
+    this.isBillingOpen = !this.isBillingOpen;
   }
 
   toggleActivity(): void {

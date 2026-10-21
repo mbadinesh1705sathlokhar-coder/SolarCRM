@@ -112,7 +112,7 @@ async function getAllVendors(req, res) {
 
 async function createVendor(req, res) {
     try {
-        const { vendorName, salesCoordinator, phoneNo, location, gstNo, materialsSpec, creditDays, description, materialRates } = req.body;
+        const { vendorName, salesCoordinator, phoneNo, location, gstNo, materialsSpec, creditDays, description, materialRates, accountNumber, ccAccNo, bankName, ifscCode, branch } = req.body;
         if (!vendorName) {
             return res.status(400).json({ success: false, message: 'Vendor Name is required.' });
         }
@@ -129,7 +129,12 @@ async function createVendor(req, res) {
             materialsSpec: Array.isArray(materialsSpec) ? materialsSpec.join(', ') : (materialsSpec || ''),
             creditDays: creditDays || '30 Days',
             description: description || '',
-            materialRates: ratesJson
+            materialRates: ratesJson,
+            accountNumber: accountNumber ? String(accountNumber).trim() : '',
+            ccAccNo: ccAccNo ? String(ccAccNo).trim() : '',
+            bankName: bankName ? String(bankName).trim() : '',
+            ifscCode: ifscCode ? String(ifscCode).trim() : '',
+            branch: branch ? String(branch).trim() : ''
         });
 
         if (materialRates && typeof materialRates === 'object') {

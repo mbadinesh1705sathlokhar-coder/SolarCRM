@@ -161,8 +161,15 @@ function normalizeDateString(dateVal) {
             const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
             if (!isNaN(jsDate.getTime())) {
                 const yyyy = jsDate.getUTCFullYear();
-                const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-                const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+                let m = jsDate.getUTCMonth() + 1;
+                let d = jsDate.getUTCDate();
+                if (d <= 12) {
+                    const temp = m;
+                    m = d;
+                    d = temp;
+                }
+                const mm = String(m).padStart(2, '0');
+                const dd = String(d).padStart(2, '0');
                 return `${yyyy}-${mm}-${dd}`;
             }
         }
@@ -176,7 +183,6 @@ function normalizeDateString(dateVal) {
     }
 
     if (str.includes('-') || str.includes('/') || str.includes('.')) {
-        const isSlash = str.includes('/');
         const parts = str.split(/[-/.]/).map(p => p.trim());
 
         if (parts.length === 3) {
@@ -196,24 +202,13 @@ function normalizeDateString(dateVal) {
                 } else {
                     if (year < 100) year += 2000;
 
-                    if (isSlash) {
-                        // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
-                        if (p0 > 12 && p1 <= 12) {
-                            day = p0;
-                            month = p1;
-                        } else {
-                            month = p0;
-                            day = p1;
-                        }
+                    // Always default to DD-MM-YYYY / DD/MM/YYYY (Indian format)
+                    if (p1 > 12 && p0 <= 12) {
+                        month = p0;
+                        day = p1;
                     } else {
-                        // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
-                        if (p1 > 12 && p0 <= 12) {
-                            month = p0;
-                            day = p1;
-                        } else {
-                            day = p0;
-                            month = p1;
-                        }
+                        day = p0;
+                        month = p1;
                     }
                 }
 
@@ -417,7 +412,7 @@ exports.updateProject = async (req, res) => {
         }
 
         await project.update({
-            awardedDate: awardedDate !== undefined ? (awardedDate || null) : project.awardedDate,
+            awardedDate: awardedDate !== undefined ? (normalizeDateString(awardedDate) || null) : project.awardedDate,
             siteId: siteId !== undefined ? siteId : project.siteId,
             clientName: clientName !== undefined ? clientName : project.clientName,
             location: location !== undefined ? location : project.location,

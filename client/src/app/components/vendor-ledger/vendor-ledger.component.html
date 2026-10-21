@@ -292,6 +292,30 @@
               <input type="text" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="vendorDetailsForm.creditDays" name="vCredit" placeholder="30 Days">
             </div>
 
+            <!-- Bank Account Details Row -->
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-dark mb-1">
+                <i class="bi bi-bank me-1 text-primary"></i>Account Number
+              </label>
+              <input type="text" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="vendorDetailsForm.accountNumber" name="vAccNo" placeholder="e.g. 103951000012">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-bold text-dark mb-1">CC AccNo</label>
+              <input type="text" class="form-control form-control-sm font-mono shadow-sm" [(ngModel)]="vendorDetailsForm.ccAccNo" name="vCcAccNo" placeholder="e.g. 103951000012">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-dark mb-1">Bank</label>
+              <input type="text" class="form-control form-control-sm shadow-sm" [(ngModel)]="vendorDetailsForm.bankName" name="vBankName" placeholder="e.g. ICICI BANK">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-bold text-dark mb-1">IFSC Code</label>
+              <input type="text" class="form-control form-control-sm font-mono shadow-sm text-uppercase" [(ngModel)]="vendorDetailsForm.ifscCode" name="vIfsc" placeholder="e.g. ICIC0001039">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-bold text-dark mb-1">Branch</label>
+              <input type="text" class="form-control form-control-sm shadow-sm" [(ngModel)]="vendorDetailsForm.branch" name="vBranch" placeholder="e.g. Madipakkam, Chennai">
+            </div>
+
             <!-- Description -->
             <div class="col-md-12">
               <label class="form-label small fw-bold text-dark mb-1">Description / Notes</label>
@@ -957,6 +981,30 @@
               <div class="col-12">
                 <label class="form-label small fw-bold text-dark mb-1">Location</label>
                 <input type="text" class="form-control shadow-sm" placeholder="e.g. Ambattur, Chennai" [(ngModel)]="vendorForm.location" name="location">
+              </div>
+
+              <!-- Bank Account Details -->
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  <i class="bi bi-bank me-1 text-primary"></i>Account Number
+                </label>
+                <input type="text" class="form-control font-mono shadow-sm" placeholder="e.g. 103951000012" [(ngModel)]="vendorForm.accountNumber" name="accountNumber">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">CC AccNo</label>
+                <input type="text" class="form-control font-mono shadow-sm" placeholder="e.g. 103951000012" [(ngModel)]="vendorForm.ccAccNo" name="ccAccNo">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">Bank</label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. ICICI BANK" [(ngModel)]="vendorForm.bankName" name="bankName">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">IFSC Code</label>
+                <input type="text" class="form-control font-mono shadow-sm text-uppercase" placeholder="e.g. ICIC0001039" [(ngModel)]="vendorForm.ifscCode" name="ifscCode">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">Branch</label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. Madipakkam, Chennai" [(ngModel)]="vendorForm.branch" name="branch">
               </div>
 
               <!-- Materials Checkboxes -->

@@ -181,6 +181,26 @@
                 <label class="form-label small fw-bold text-dark mb-1">Credit Days</label>
                 <input type="text" class="form-control shadow-sm font-mono" placeholder="e.g. 30 Days / 45 Days" [(ngModel)]="vendorForm.creditDays" name="creditDays">
               </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">Account Number</label>
+                <input type="text" class="form-control shadow-sm font-mono" placeholder="e.g. 103951000012" [(ngModel)]="vendorForm.accountNumber" name="accountNumber">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-dark mb-1">CC AccNo</label>
+                <input type="text" class="form-control shadow-sm font-mono" placeholder="e.g. 103951000012" [(ngModel)]="vendorForm.ccAccNo" name="ccAccNo">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">Bank</label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. ICICI BANK" [(ngModel)]="vendorForm.bankName" name="bankName">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">IFSC Code</label>
+                <input type="text" class="form-control shadow-sm font-mono text-uppercase" placeholder="e.g. ICIC0001039" [(ngModel)]="vendorForm.ifscCode" name="ifscCode">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">Branch</label>
+                <input type="text" class="form-control shadow-sm" placeholder="e.g. Madipakkam, Chennai" [(ngModel)]="vendorForm.branch" name="branch">
+              </div>
               <div class="col-12">
                 <label class="form-label small fw-bold text-dark mb-1">Materials / Spec</label>
                 <textarea class="form-control shadow-sm" rows="3" placeholder="e.g. Mono PERC Bifacial Solar PV Modules, On-grid Solar Inverters..." [(ngModel)]="vendorForm.materialsSpec" name="materialsSpec"></textarea>

@@ -1,7 +1,12 @@
 const { Op } = require('sequelize');
+const fs = require('fs');
+const path = require('path');
+const zlib = require('zlib');
 const { ClientPaymentLedger } = require('../models/ClientPaymentLedger');
 const { SiteExpenseLedger } = require('../models/SiteExpenseLedger');
 const { ProjectMaster, computeMetrics } = require('../models/ProjectMaster');
+const { OfficeVendor } = require('../models/OfficeVendor');
+const { VendorPoWo } = require('../models/VendorPoWo');
 
 // Date conversion helpers
 function parseToIsoDate(dateStr) {
@@ -20,8 +25,15 @@ function parseToIsoDate(dateStr) {
             const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
             if (!isNaN(jsDate.getTime())) {
                 const yyyy = jsDate.getUTCFullYear();
-                const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-                const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+                let m = jsDate.getUTCMonth() + 1;
+                let d = jsDate.getUTCDate();
+                if (d <= 12) {
+                    const temp = m;
+                    m = d;
+                    d = temp;
+                }
+                const mm = String(m).padStart(2, '0');
+                const dd = String(d).padStart(2, '0');
                 return `${yyyy}-${mm}-${dd}`;
             }
         }
@@ -35,7 +47,6 @@ function parseToIsoDate(dateStr) {
     }
 
     if (str.includes('-') || str.includes('/') || str.includes('.')) {
-        const isSlash = str.includes('/');
         const parts = str.split(/[-/.]/).map(p => p.trim());
 
         if (parts.length === 3) {
@@ -55,24 +66,13 @@ function parseToIsoDate(dateStr) {
                 } else {
                     if (year < 100) year += 2000;
 
-                    if (isSlash) {
-                        // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
-                        if (p0 > 12 && p1 <= 12) {
-                            day = p0;
-                            month = p1;
-                        } else {
-                            month = p0;
-                            day = p1;
-                        }
+                    // Always default to DD-MM-YYYY / DD/MM/YYYY (Indian format)
+                    if (p1 > 12 && p0 <= 12) {
+                        month = p0;
+                        day = p1;
                     } else {
-                        // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
-                        if (p1 > 12 && p0 <= 12) {
-                            month = p0;
-                            day = p1;
-                        } else {
-                            day = p0;
-                            month = p1;
-                        }
+                        day = p0;
+                        month = p1;
                     }
                 }
 
@@ -119,11 +119,14 @@ function deriveMoP(dateStr) {
 
 // Helper to resolve canonical siteId, clientName, and clientSiteName against ProjectMaster
 async function resolveProjectSiteId(siteId, clientName, clientSiteName) {
-    const rawInput = `${siteId || ''} ${clientName || ''} ${clientSiteName || ''}`.trim();
+    const rawSite = String(siteId || '').trim();
+    const rawClientSite = String(clientSiteName || '').trim();
+    const rawClient = String(clientName || '').trim();
+    const rawInput = `${rawSite} ${rawClientSite} ${rawClient}`.trim();
     if (!rawInput) return { siteId: 'UNASSIGNED', clientName: 'General', clientSiteName: 'UNASSIGNED' };
 
-    // Extract SP code if present (e.g., SP410, SP-410, SP 410)
-    const spMatch = rawInput.match(/SP[-_\s]*(\d+)/i);
+    // Extract SP code prioritizing siteId first, then clientSiteName, then clientName
+    const spMatch = rawSite.match(/SP[-_\s]*(\d+)/i) || rawClientSite.match(/SP[-_\s]*(\d+)/i) || rawClient.match(/SP[-_\s]*(\d+)/i);
     let targetSp = null;
     if (spMatch) {
         targetSp = `SP${spMatch[1]}`;
@@ -135,44 +138,39 @@ async function resolveProjectSiteId(siteId, clientName, clientSiteName) {
             where: {
                 [Op.or]: [
                     { siteId: targetSp },
-                    { siteId: { [Op.like]: `${targetSp}%` } }
+                    { siteId: { [Op.like]: `${targetSp} %` } },
+                    { siteId: { [Op.like]: `${targetSp}:%` } }
                 ]
             }
         });
     }
 
-    if (!matchedProj && siteId) {
-        const cleanRaw = String(siteId).replace(/:/g, '').trim();
+    if (!matchedProj && !targetSp && rawSite && !rawSite.startsWith('#')) {
+        const cleanRaw = rawSite.replace(/:/g, '').trim();
         matchedProj = await ProjectMaster.findOne({
             where: {
                 [Op.or]: [
                     { siteId: cleanRaw },
-                    { siteId: { [Op.like]: `%${cleanRaw}%` } },
-                    { clientName: { [Op.like]: `%${cleanRaw}%` } },
-                    { location: { [Op.like]: `%${cleanRaw}%` } }
+                    { clientName: cleanRaw }
                 ]
             }
         });
     }
 
-    if (!matchedProj && clientName) {
-        const cleanName = String(clientName).trim();
-        if (cleanName && cleanName.length > 2) {
-            matchedProj = await ProjectMaster.findOne({
-                where: {
-                    [Op.or]: [
-                        { clientName: { [Op.like]: `%${cleanName}%` } },
-                        { location: { [Op.like]: `%${cleanName}%` } }
-                    ]
-                }
-            });
-        }
+    if (!matchedProj && !targetSp && rawClient && rawClient.length > 2) {
+        matchedProj = await ProjectMaster.findOne({
+            where: {
+                clientName: rawClient
+            }
+        });
     }
 
     if (matchedProj) {
         const cap = matchedProj.siteCapacity ? `${matchedProj.siteCapacity}KW ` : '';
         const loc = matchedProj.location ? `, ${matchedProj.location}` : '';
-        const fullClientSiteName = `${matchedProj.siteId} : ${cap}${matchedProj.clientName || ''}${loc}`.trim();
+        const fullClientSiteName = (rawClientSite && rawClientSite.toUpperCase().includes(matchedProj.siteId.toUpperCase()))
+            ? rawClientSite
+            : `${matchedProj.siteId} : ${cap}${matchedProj.clientName || ''}${loc}`.trim();
         return {
             siteId: matchedProj.siteId,
             clientName: matchedProj.clientName || ('Client ' + matchedProj.siteId),
@@ -180,12 +178,12 @@ async function resolveProjectSiteId(siteId, clientName, clientSiteName) {
         };
     }
 
-    const fallbackId = targetSp || (siteId ? String(siteId).trim() : 'UNASSIGNED');
-    const fallbackName = clientName ? String(clientName).trim() : fallbackId;
+    const fallbackId = targetSp || (rawSite && !rawSite.startsWith('#') ? rawSite : 'UNASSIGNED');
+    const fallbackName = rawClient ? rawClient : fallbackId;
     return {
         siteId: fallbackId,
         clientName: fallbackName,
-        clientSiteName: `${fallbackId} : ${fallbackName}`
+        clientSiteName: rawClientSite || `${fallbackId} : ${fallbackName}`
     };
 }
 
@@ -202,8 +200,10 @@ async function syncProjectReceived(siteId) {
                 { siteId: siteId },
                 { siteId: rawClean },
                 { siteId: cleanSiteId },
-                { siteId: { [Op.like]: `${cleanSiteId}%` } },
-                { clientSiteName: { [Op.like]: `%${cleanSiteId}%` } }
+                { siteId: { [Op.like]: `${cleanSiteId} %` } },
+                { siteId: { [Op.like]: `${cleanSiteId}:%` } },
+                { clientSiteName: { [Op.like]: `${cleanSiteId} %` } },
+                { clientSiteName: { [Op.like]: `${cleanSiteId}:%` } }
             ]
         }
     }) || 0;
@@ -213,8 +213,7 @@ async function syncProjectReceived(siteId) {
             [Op.or]: [
                 { siteId: siteId },
                 { siteId: rawClean },
-                { siteId: cleanSiteId },
-                { siteId: { [Op.like]: `${cleanSiteId}%` } }
+                { siteId: cleanSiteId }
             ]
         }
     });
@@ -239,8 +238,10 @@ async function syncProjectExpenses(siteId) {
                 { siteId: siteId },
                 { siteId: rawClean },
                 { siteId: cleanSiteId },
-                { siteId: { [Op.like]: `${cleanSiteId}%` } },
-                { clientSiteName: { [Op.like]: `%${cleanSiteId}%` } }
+                { siteId: { [Op.like]: `${cleanSiteId} %` } },
+                { siteId: { [Op.like]: `${cleanSiteId}:%` } },
+                { clientSiteName: { [Op.like]: `${cleanSiteId} %` } },
+                { clientSiteName: { [Op.like]: `${cleanSiteId}:%` } }
             ]
         }
     }) || 0;
@@ -250,8 +251,7 @@ async function syncProjectExpenses(siteId) {
             [Op.or]: [
                 { siteId: siteId },
                 { siteId: rawClean },
-                { siteId: cleanSiteId },
-                { siteId: { [Op.like]: `${cleanSiteId}%` } }
+                { siteId: cleanSiteId }
             ]
         }
     });
@@ -329,37 +329,15 @@ exports.getAllPayments = async (req, res) => {
             const spMatch = rawClean.match(/SP[-_\s]*(\d+)/i);
             const cleanSiteId = spMatch ? `SP${spMatch[1]}` : rawClean;
 
-            const matchedProj = await ProjectMaster.findOne({
-                where: {
-                    [Op.or]: [
-                        { siteId: siteId },
-                        { siteId: rawClean },
-                        { siteId: cleanSiteId },
-                        { siteId: { [Op.like]: `${cleanSiteId}%` } }
-                    ]
-                }
-            });
-
             const siteConditions = [
                 { siteId: siteId },
                 { siteId: rawClean },
                 { siteId: cleanSiteId },
-                { siteId: { [Op.like]: `${cleanSiteId}%` } },
-                { clientSiteName: { [Op.like]: `%${cleanSiteId}%` } },
-                { clientName: { [Op.like]: `%${cleanSiteId}%` } }
+                { siteId: { [Op.like]: `${cleanSiteId} %` } },
+                { siteId: { [Op.like]: `${cleanSiteId}:%` } },
+                { clientSiteName: { [Op.like]: `${cleanSiteId} %` } },
+                { clientSiteName: { [Op.like]: `${cleanSiteId}:%` } }
             ];
-
-            if (matchedProj) {
-                if (matchedProj.clientName && matchedProj.clientName.trim()) {
-                    const cn = matchedProj.clientName.trim();
-                    siteConditions.push({ clientName: { [Op.like]: `%${cn}%` } });
-                    siteConditions.push({ clientSiteName: { [Op.like]: `%${cn}%` } });
-                }
-                if (matchedProj.location && matchedProj.location.trim().length > 2) {
-                    const loc = matchedProj.location.trim();
-                    siteConditions.push({ clientSiteName: { [Op.like]: `%${loc}%` } });
-                }
-            }
 
             whereClause[Op.or] = siteConditions;
         }
@@ -661,37 +639,15 @@ exports.getAllExpenses = async (req, res) => {
             const spMatch = rawClean.match(/SP[-_\s]*(\d+)/i);
             const cleanSiteId = spMatch ? `SP${spMatch[1]}` : rawClean;
 
-            const matchedProj = await ProjectMaster.findOne({
-                where: {
-                    [Op.or]: [
-                        { siteId: siteId },
-                        { siteId: rawClean },
-                        { siteId: cleanSiteId },
-                        { siteId: { [Op.like]: `${cleanSiteId}%` } }
-                    ]
-                }
-            });
-
             const siteConditions = [
                 { siteId: siteId },
                 { siteId: rawClean },
                 { siteId: cleanSiteId },
-                { siteId: { [Op.like]: `${cleanSiteId}%` } },
-                { clientSiteName: { [Op.like]: `%${cleanSiteId}%` } },
-                { clientName: { [Op.like]: `%${cleanSiteId}%` } }
+                { siteId: { [Op.like]: `${cleanSiteId} %` } },
+                { siteId: { [Op.like]: `${cleanSiteId}:%` } },
+                { clientSiteName: { [Op.like]: `${cleanSiteId} %` } },
+                { clientSiteName: { [Op.like]: `${cleanSiteId}:%` } }
             ];
-
-            if (matchedProj) {
-                if (matchedProj.clientName && matchedProj.clientName.trim()) {
-                    const cn = matchedProj.clientName.trim();
-                    siteConditions.push({ clientName: { [Op.like]: `%${cn}%` } });
-                    siteConditions.push({ clientSiteName: { [Op.like]: `%${cn}%` } });
-                }
-                if (matchedProj.location && matchedProj.location.trim().length > 2) {
-                    const loc = matchedProj.location.trim();
-                    siteConditions.push({ clientSiteName: { [Op.like]: `%${loc}%` } });
-                }
-            }
 
             whereClause[Op.or] = siteConditions;
         }
@@ -815,9 +771,415 @@ async function getOrAssignNextPettyCashRef(cleanSiteId) {
     return `PC-${maxPcNum + 1}`;
 }
 
+// Helper to compute next sequential PO/WO number:
+// For client: SOLAR/SP412/PO-001, SOLAR/SP412/PO-002... (or WO-001...)
+// For warehouse: SOLAR/SWH/PO-001 (or continuing from highest existing SOLAR/SWH/PO-xxx)
+async function computeNextPoWoNumber(siteId, orderType) {
+    const rawSite = String(siteId || '').replace(/:/g, '').trim().toUpperCase();
+    const isWarehouse = !rawSite || rawSite === 'WAREHOUSE' || rawSite === 'SWH' || rawSite === 'UNASSIGNED';
+    const siteCode = isWarehouse ? 'SWH' : (rawSite.match(/^SP\d+/i) ? rawSite.match(/^SP\d+/i)[0].toUpperCase() : rawSite);
+    const cleanType = String(orderType || 'PO').toUpperCase().includes('W') ? 'WO' : 'PO';
+    const prefix = `SOLAR/${siteCode}/${cleanType}-`;
+
+    const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escapedPrefix}(\\d+)`, 'i');
+
+    let maxNum = 0;
+    try {
+        const exps = await SiteExpenseLedger.findAll({
+            where: {
+                referenceNo: { [Op.like]: `${prefix}%` }
+            },
+            attributes: ['referenceNo'],
+            raw: true
+        });
+        for (const e of exps) {
+            const m = String(e.referenceNo || '').trim().match(regex);
+            if (m) {
+                const n = parseInt(m[1], 10);
+                if (!isNaN(n) && n > maxNum) maxNum = n;
+            }
+        }
+    } catch (e) {}
+
+    try {
+        const vPoWos = await VendorPoWo.findAll({
+            where: {
+                poWoNumber: { [Op.like]: `${prefix}%` }
+            },
+            attributes: ['poWoNumber'],
+            raw: true
+        });
+        for (const vp of vPoWos) {
+            const m = String(vp.poWoNumber || '').trim().match(regex);
+            if (m) {
+                const n = parseInt(m[1], 10);
+                if (!isNaN(n) && n > maxNum) maxNum = n;
+            }
+        }
+    } catch (e) {}
+
+    const nextNum = maxNum + 1;
+    return `${prefix}${String(nextNum).padStart(3, '0')}`;
+}
+
+// Permanent Letterhead & PO/WO Config storage in server/uploads/letterheads/
+const LETTERHEAD_DIR = path.join(__dirname, '..', 'uploads', 'letterheads');
+const LETTERHEAD_CONFIG_PATH = path.join(LETTERHEAD_DIR, 'letterhead_config.json');
+
+function ensureLetterheadDir() {
+    if (!fs.existsSync(LETTERHEAD_DIR)) {
+        fs.mkdirSync(LETTERHEAD_DIR, { recursive: true });
+    }
+}
+
+function getDefaultPoWoConfig() {
+    return {
+        po: {
+            fileName: '',
+            uploadedAt: null,
+            headerImageBase64: '',
+            footerImageBase64: '',
+            headerTextLines: [
+                'SATHLOKHAR SYNERGYS E&C GLOBAL LIMITED',
+                'Plot No.5171, F2, Sathlokhar, 9th Street, Ram Nagar North Extension, Madipakkam, Chennai, Tamil Nadu - 600091',
+                'GSTIN: 33AACCL5566B1ZT'
+            ],
+            defaultTermsTable: [
+                { label: 'Specifications', value: 'As per ISI Standard,' },
+                { label: 'Delivery schedule', value: 'Immediate' },
+                { label: 'GST', value: 'Included' },
+                { label: 'Loading', value: 'Included' },
+                { label: 'Transportation charges', value: 'Included' },
+                { label: 'Payment terms', value: '7 Days on Credit' }
+            ],
+            termsPages: [
+                `ANNEXURE - I : GENERAL TERMS & CONDITIONS OF PURCHASE ORDER\n\n1. SCOPE OF SUPPLY:\nThe Supplier shall supply the Solar PV materials / equipment strictly in accordance with the technical specifications, make, and quantities specified in this Purchase Order.\n\n2. QUALITY & STANDARDS:\nAll materials supplied against this Purchase Order must be brand new, unused, and conform to relevant MNRE / IEC / BIS / ISI standards. Test certificates and warranty certificates shall be furnished along with the dispatch documents.\n\n3. PACKAGING & DISPATCH:\nMaterials shall be securely packed to prevent any transit damage. Each consignment must be accompanied by Tax Invoice, Delivery Challan, E-Way Bill, and Packing List clearly mentioning our Purchase Order Number.\n\n4. INSPECTION & REJECTION:\nAll materials are subject to inspection and verification at the delivery site / warehouse by Sathlokhar Synergys E&C Global Limited. Any defective, damaged, or non-conforming materials shall be replaced by the Supplier immediately at their own cost.`,
+                `5. DELIVERY SCHEDULE & LIQUIDATED DAMAGES:\nTime is the essence of this Purchase Order. Delivery must be completed within the stipulated delivery schedule mentioned on Page 1. Any delay in delivery without prior written approval may attract liquidated damages.\n\n6. WARRANTY & GUARANTEE:\nThe Supplier warrants that all goods supplied under this Purchase Order shall be free from defects in design, material, and workmanship for the standard manufacturer warranty period from the date of commissioning or supply.\n\n7. INVOICING & PAYMENT TERMS:\nOriginal Tax Invoices mentioning GSTIN 33AACCL5566B1ZT and the Purchase Order Number must be submitted to our Accounts Department. Payment shall be processed as per the agreed credit terms specified in this Purchase Order.\n\n8. JURISDICTION:\nAny disputes arising out of or in connection with this Purchase Order shall be subject to the exclusive jurisdiction of the Courts at Chennai, Tamil Nadu.`
+            ]
+        },
+        wo: {
+            fileName: '',
+            uploadedAt: null,
+            headerImageBase64: '',
+            footerImageBase64: '',
+            headerTextLines: [
+                'SATHLOKHAR SYNERGYS E&C GLOBAL LIMITED',
+                'Plot No.5171, F2, Sathlokhar, 9th Street, Ram Nagar North Extension, Madipakkam, Chennai, Tamil Nadu - 600091',
+                'GSTIN: 33AACCL5566B1ZT'
+            ],
+            defaultTermsTable: [
+                { label: 'Scope of Work', value: 'As per Site Plan & MNRE / TANGEDCO Standards' },
+                { label: 'Completion schedule', value: 'Immediate / As per Site Schedule' },
+                { label: 'GST', value: 'Included' },
+                { label: 'Tools & Tackles', value: 'Contractor Scope' },
+                { label: 'Transportation & Shifting', value: 'Included' },
+                { label: 'Payment terms', value: 'After Completion & Site Engineer Certification' }
+            ],
+            termsPages: [
+                `ANNEXURE - I : GENERAL TERMS & CONDITIONS OF WORK ORDER\n\n1. SCOPE OF WORK:\nThe Contractor shall execute the Solar PV installation, structure erection, electrical cabling, earthing, and commissioning works strictly as per the approved drawings and instructions of our Site Engineer.\n\n2. SAFETY & WORKMANSHIP:\nThe Contractor must ensure that all workmen wear required Personal Protective Equipment (PPE) including safety helmets, safety shoes, and safety harnesses during rooftop work. Workmanship shall be neat, plumb, and compliant with CEIG / TANGEDCO safety norms.\n\n3. TOOLS, TACKLES & CONSUMABLES:\nAll necessary tools, drilling machines, crimping tools, testing instruments, and manpower required for executing the work are in the Contractor's scope.\n\n4. SITE CLEARANCE & HANDOVER:\nUpon completion of installation, the Contractor shall clear all debris, test the system string voltages and earthing continuity, and hand over the site with joint measurement certification signed by the Project Engineer.`,
+                `5. DEFECT LIABILITY:\nAny installation defects, loose terminations, or water leakage caused during structure mounting shall be rectified by the Contractor free of cost within the defect liability period.\n\n6. BILLING & PAYMENT:\nBills must be submitted along with the Work Completion Certificate signed by the Site Engineer and Project Manager. Statutory TDS deductions as applicable under the Income Tax Act shall be made.\n\n7. JURISDICTION:\nAll disputes arising out of this Work Order shall be subject to the exclusive jurisdiction of the Courts at Chennai, Tamil Nadu.`
+            ]
+        },
+        bomMaterialDescriptions: {
+            'Structure': {
+                description: `Supply of Solar Module Mounting Structures (2X5),\nNorth Leg 2.7MTR (72 X 72 X 2)mm Square Tube 3 Nos\nSouth Leg 2.2MTR (72 X 72 X 2)mm Square Tube 3 Nos\nRafter (75 X 75 X 2)mm Galvanized Dip Channel\nPurlin (80 X 40 X 1.6)mm Galvanized Dip Channel\nMid Clamp as required\nEnd Clamp as required\nAnchor Bolt & Nut as required`,
+                unit: 'KW',
+                gstPct: 18,
+                rate: 5500
+            },
+            'Solar MMS': {
+                description: `Supply of Solar Module Mounting Structures (2X5),\nNorth Leg 2.7MTR (72 X 72 X 2)mm Square Tube 3 Nos\nSouth Leg 2.2MTR (72 X 72 X 2)mm Square Tube 3 Nos\nRafter (75 X 75 X 2)mm Galvanized Dip Channel\nPurlin (80 X 40 X 1.6)mm Galvanized Dip Channel\nMid Clamp as required\nEnd Clamp as required\nAnchor Bolt & Nut as required`,
+                unit: 'KW',
+                gstPct: 18,
+                rate: 5500
+            },
+            'Cables': {
+                description: `Supply of Solar DC & AC Cables (ISI / TUV Certified),\nDC Cable - XLPO 4 Sqmm Red & Black UV Protected Copper Flexible Cable\nAC Cable - 4 Sqmm / 6 Sqmm Multi-strand Copper Armoured / Flexible Cable\nConduit Pipes, Bends, Saddles, Cable Glands & Lugs as per site requirement`,
+                unit: 'Mtr',
+                gstPct: 18,
+                rate: 65
+            },
+            'Panels': {
+                description: `Supply of Solar Photovoltaic Modules (ALMM Approved / BIS Certified),\nMono PERC / TOPCon Bifacial Half-Cut High Efficiency Solar PV Modules\nWith IP68 Junction Box, MC4 Compatible Connectors & Anodized Aluminium Frame`,
+                unit: 'Nos',
+                gstPct: 5,
+                rate: 14500
+            },
+            'Inverters': {
+                description: `Supply of Grid-Tied String Solar Inverter (MNRE / BIS Certified),\nWith Built-in DC Switch, IP65 Protection, Wi-Fi / Remote Monitoring Dongle\nStandard Manufacturer Warranty Certificate included`,
+                unit: 'Nos',
+                gstPct: 5,
+                rate: 28000
+            },
+            'Earthing Materials': {
+                description: `Supply of Earthing & Lightning Protection Materials,\nCopper Bonded Chemical Earthing Electrode Rod with Backfill Compound (BFC) Bag\nEarth Pit Chamber Cover, ESE / Copper Spike Lightning Arrester & GI/Copper Strip`,
+                unit: 'Set',
+                gstPct: 18,
+                rate: 4500
+            },
+            'DB Boxes': {
+                description: `Supply of Solar ACDB & DCDB Protection Boxes (IP65 Polycarbonate Enclosure),\nDCDB with 1000V DC MCB / Fuse & Type-2 DC SPD\nACDB with AC MCB, Type-2 AC SPD, L&T / Secure Solar Net Meter Box & Wiring`,
+                unit: 'Set',
+                gstPct: 18,
+                rate: 4200
+            },
+            'Consumables': {
+                description: `Supply of Solar Installation Consumables & Hardware Accessories,\nSS304 Allen Bolts, Hex Bolts, Spring & Flat Washers, Anchor Fasteners,\nUV Stabilized Cable Ties, MC4 Connectors, Ferrules & Insulation Tapes`,
+                unit: 'LS',
+                gstPct: 18,
+                rate: 3500
+            }
+        },
+        savedPoWoDocs: {}
+    };
+}
+
+function readPoWoConfig() {
+    ensureLetterheadDir();
+    const defaults = getDefaultPoWoConfig();
+    if (!fs.existsSync(LETTERHEAD_CONFIG_PATH)) {
+        fs.writeFileSync(LETTERHEAD_CONFIG_PATH, JSON.stringify(defaults, null, 2), 'utf8');
+        return defaults;
+    }
+    try {
+        const raw = fs.readFileSync(LETTERHEAD_CONFIG_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        const mergedBom = { ...defaults.bomMaterialDescriptions, ...(parsed.bomMaterialDescriptions || {}) };
+        // Ensure Panels & Inverters default to 5% GST and all other materials default to 18% GST if previously 12%
+        for (const k of Object.keys(mergedBom)) {
+            const lower = k.toLowerCase();
+            if (lower.includes('panel') || lower.includes('inverter')) {
+                if (mergedBom[k] && mergedBom[k].gstPct === 12) mergedBom[k].gstPct = 5;
+            } else if (mergedBom[k] && mergedBom[k].gstPct === 12) {
+                mergedBom[k].gstPct = 18;
+            }
+        }
+        return {
+            po: { ...defaults.po, ...(parsed.po || {}) },
+            wo: { ...defaults.wo, ...(parsed.wo || {}) },
+            bomMaterialDescriptions: mergedBom,
+            savedPoWoDocs: parsed.savedPoWoDocs || {}
+        };
+    } catch (e) {
+        return defaults;
+    }
+}
+
+function writePoWoConfig(cfg) {
+    ensureLetterheadDir();
+    fs.writeFileSync(LETTERHEAD_CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
+}
+
+// Native .docx (ZIP) reader in Node.js using built-in zlib
+function extractDocxContent(buffer) {
+    const entries = {};
+    try {
+        // Find End of Central Directory (EOCD) signature 0x06054b50
+        let eocdOffset = -1;
+        for (let i = buffer.length - 22; i >= Math.max(0, buffer.length - 65557); i--) {
+            if (buffer.readUInt32LE(i) === 0x06054b50) {
+                eocdOffset = i;
+                break;
+            }
+        }
+
+        if (eocdOffset !== -1) {
+            const totalEntries = buffer.readUInt16LE(eocdOffset + 10);
+            const cdOffset = buffer.readUInt32LE(eocdOffset + 16);
+            let ptr = cdOffset;
+
+            for (let idx = 0; idx < totalEntries && ptr < eocdOffset; idx++) {
+                if (buffer.readUInt32LE(ptr) !== 0x02014b50) break;
+                const compressionMethod = buffer.readUInt16LE(ptr + 10);
+                const compressedSize = buffer.readUInt32LE(ptr + 20);
+                const fileNameLen = buffer.readUInt16LE(ptr + 28);
+                const extraLen = buffer.readUInt16LE(ptr + 30);
+                const commentLen = buffer.readUInt16LE(ptr + 32);
+                const localHeaderOffset = buffer.readUInt32LE(ptr + 42);
+                const entryName = buffer.slice(ptr + 46, ptr + 46 + fileNameLen).toString('utf8');
+
+                if (buffer.readUInt32LE(localHeaderOffset) === 0x04034b50) {
+                    const localNameLen = buffer.readUInt16LE(localHeaderOffset + 26);
+                    const localExtraLen = buffer.readUInt16LE(localHeaderOffset + 28);
+                    const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+                    const compData = buffer.slice(dataStart, dataStart + compressedSize);
+                    if (compressionMethod === 0) {
+                        entries[entryName] = compData;
+                    } else if (compressionMethod === 8) {
+                        entries[entryName] = zlib.inflateRawSync(compData);
+                    }
+                }
+                ptr += 46 + fileNameLen + extraLen + commentLen;
+            }
+        }
+    } catch (zipErr) {
+        console.error('Error reading docx zip structure:', zipErr.message);
+    }
+
+    const decodeXmlEntities = (str) => {
+        return String(str || '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'");
+    };
+
+    const extractParagraphsFromXml = (xmlStr) => {
+        if (!xmlStr) return [];
+        const pages = [];
+        let currentLines = [];
+
+        // Split by paragraph <w:p ...>...</w:p>
+        const pMatches = xmlStr.match(/<w:p[\s>][\s\S]*?<\/w:p>/g) || [];
+        for (const pXml of pMatches) {
+            const hasPageBreak = /<w:br[^>]*w:type=["']page["']/i.test(pXml) || /<w:lastRenderedPageBreak\s*\/>/i.test(pXml);
+            const tMatches = pXml.match(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g) || [];
+            const lineText = decodeXmlEntities(
+                tMatches.map(t => t.replace(/<[^>]+>/g, '')).join('')
+            ).trim();
+
+            if (hasPageBreak && currentLines.length > 0) {
+                pages.push(currentLines.join('\n'));
+                currentLines = [];
+            }
+            if (lineText) {
+                currentLines.push(lineText);
+            }
+        }
+        if (currentLines.length > 0) {
+            pages.push(currentLines.join('\n'));
+        }
+        return pages;
+    };
+
+    // Extract images from word/media/*
+    const mediaImages = [];
+    Object.keys(entries).sort().forEach(k => {
+        if (k.startsWith('word/media/')) {
+            const lower = k.toLowerCase();
+            let mime = '';
+            if (lower.endsWith('.png')) mime = 'image/png';
+            else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) mime = 'image/jpeg';
+            if (mime) {
+                mediaImages.push(`data:${mime};base64,${entries[k].toString('base64')}`);
+            }
+        }
+    });
+
+    // Extract header lines
+    const headerLines = [];
+    Object.keys(entries).sort().forEach(k => {
+        if (k.startsWith('word/header') && k.endsWith('.xml')) {
+            const hPages = extractParagraphsFromXml(entries[k].toString('utf8'));
+            hPages.forEach(p => {
+                p.split('\n').forEach(l => {
+                    if (l.trim() && !headerLines.includes(l.trim())) headerLines.push(l.trim());
+                });
+            });
+        }
+    });
+
+    // Extract main document pages
+    let docPages = [];
+    if (entries['word/document.xml']) {
+        const rawPages = extractParagraphsFromXml(entries['word/document.xml'].toString('utf8'));
+        if (rawPages.length === 1) {
+            // If Word didn't insert explicit <w:br w:type="page"/>, chunk long terms into ~35-line pages
+            const allLines = rawPages[0].split('\n').filter(Boolean);
+            if (allLines.length > 35) {
+                for (let i = 0; i < allLines.length; i += 35) {
+                    docPages.push(allLines.slice(i, i + 35).join('\n'));
+                }
+            } else if (allLines.length > 0) {
+                docPages = [allLines.join('\n')];
+            }
+        } else {
+            docPages = rawPages;
+        }
+    }
+
+    return {
+        headerImageBase64: mediaImages[0] || '',
+        footerImageBase64: mediaImages.length > 1 ? mediaImages[mediaImages.length - 1] : '',
+        headerTextLines: headerLines,
+        docPages
+    };
+}
+
+// Sync a PO/WO expense entry into VendorPoWo so it reflects in Vendor Ledger
+async function syncExpenseWithVendorLedger(expenseRecord) {
+    try {
+        if (!expenseRecord || !expenseRecord.vendorName) return;
+        const pt = String(expenseRecord.paymentThrough || '').toUpperCase();
+        const ref = String(expenseRecord.referenceNo || '').trim();
+        if (!pt.includes('P.O') && !pt.includes('W.O') && !pt.includes('PO') && !pt.includes('WO') && !ref.toUpperCase().includes('SOLAR/')) {
+            return;
+        }
+
+        const cleanVendorName = expenseRecord.vendorName.replace(/^M\/s\.?\s*/i, '').replace(/,+$/, '').trim();
+        if (!cleanVendorName) return;
+
+        const vendor = await OfficeVendor.findOne({
+            where: {
+                [Op.or]: [
+                    { vendorName: expenseRecord.vendorName.trim() },
+                    { vendorName: cleanVendorName },
+                    { vendorName: { [Op.like]: `%${cleanVendorName}%` } }
+                ]
+            }
+        });
+        if (!vendor) return;
+
+        const poWoNumber = ref || `PO-${expenseRecord.id}`;
+        const orderType = (pt.includes('W.O') || pt === 'WO' || poWoNumber.toUpperCase().includes('/WO-')) ? 'W.O' : 'P.O';
+        const clientLabel = expenseRecord.siteId === 'WAREHOUSE'
+            ? 'Central Warehouse (SWH)'
+            : `${expenseRecord.clientName || ''} (${expenseRecord.siteId || ''})`.trim();
+
+        const existing = await VendorPoWo.findOne({
+            where: {
+                vendorId: vendor.id,
+                poWoNumber: poWoNumber
+            }
+        });
+
+        if (existing) {
+            await existing.update({
+                date: expenseRecord.expenseDate,
+                orderValue: parseFloat(expenseRecord.amount) || 0,
+                materialDescription: expenseRecord.purpose || '',
+                clientName: clientLabel,
+                orderType,
+                generatedBy: expenseRecord.paidBy || 'OFFICE',
+                billVoucherStatus: expenseRecord.billVoucher || 'Not Submitted',
+                invoiceNo: expenseRecord.invoiceNo || '',
+                remarks: expenseRecord.remarks || ''
+            });
+        } else {
+            await VendorPoWo.create({
+                vendorId: vendor.id,
+                date: expenseRecord.expenseDate,
+                poWoNumber: poWoNumber,
+                orderValue: parseFloat(expenseRecord.amount) || 0,
+                materialDescription: expenseRecord.purpose || '',
+                clientName: clientLabel,
+                orderType,
+                generatedBy: expenseRecord.paidBy || 'OFFICE',
+                billVoucherStatus: expenseRecord.billVoucher || 'Not Submitted',
+                invoiceNo: expenseRecord.invoiceNo || '',
+                remarks: expenseRecord.remarks || ''
+            });
+        }
+    } catch (err) {
+        console.warn('Warning syncing PO/WO with VendorPoWo:', err.message);
+    }
+}
+
 exports.createExpense = async (req, res) => {
     try {
-        const { sNo, mop, siteId, clientSiteName, clientName, expenseDate, amount, paymentThrough, purpose, paidBy, remarks, billVoucher, invoiceNo, claimStatus, paymentNote, vendorName, vendor, referenceNo } = req.body;
+        const { sNo, mop, siteId, clientSiteName, clientName, expenseDate, amount, paymentThrough, purpose, paidBy, remarks, billVoucher, invoiceNo, claimStatus, paymentNote, vendorName, vendor, referenceNo, poWoDoc, bomTemplateUpdate } = req.body;
 
         if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
             return res.status(400).json({ success: false, message: 'A valid positive amount is required.' });
@@ -838,7 +1200,11 @@ exports.createExpense = async (req, res) => {
         let finalRef = cleanRef;
         let finalPaymentThrough = paymentThrough || 'Petty Cash';
 
-        if (!isPoWoRef && finalPaymentThrough !== 'Warehouse' && finalPaymentThrough !== 'WAREHOUSE') {
+        if (finalPaymentThrough === 'P.O' || finalPaymentThrough === 'W.O') {
+            if (!finalRef || finalRef.toUpperCase().startsWith('PC-')) {
+                finalRef = await computeNextPoWoNumber(cleanSiteId || 'UNASSIGNED', finalPaymentThrough);
+            }
+        } else if (!isPoWoRef && finalPaymentThrough !== 'Warehouse' && finalPaymentThrough !== 'WAREHOUSE') {
             if (!finalRef || finalRef.toUpperCase().startsWith('PC') || finalPaymentThrough === 'Petty Cash') {
                 finalRef = await getOrAssignNextPettyCashRef(cleanSiteId || 'UNASSIGNED');
                 if (!['Gatepass', 'GatePass', 'Accounts', 'Warehouse', 'WAREHOUSE'].includes(finalPaymentThrough)) {
@@ -871,6 +1237,32 @@ exports.createExpense = async (req, res) => {
             description: remarks || '',
             referenceNo: finalRef
         });
+
+        // Persist PO/WO letterhead doc and reusable BOM material description if provided
+        if (poWoDoc || bomTemplateUpdate) {
+            try {
+                const cfg = readPoWoConfig();
+                if (poWoDoc && finalRef) {
+                    cfg.savedPoWoDocs = cfg.savedPoWoDocs || {};
+                    cfg.savedPoWoDocs[finalRef] = { ...poWoDoc, poWoNo: finalRef, expenseId: newExpense.id };
+                }
+                if (bomTemplateUpdate && bomTemplateUpdate.key && bomTemplateUpdate.description) {
+                    cfg.bomMaterialDescriptions = cfg.bomMaterialDescriptions || {};
+                    cfg.bomMaterialDescriptions[bomTemplateUpdate.key] = {
+                        description: bomTemplateUpdate.description,
+                        unit: bomTemplateUpdate.unit || 'Nos',
+                        gstPct: bomTemplateUpdate.gstPct !== undefined ? Number(bomTemplateUpdate.gstPct) : 18,
+                        rate: bomTemplateUpdate.rate !== undefined ? Number(bomTemplateUpdate.rate) : 0
+                    };
+                }
+                writePoWoConfig(cfg);
+            } catch (cfgErr) {
+                console.warn('Error saving poWoDoc config:', cfgErr.message);
+            }
+        }
+
+        // Sync with Vendor Ledger
+        await syncExpenseWithVendorLedger(newExpense);
 
         // Sync with Project Master
         const updatedProject = await syncProjectExpenses(cleanSiteId);
@@ -906,7 +1298,7 @@ exports.updateExpense = async (req, res) => {
         }
 
         const oldSiteId = expense.siteId;
-        const { sNo, mop, siteId, clientSiteName, clientName, expenseDate, amount, paymentThrough, purpose, paidBy, remarks, billVoucher, invoiceNo, claimStatus, paymentNote, vendorName, vendor, referenceNo } = req.body;
+        const { sNo, mop, siteId, clientSiteName, clientName, expenseDate, amount, paymentThrough, purpose, paidBy, remarks, billVoucher, invoiceNo, claimStatus, paymentNote, vendorName, vendor, referenceNo, poWoDoc, bomTemplateUpdate } = req.body;
 
         let cleanSiteId = siteId ? siteId.replace(/:/g, '').trim() : expense.siteId;
         let finalClientName = clientName !== undefined ? clientName.trim() : expense.clientName;
@@ -932,7 +1324,11 @@ exports.updateExpense = async (req, res) => {
         let finalRef = cleanRef;
         let finalPaymentThrough = paymentThrough !== undefined ? paymentThrough : expense.paymentThrough;
 
-        if (!isPoWoRef && finalPaymentThrough !== 'Warehouse' && finalPaymentThrough !== 'WAREHOUSE') {
+        if (finalPaymentThrough === 'P.O' || finalPaymentThrough === 'W.O') {
+            if (!finalRef || finalRef.toUpperCase().startsWith('PC-')) {
+                finalRef = await computeNextPoWoNumber(cleanSiteId || 'UNASSIGNED', finalPaymentThrough);
+            }
+        } else if (!isPoWoRef && finalPaymentThrough !== 'Warehouse' && finalPaymentThrough !== 'WAREHOUSE') {
             if (cleanSiteId === oldSiteId && expense.referenceNo && expense.referenceNo.toUpperCase().startsWith('PC-')) {
                 finalRef = expense.referenceNo;
             } else {
@@ -967,6 +1363,30 @@ exports.updateExpense = async (req, res) => {
             vendorName: resolvedVendor !== undefined ? (resolvedVendor || '').trim() : expense.vendorName,
             description: remarks !== undefined ? remarks : expense.description
         });
+
+        if (poWoDoc || bomTemplateUpdate) {
+            try {
+                const cfg = readPoWoConfig();
+                if (poWoDoc && finalRef) {
+                    cfg.savedPoWoDocs = cfg.savedPoWoDocs || {};
+                    cfg.savedPoWoDocs[finalRef] = { ...poWoDoc, poWoNo: finalRef, expenseId: expense.id };
+                }
+                if (bomTemplateUpdate && bomTemplateUpdate.key && bomTemplateUpdate.description) {
+                    cfg.bomMaterialDescriptions = cfg.bomMaterialDescriptions || {};
+                    cfg.bomMaterialDescriptions[bomTemplateUpdate.key] = {
+                        description: bomTemplateUpdate.description,
+                        unit: bomTemplateUpdate.unit || 'Nos',
+                        gstPct: bomTemplateUpdate.gstPct !== undefined ? Number(bomTemplateUpdate.gstPct) : 18,
+                        rate: bomTemplateUpdate.rate !== undefined ? Number(bomTemplateUpdate.rate) : 0
+                    };
+                }
+                writePoWoConfig(cfg);
+            } catch (cfgErr) {
+                console.warn('Error saving poWoDoc config on update:', cfgErr.message);
+            }
+        }
+
+        await syncExpenseWithVendorLedger(expense);
 
         const updatedProject = await syncProjectExpenses(cleanSiteId);
         if (oldSiteId && oldSiteId !== cleanSiteId) {
@@ -1090,6 +1510,137 @@ exports.deleteExpensesBySiteId = async (req, res) => {
     } catch (err) {
         console.error('Error deleting expenses for site:', err);
         return res.status(500).json({ success: false, message: 'Error deleting expenses for site', error: err.message });
+    }
+};
+
+// --- PO / WO LETTERHEAD & CONFIG ENDPOINTS ---
+
+exports.getPoWoConfig = async (req, res) => {
+    try {
+        const cfg = readPoWoConfig();
+        return res.status(200).json({
+            success: true,
+            folderPath: LETTERHEAD_DIR,
+            data: cfg
+        });
+    } catch (err) {
+        console.error('Error reading PO/WO config:', err);
+        return res.status(500).json({ success: false, message: 'Failed to load PO/WO letterhead config', error: err.message });
+    }
+};
+
+exports.getNextPoWoNumber = async (req, res) => {
+    try {
+        const { siteId, type } = req.query;
+        const nextNo = await computeNextPoWoNumber(siteId || 'SWH', type || 'PO');
+        return res.status(200).json({
+            success: true,
+            nextNumber: nextNo
+        });
+    } catch (err) {
+        console.error('Error computing next PO/WO number:', err);
+        return res.status(500).json({ success: false, message: 'Failed to compute next PO/WO number', error: err.message });
+    }
+};
+
+exports.uploadPoWoLetterhead = async (req, res) => {
+    try {
+        const { type, fileName, fileBase64, termsPages, headerImageBase64, footerImageBase64, headerTextLines, defaultTermsTable } = req.body;
+        const targetKey = String(type || 'PO').toUpperCase().includes('W') ? 'wo' : 'po';
+        const cfg = readPoWoConfig();
+
+        ensureLetterheadDir();
+
+        if (fileBase64) {
+            const cleanBase64 = String(fileBase64).replace(/^data:[^;]+;base64,/, '');
+            const buf = Buffer.from(cleanBase64, 'base64');
+            const ext = (fileName && path.extname(fileName)) ? path.extname(fileName).toLowerCase() : '.docx';
+            const savedFileName = `${targetKey.toUpperCase()}_Letterhead${ext}`;
+            const savedFilePath = path.join(LETTERHEAD_DIR, savedFileName);
+            fs.writeFileSync(savedFilePath, buf);
+
+            cfg[targetKey].fileName = fileName || savedFileName;
+            cfg[targetKey].uploadedAt = new Date().toISOString();
+
+            if (ext === '.docx') {
+                const extracted = extractDocxContent(buf);
+                if (extracted.headerImageBase64) {
+                    cfg[targetKey].headerImageBase64 = extracted.headerImageBase64;
+                }
+                if (extracted.footerImageBase64) {
+                    cfg[targetKey].footerImageBase64 = extracted.footerImageBase64;
+                }
+                if (extracted.headerTextLines && extracted.headerTextLines.length > 0) {
+                    cfg[targetKey].headerTextLines = extracted.headerTextLines;
+                }
+                if (extracted.docPages && extracted.docPages.length > 0) {
+                    // If the .docx has Page 1 as PO cover and Page 2+ as Terms & Conditions, or all pages as Terms & Conditions
+                    const pagesToUse = extracted.docPages.length > 1 ? extracted.docPages.slice(1) : extracted.docPages;
+                    cfg[targetKey].termsPages = pagesToUse;
+                }
+            } else if (ext === '.png' || ext === '.jpg' || ext === '.jpeg') {
+                const mime = ext === '.png' ? 'image/png' : 'image/jpeg';
+                cfg[targetKey].headerImageBase64 = `data:${mime};base64,${cleanBase64}`;
+            }
+        }
+
+        if (Array.isArray(termsPages) && termsPages.length > 0) {
+            cfg[targetKey].termsPages = termsPages;
+        }
+        if (headerImageBase64 !== undefined) {
+            cfg[targetKey].headerImageBase64 = headerImageBase64;
+        }
+        if (footerImageBase64 !== undefined) {
+            cfg[targetKey].footerImageBase64 = footerImageBase64;
+        }
+        if (Array.isArray(headerTextLines) && headerTextLines.length > 0) {
+            cfg[targetKey].headerTextLines = headerTextLines;
+        }
+        if (Array.isArray(defaultTermsTable) && defaultTermsTable.length > 0) {
+            cfg[targetKey].defaultTermsTable = defaultTermsTable;
+        }
+
+        writePoWoConfig(cfg);
+
+        return res.status(200).json({
+            success: true,
+            message: `${targetKey.toUpperCase()} Letterhead & Terms saved permanently!`,
+            folderPath: LETTERHEAD_DIR,
+            data: cfg
+        });
+    } catch (err) {
+        console.error('Error uploading PO/WO letterhead:', err);
+        return res.status(500).json({ success: false, message: 'Failed to save PO/WO letterhead', error: err.message });
+    }
+};
+
+exports.updatePoWoConfig = async (req, res) => {
+    try {
+        const { po, wo, bomMaterialDescriptions, savedPoWoDocs } = req.body;
+        const cfg = readPoWoConfig();
+
+        if (po) {
+            cfg.po = { ...cfg.po, ...po };
+        }
+        if (wo) {
+            cfg.wo = { ...cfg.wo, ...wo };
+        }
+        if (bomMaterialDescriptions) {
+            cfg.bomMaterialDescriptions = { ...cfg.bomMaterialDescriptions, ...bomMaterialDescriptions };
+        }
+        if (savedPoWoDocs) {
+            cfg.savedPoWoDocs = { ...(cfg.savedPoWoDocs || {}), ...savedPoWoDocs };
+        }
+
+        writePoWoConfig(cfg);
+        return res.status(200).json({
+            success: true,
+            message: 'PO/WO configuration updated permanently.',
+            data: cfg
+        });
+    } catch (err) {
+        console.error('Error updating PO/WO config:', err);
+        return res.status(500).json({ success: false, message: 'Failed to update PO/WO config', error: err.message });
     }
 };
 

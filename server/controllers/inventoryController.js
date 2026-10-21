@@ -1,6 +1,8 @@
 const { Indent, IndentMaterial, WarehouseMaterial, GatePass, GatePassItem, Inward, InwardItem, CartItem } = require('../models/Inventory');
 const { SiteExpenseLedger } = require('../models/SiteExpenseLedger');
 const { ProjectMaster } = require('../models/ProjectMaster');
+const { OfficeVendor } = require('../models/OfficeVendor');
+const { VendorPoWo } = require('../models/VendorPoWo');
 const { Op } = require('sequelize');
 
 // ==========================================
@@ -439,11 +441,15 @@ async function findMatchingWarehouseMaterial(it) {
         });
     }
 
-    // 6. Match by group alone if spec is empty
-    if (!mat && grp && !spec) {
+    // 6. Match by group alone or group substring
+    if (!mat && grp) {
         mat = await WarehouseMaterial.findOne({
             where: {
-                materialGroup: grp
+                [Op.or]: [
+                    { materialGroup: grp },
+                    { materialName: grp },
+                    { materialName: { [Op.like]: `%${grp}%` } }
+                ]
             }
         });
     }
@@ -571,8 +577,27 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
 
         const siteId = project.siteId;
         const gpId = gatePass.id;
+        const gpNo = (gatePass.gatePassNo || '').trim() || `GP-${gpId}`;
 
-        // 1. Remove previous expense entries for this Gate Pass (handles updates cleanly)
+        // 1. Reset any previously marked PO expenses for this Gate Pass before re-syncing
+        const previousDispatchedPos = await SiteExpenseLedger.findAll({
+            where: {
+                siteId: siteId,
+                paymentNote: { [Op.like]: `%[DISPATCHED:GP-${gpId}]%` }
+            }
+        });
+        for (const prevPo of previousDispatchedPos) {
+            let rem = prevPo.remarks || '';
+            rem = rem.replace(new RegExp(`\\s*\\[Dispatched[^\\]]*GP-${gpId}[^\\]]*\\]`, 'gi'), '').trim();
+            const note = (prevPo.paymentNote || '').replace(`[DISPATCHED:GP-${gpId}]`, '').trim();
+            await prevPo.update({
+                claimStatus: 'Active',
+                remarks: rem,
+                paymentNote: note || null
+            });
+        }
+
+        // Remove previous direct warehouse dispatch expense entries for this Gate Pass
         await SiteExpenseLedger.destroy({
             where: {
                 siteId: siteId,
@@ -601,7 +626,7 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
             include: [{ model: GatePassItem, as: 'items' }]
         });
 
-        // 2. Create expense entry for materials dispatched
+        // 2. Synchronize each material item
         const validItems = Array.isArray(items) ? items : [];
         for (const it of validItems) {
             const qty = parseFloat(it.quantity) || 0;
@@ -663,25 +688,94 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
             }
 
             const invNo = (it.invoiceNo || '').trim() || (gatePass.gatePassNo || '').trim() || `GP-${gpId}`;
+            const targetPo = (it.poWoNo || gatePass.poWoNo || '').trim();
+            const invRef = (it.invoiceNo || '').trim();
 
-            await SiteExpenseLedger.create({
-                expenseDate: it.dispatchDate || gatePass.gatePassDate || new Date().toISOString().substring(0, 10),
-                siteId: siteId,
-                clientName: project.clientName,
-                clientSiteName: project.location || project.clientName,
-                mop: 'Warehouse',
-                category: 'Warehouse',
-                paymentThrough: 'Gatepass',
-                paidBy: gatePass.siteEngineer || 'Warehouse Dispatch',
-                billVoucher: 'Submitted',
-                invoiceNo: invNo,
-                referenceNo: it.invoiceNo ? it.invoiceNo.trim() : (gatePass.gatePassNo ? gatePass.gatePassNo.trim() : `GP-${gpId}`),
-                vendorName: (it.vendorName || '').trim(),
-                purpose: it.materialName || 'Material',
-                amount: amt,
-                paymentNote: `GATEPASS-${gpId}`,
-                remarks: movementRemarks
-            });
+            // Check if there is an existing PO for this client / site in SiteExpenseLedger
+            let matchedPoExpense = null;
+            if (targetPo) {
+                matchedPoExpense = await SiteExpenseLedger.findOne({
+                    where: {
+                        siteId: siteId,
+                        [Op.or]: [
+                            { referenceNo: targetPo },
+                            { referenceNo: { [Op.like]: `%${targetPo}%` } },
+                            { invoiceNo: targetPo }
+                        ]
+                    }
+                });
+            }
+
+            if (!matchedPoExpense && invRef && (invRef.toUpperCase().includes('PO') || invRef.toUpperCase().includes('SOLAR'))) {
+                matchedPoExpense = await SiteExpenseLedger.findOne({
+                    where: {
+                        siteId: siteId,
+                        referenceNo: { [Op.like]: `%${invRef}%` }
+                    }
+                });
+            }
+
+            // Fallback match: PO expense for this site matching the material/spec
+            if (!matchedPoExpense) {
+                const candidatePos = await SiteExpenseLedger.findAll({
+                    where: {
+                        siteId: siteId,
+                        paymentThrough: { [Op.in]: ['P.O', 'W.O', 'PO', 'WO', 'p.o', 'w.o', 'po', 'wo'] }
+                    }
+                });
+
+                for (const cPo of candidatePos) {
+                    const purp = (cPo.purpose || '').toLowerCase();
+                    const cRem = (cPo.remarks || '').toLowerCase();
+                    const isAlreadyDispatched = cPo.claimStatus === 'Dispatched' && !cRem.includes(`gp-${gpId}`);
+                    if (isAlreadyDispatched) continue;
+
+                    if (itSpec && purp.includes(itSpec)) { matchedPoExpense = cPo; break; }
+                    if (itGrp && purp.includes(itGrp)) { matchedPoExpense = cPo; break; }
+                    if (matName && (purp.includes(matName) || matName.includes(purp))) { matchedPoExpense = cPo; break; }
+                }
+            }
+
+            if (matchedPoExpense) {
+                // DO NOT CREATE A DUPLICATE EXPENSE IN SITE EXPENSE LEDGER!
+                // Instead, mark the existing PO expense as Dispatched
+                let cleanRem = matchedPoExpense.remarks || '';
+                cleanRem = cleanRem.replace(new RegExp(`\\s*\\[Dispatched[^\\]]*GP-${gpId}[^\\]]*\\]`, 'gi'), '').trim();
+
+                const dispatchNote = `[Dispatched ${qty} ${uom} via Gate Pass ${gpNo} on ${it.dispatchDate || gatePass.gatePassDate || new Date().toISOString().substring(0, 10)} (${remaining <= 0 ? 'Fully Dispatched' : remaining + ' ' + uom + ' to be dispatched'})]`;
+                const finalRemarks = cleanRem ? `${cleanRem} ${dispatchNote}` : dispatchNote;
+
+                const curNote = matchedPoExpense.paymentNote || '';
+                const newNote = curNote.includes(`[DISPATCHED:GP-${gpId}]`) ? curNote : `${curNote} [DISPATCHED:GP-${gpId}]`.trim();
+
+                await matchedPoExpense.update({
+                    claimStatus: 'Dispatched',
+                    remarks: finalRemarks,
+                    paymentNote: newNote,
+                    invoiceNo: matchedPoExpense.invoiceNo || it.invoiceNo || gpNo
+                });
+            } else {
+                // No existing PO found: create a direct warehouse issue expense entry
+                await SiteExpenseLedger.create({
+                    expenseDate: it.dispatchDate || gatePass.gatePassDate || new Date().toISOString().substring(0, 10),
+                    siteId: siteId,
+                    clientName: project.clientName,
+                    clientSiteName: project.location || project.clientName,
+                    mop: 'Warehouse',
+                    category: 'Warehouse',
+                    paymentThrough: 'Gatepass',
+                    paidBy: gatePass.siteEngineer || 'Warehouse Dispatch',
+                    billVoucher: 'Submitted',
+                    invoiceNo: invNo,
+                    referenceNo: targetPo || (it.invoiceNo ? it.invoiceNo.trim() : gpNo),
+                    vendorName: (it.vendorName || '').trim(),
+                    purpose: it.materialName || 'Material',
+                    amount: amt,
+                    paymentNote: `GATEPASS-${gpId}`,
+                    remarks: movementRemarks,
+                    claimStatus: remaining <= 0 ? 'Dispatched' : 'Active'
+                });
+            }
 
             // Update matching BOM item
             if (matched) {
@@ -742,10 +836,9 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
             project.margin = parseFloat(Number(project.siteValue - totalExp).toFixed(2));
             project.marginPercentage = project.siteValue > 0 ? parseFloat(((project.margin / project.siteValue) * 100).toFixed(1)) : 0;
         }
-
         await project.save();
     } catch (err) {
-        console.error('Error syncing Gate Pass to Expenses & BOM:', err);
+        console.error('Error syncing gate pass to expenses and BOM:', err);
     }
 }
 
@@ -757,6 +850,24 @@ async function removeGatePassExpensesAndRestoreStock(gatePass) {
         }
 
         const gpId = gatePass.id;
+
+        // Revert any PO expenses marked as dispatched by this Gate Pass
+        const dispatchedPos = await SiteExpenseLedger.findAll({
+            where: {
+                paymentNote: { [Op.like]: `%[DISPATCHED:GP-${gpId}]%` }
+            }
+        });
+        for (const po of dispatchedPos) {
+            let rem = po.remarks || '';
+            rem = rem.replace(new RegExp(`\\s*\\[Dispatched[^\\]]*GP-${gpId}[^\\]]*\\]`, 'gi'), '').trim();
+            const note = (po.paymentNote || '').replace(`[DISPATCHED:GP-${gpId}]`, '').trim();
+            await po.update({
+                claimStatus: 'Active',
+                remarks: rem,
+                paymentNote: note || null
+            });
+        }
+
         const project = await findMatchingProject(gatePass.clientName);
         if (project) {
             await SiteExpenseLedger.destroy({
@@ -830,7 +941,7 @@ async function removeGatePassExpensesAndRestoreStock(gatePass) {
 
 async function createGatePass(req, res) {
     try {
-        let { gatePassNo, gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, transportCost } = req.body;
+        let { gatePassNo, gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, transportCost, poWoNo } = req.body;
         if (!clientName || !clientName.trim()) {
             return res.status(400).json({ success: false, message: 'Client name is required.' });
         }
@@ -870,7 +981,8 @@ async function createGatePass(req, res) {
             siteEngineer: siteEngineer || 'Dinesh Kumar',
             remarks: remarks ? remarks.trim() : '',
             totalAmount: calculatedTotalAmount,
-            transportCost: parsedTransportCost
+            transportCost: parsedTransportCost,
+            poWoNo: poWoNo ? poWoNo.trim() : null
         });
 
         // Insert nested items if provided
@@ -887,6 +999,7 @@ async function createGatePass(req, res) {
                     gatePassId: created.id,
                     dispatchDate: m.dispatchDate || gatePassDate || new Date().toISOString().substring(0, 10),
                     invoiceNo: (m.invoiceNo || '').trim(),
+                    poWoNo: (m.poWoNo || poWoNo || '').trim() || null,
                     materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
                     materialGroup: grp || null,
                     categoryType: cat || null,
@@ -923,7 +1036,7 @@ async function createGatePass(req, res) {
 async function updateGatePass(req, res) {
     try {
         const { id } = req.params;
-        let { gatePassNo, gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, totalAmount, transportCost } = req.body;
+        let { gatePassNo, gatePassDate, descriptions, unit, quantity, clientName, siteEngineer, remarks, items, totalAmount, transportCost, poWoNo } = req.body;
         const pass = await GatePass.findByPk(id, {
             include: [{ model: GatePassItem, as: 'items' }]
         });
@@ -963,7 +1076,8 @@ async function updateGatePass(req, res) {
             siteEngineer: siteEngineer !== undefined ? siteEngineer : pass.siteEngineer,
             remarks: remarks !== undefined ? (remarks ? remarks.trim() : '') : pass.remarks,
             totalAmount: calculatedTotalAmount,
-            transportCost: parsedTransportCost
+            transportCost: parsedTransportCost,
+            poWoNo: poWoNo !== undefined ? (poWoNo ? poWoNo.trim() : null) : pass.poWoNo
         });
 
         // Replace nested items if provided
@@ -982,6 +1096,7 @@ async function updateGatePass(req, res) {
                         gatePassId: id,
                         dispatchDate: m.dispatchDate || pass.gatePassDate || new Date().toISOString().substring(0, 10),
                         invoiceNo: (m.invoiceNo || '').trim(),
+                        poWoNo: (m.poWoNo || poWoNo || pass.poWoNo || '').trim() || null,
                         materialName: m.materialName && m.materialName.trim() ? m.materialName.trim() : (autoName || 'Material'),
                         materialGroup: grp || null,
                         categoryType: cat || null,
@@ -1465,7 +1580,244 @@ async function deleteAllCartItems(req, res) {
 }
 
 // ==========================================
-// 6. SEED DATA & SCHEMA GENERATOR
+// 6. CLIENT POS FOR GATE PASS
+// ==========================================
+async function getClientPos(req, res) {
+    try {
+        const { clientName, siteId } = req.query;
+        let targetSiteId = siteId;
+
+        if (!targetSiteId && clientName) {
+            const project = await findMatchingProject(clientName);
+            if (project) {
+                targetSiteId = project.siteId;
+            } else {
+                targetSiteId = clientName;
+            }
+        }
+
+        if (!targetSiteId) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const rawClean = String(targetSiteId).replace(/:/g, '').trim();
+        const spMatch = rawClean.match(/SP[-_\s]*(\d+)/i);
+        const cleanSiteId = spMatch ? `SP${spMatch[1]}` : rawClean;
+
+        const pos = await SiteExpenseLedger.findAll({
+            where: {
+                [Op.or]: [
+                    { siteId: targetSiteId },
+                    { siteId: rawClean },
+                    { siteId: cleanSiteId },
+                    { siteId: { [Op.like]: `${cleanSiteId} %` } },
+                    { clientName: { [Op.like]: `%${clientName || targetSiteId}%` } }
+                ],
+                paymentThrough: {
+                    [Op.in]: ['P.O', 'W.O', 'PO', 'WO', 'p.o', 'w.o', 'po', 'wo']
+                }
+            },
+            order: [['expenseDate', 'DESC'], ['id', 'DESC']]
+        });
+
+        const formatted = pos.map(p => ({
+            id: p.id,
+            date: p.expenseDate,
+            poWoNo: p.referenceNo || `PO-${p.id}`,
+            invoiceNo: p.invoiceNo || '',
+            vendorName: p.vendorName || '',
+            purpose: p.purpose || '',
+            amount: parseFloat(p.amount) || 0,
+            remarks: p.remarks || '',
+            claimStatus: p.claimStatus || 'Active'
+        }));
+
+        res.json({ success: true, data: formatted });
+    } catch (err) {
+        console.error('Error fetching client POs:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch client POs', error: err.message });
+    }
+}
+
+// ==========================================
+// 7. CART DISPATCH -> AUTO PO & MOVE TO INWARD
+// ==========================================
+async function dispatchCartItem(req, res) {
+    try {
+        const { id } = req.params;
+        const { date, invoiceNo, poWoNo } = req.body;
+
+        if (!invoiceNo || !invoiceNo.trim()) {
+            return res.status(400).json({ success: false, message: 'Invoice No. is required.' });
+        }
+        if (!poWoNo || !poWoNo.trim()) {
+            return res.status(400).json({ success: false, message: 'PO/WO No. is required.' });
+        }
+
+        const cartItem = await CartItem.findByPk(id);
+        if (!cartItem) {
+            return res.status(404).json({ success: false, message: 'Cart item not found.' });
+        }
+
+        const dispatchDate = date || new Date().toISOString().substring(0, 10);
+        const finalInvoiceNo = invoiceNo.trim();
+        const finalPoWoNo = poWoNo.trim();
+
+        // 1. Update CartItem status to Dispatched and record invoice & PO
+        await cartItem.update({
+            procurementStatus: 'Dispatched',
+            invoiceNo: finalInvoiceNo,
+            poWoNo: finalPoWoNo
+        });
+
+        // 2. Resolve Site & Client
+        const clientLoc = (cartItem.clientLocation || '').trim();
+        let siteId = 'WAREHOUSE';
+        let clientName = 'Central Warehouse';
+        let clientSiteName = 'Central Warehouse (SWH)';
+        let targetProject = null;
+
+        if (clientLoc) {
+            targetProject = await findMatchingProject(clientLoc);
+            if (targetProject) {
+                siteId = targetProject.siteId;
+                clientName = targetProject.clientName;
+                clientSiteName = targetProject.location || targetProject.clientName;
+            } else {
+                siteId = clientLoc;
+                clientName = clientLoc;
+                clientSiteName = clientLoc;
+            }
+        }
+
+        const grp = (cartItem.materialGroup || '').trim();
+        const cat = (cartItem.categoryType || '').trim();
+        const spec = (cartItem.specification || '').trim();
+        const autoName = cartItem.material || [grp, cat !== 'Standard' ? cat : '', spec].filter(Boolean).join(' - ') || spec || grp || 'Material';
+        const qty = parseFloat(cartItem.quantity) || 1;
+        const amt = parseFloat(cartItem.totalAmount) || 0;
+        const rate = qty > 0 ? (amt / qty) : 0;
+        const orderType = (finalPoWoNo.toUpperCase().startsWith('WO') || finalPoWoNo.toUpperCase().includes('/WO-')) ? 'W.O' : 'P.O';
+
+        // 3. Register PO in SiteExpenseLedger
+        const poExpense = await SiteExpenseLedger.create({
+            expenseDate: dispatchDate,
+            siteId: siteId,
+            clientName: clientName,
+            clientSiteName: clientSiteName,
+            mop: 'Office',
+            category: 'Procurement',
+            paymentThrough: orderType,
+            paidBy: 'OFFICE',
+            billVoucher: 'Submitted',
+            invoiceNo: finalInvoiceNo,
+            referenceNo: finalPoWoNo,
+            vendorName: (cartItem.vendorName || '').trim(),
+            purpose: autoName,
+            amount: amt,
+            remarks: `Procured via Cart - ${qty} ${cartItem.unit} ${autoName} (PO: ${finalPoWoNo})`,
+            claimStatus: 'Active'
+        });
+
+        // Sync with VendorPoWo
+        if (cartItem.vendorName && cartItem.vendorName.trim()) {
+            try {
+                const vName = cartItem.vendorName.trim();
+                const vendor = await OfficeVendor.findOne({
+                    where: {
+                        [Op.or]: [
+                            { vendorName: vName },
+                            { vendorName: { [Op.like]: `%${vName}%` } }
+                        ]
+                    }
+                });
+                await VendorPoWo.create({
+                    vendorId: vendor ? vendor.id : 0,
+                    vendorName: vName,
+                    date: dispatchDate,
+                    poWoNumber: finalPoWoNo,
+                    orderValue: amt,
+                    materialDescription: `${qty} ${cartItem.unit} - ${autoName}`,
+                    clientName: siteId === 'WAREHOUSE' ? 'Central Warehouse (SWH)' : `${clientName} (${siteId})`,
+                    orderType: orderType,
+                    generatedBy: 'OFFICE',
+                    billVoucherStatus: 'Submitted',
+                    invoiceNo: finalInvoiceNo,
+                    remarks: `Auto-registered from Cart Dispatch (Invoice: ${finalInvoiceNo})`
+                });
+            } catch (vErr) {
+                console.warn('Warning syncing VendorPoWo in dispatchCartItem:', vErr.message);
+            }
+        }
+
+        // Recalculate project expenses if linked
+        if (targetProject) {
+            const totalExp = await SiteExpenseLedger.sum('amount', { where: { siteId: targetProject.siteId } }) || 0;
+            targetProject.siteExpenses = parseFloat(Number(totalExp).toFixed(2));
+            if (targetProject.siteValue) {
+                targetProject.margin = parseFloat(Number(targetProject.siteValue - totalExp).toFixed(2));
+                targetProject.marginPercentage = targetProject.siteValue > 0 ? parseFloat(((targetProject.margin / targetProject.siteValue) * 100).toFixed(1)) : 0;
+            }
+            await targetProject.save();
+        }
+
+        // 4. Automatically move to Inward
+        const inward = await Inward.create({
+            inwardNo: `INW-${Date.now().toString().slice(-6)}`,
+            invoiceNo: finalInvoiceNo,
+            inwardDate: dispatchDate,
+            descriptions: autoName,
+            unit: cartItem.unit || 'Nos',
+            quantity: qty,
+            supplierName: (cartItem.vendorName || '').trim(),
+            receivedBy: 'Soundarajan',
+            remarks: `Auto-inward from Cart (PO: ${finalPoWoNo})`,
+            totalAmount: amt,
+            transportCost: 0
+        });
+
+        await InwardItem.create({
+            inwardId: inward.id,
+            inwardDate: dispatchDate,
+            invoiceNo: finalInvoiceNo,
+            materialName: autoName,
+            materialGroup: grp || null,
+            categoryType: cat || null,
+            specification: spec || null,
+            quantity: qty,
+            unit: cartItem.unit || 'Nos',
+            rate: rate,
+            vendorName: (cartItem.vendorName || '').trim(),
+            amount: amt
+        });
+
+        // 5. Automatically ADD to Warehouse Stock (+)
+        await addWarehouseStock([{
+            materialName: autoName,
+            materialGroup: grp,
+            categoryType: cat,
+            specification: spec,
+            quantity: qty,
+            unit: cartItem.unit || 'Nos'
+        }]);
+
+        res.json({
+            success: true,
+            message: `Material marked as Dispatched! Registered PO ${finalPoWoNo} and moved to Inward with Invoice ${finalInvoiceNo}.`,
+            data: {
+                cartItem,
+                inwardId: inward.id,
+                expenseId: poExpense.id
+            }
+        });
+    } catch (err) {
+        console.error('Error dispatching cart item:', err);
+        res.status(500).json({ success: false, message: 'Failed to dispatch cart item', error: err.message });
+    }
+}
+
+// ==========================================
+// 8. SEED DATA & SCHEMA GENERATOR
 // ==========================================
 async function seedInventoryIfEmpty() {
     try {
@@ -1510,6 +1862,7 @@ module.exports = {
     updateGatePass,
     deleteGatePass,
     deleteAllGatePasses,
+    getClientPos,
     // Inward
     getAllInwards,
     createInward,
@@ -1522,6 +1875,7 @@ module.exports = {
     updateCartItem,
     deleteCartItem,
     deleteAllCartItems,
+    dispatchCartItem,
     // Seed
     seedInventoryIfEmpty
 };

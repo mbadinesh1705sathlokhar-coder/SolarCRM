@@ -2,6 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef } f
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { InventoryService, CartItem, CartSummary, INVENTORY_MATERIALS } from '../../../services/inventory.service';
 import { OfficeService } from '../../../services/office.service';
 import { ProjectService } from '../../../services/project.service';
@@ -30,6 +31,7 @@ export interface CartRowItem {
   styleUrls: ['./cart.component.css']
 })
 export class CartComponent implements OnInit {
+  private http = inject(HttpClient);
   private inventoryService = inject(InventoryService);
   private officeService = inject(OfficeService);
   private projectService = inject(ProjectService);
@@ -71,6 +73,104 @@ export class CartComponent implements OnInit {
   cartForm: Partial<CartItem> = this.getEmptyCartItem();
   itemToDelete: CartItem | null = null;
   isDeleteModalOpen = false;
+
+  // Dispatched Popup Modal State (Auto register PO & Move to Inward)
+  isDispatchModalOpen = false;
+  dispatchItemRef: CartItem | null = null;
+  dispatchForm = {
+    date: new Date().toISOString().substring(0, 10),
+    invoiceNo: '',
+    poWoNo: ''
+  };
+  submittingDispatch = false;
+
+  openDispatchModal(item: CartItem): void {
+    this.dispatchItemRef = item;
+    this.dispatchForm = {
+      date: new Date().toISOString().substring(0, 10),
+      invoiceNo: item.invoiceNo || '',
+      poWoNo: item.poWoNo || ''
+    };
+
+    const siteRef = item.clientLocation || 'SWH';
+    const targetSiteId = siteRef.includes(':') ? siteRef.split(':')[0].trim() : siteRef;
+    this.http.get<{ nextNumber: string }>(`http://localhost:2000/api/ledgers/po-wo/next-number?type=PO&siteId=${targetSiteId}`).subscribe({
+      next: (res) => {
+        if (res && res.nextNumber && !this.dispatchForm.poWoNo) {
+          this.dispatchForm.poWoNo = res.nextNumber;
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {
+        if (!this.dispatchForm.poWoNo) {
+          this.dispatchForm.poWoNo = `PO-${Date.now().toString().slice(-6)}`;
+          this.cdr.markForCheck();
+        }
+      }
+    });
+
+    this.isDispatchModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeDispatchModal(): void {
+    this.isDispatchModalOpen = false;
+    this.dispatchItemRef = null;
+    this.submittingDispatch = false;
+    this.cdr.markForCheck();
+  }
+
+  confirmDispatch(): void {
+    if (!this.dispatchItemRef?.id) return;
+    if (!this.dispatchForm.invoiceNo?.trim()) {
+      this.showToast('Invoice No. is required.', 'danger');
+      return;
+    }
+    if (!this.dispatchForm.poWoNo?.trim()) {
+      this.showToast('PO/WO No. is required.', 'danger');
+      return;
+    }
+
+    this.submittingDispatch = true;
+    this.inventoryService.dispatchCartItem(this.dispatchItemRef.id, {
+      date: this.dispatchForm.date,
+      invoiceNo: this.dispatchForm.invoiceNo.trim(),
+      poWoNo: this.dispatchForm.poWoNo.trim()
+    }).subscribe({
+      next: (res) => {
+        this.submittingDispatch = false;
+        this.showToast(res.message || 'Material marked as Dispatched and moved to Inward!', 'success');
+        this.closeDispatchModal();
+        if (this.isModalOpen) {
+          this.closeModal();
+        }
+        this.loadCart();
+      },
+      error: (err) => {
+        this.submittingDispatch = false;
+        this.showToast(err.error?.message || 'Failed to dispatch material.', 'danger');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  onRowStatusChange(item: CartItem, newStatus: string): void {
+    if (newStatus === 'Dispatched') {
+      this.openDispatchModal(item);
+      return;
+    }
+
+    this.inventoryService.updateCartItem(item.id!, { ...item, procurementStatus: newStatus }).subscribe({
+      next: (res) => {
+        if (res.success) {
+          item.procurementStatus = newStatus;
+          this.showToast(`Status updated to ${newStatus}`, 'success');
+          this.loadCart();
+        }
+      },
+      error: () => this.showToast('Failed to update status', 'danger')
+    });
+  }
 
   // Batch Add State (Multiple Clients / Multiple Materials)
   cartHeader = {
@@ -741,6 +841,13 @@ export class CartComponent implements OnInit {
       this.updateCartRowFromSpec(this.cartForm);
       if (!this.cartForm.specification?.trim() && !this.cartForm.material?.trim()) {
         this.showToast('Material specification is required.', 'danger');
+        return;
+      }
+
+      if (this.cartForm.procurementStatus === 'Dispatched') {
+        const itemToDispatch = { ...this.cartForm } as CartItem;
+        this.closeModal();
+        this.openDispatchModal(itemToDispatch);
         return;
       }
 

@@ -169,22 +169,28 @@
                   {{ item.totalAmount ? (item.totalAmount | number:'1.2-2') : '—' }}
                 </td>
 
-                <!-- Procurement Status Badge -->
-                <td class="text-center">
-                  <span class="badge border px-2.5 py-1"
-                        [class.bg-secondary-subtle]="(item.procurementStatus || '').toLowerCase() === 'yet to start'"
-                        [class.text-secondary]="(item.procurementStatus || '').toLowerCase() === 'yet to start'"
-                        [class.bg-warning-subtle]="(item.procurementStatus || '').toLowerCase().includes('vendor') || (item.procurementStatus || '').toLowerCase().includes('payment')"
-                        [class.text-warning-emphasis]="(item.procurementStatus || '').toLowerCase().includes('vendor') || (item.procurementStatus || '').toLowerCase().includes('payment')"
-                        [class.bg-info-subtle]="(item.procurementStatus || '').toLowerCase().includes('po')"
-                        [class.text-info]="(item.procurementStatus || '').toLowerCase().includes('po')"
-                        [class.bg-primary-subtle]="(item.procurementStatus || '').toLowerCase().includes('transport') || (item.procurementStatus || '').toLowerCase().includes('route')"
-                        [class.text-primary]="(item.procurementStatus || '').toLowerCase().includes('transport') || (item.procurementStatus || '').toLowerCase().includes('route')"
-                        [class.bg-success-subtle]="(item.procurementStatus || '').toLowerCase().includes('dispatch') || (item.procurementStatus || '').toLowerCase().includes('deliver')"
-                        [class.text-success]="(item.procurementStatus || '').toLowerCase().includes('dispatch') || (item.procurementStatus || '').toLowerCase().includes('deliver')"
-                        style="font-size: 0.70rem;">
-                    {{ item.procurementStatus }}
-                  </span>
+                <!-- Procurement Status Dropdown / Badge -->
+                <td class="text-center" style="min-width: 140px;">
+                  <ng-container *ngIf="(item.procurementStatus || '').toLowerCase() === 'dispatched'">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs cursor-pointer"
+                          style="font-size: 0.72rem; font-weight: 700;"
+                          (click)="openDispatchModal(item)"
+                          title="Click to view or edit Dispatch Inward details">
+                      <i class="bi bi-check-circle-fill"></i> Dispatched
+                    </span>
+                    <div *ngIf="item.invoiceNo || item.poWoNo" class="font-mono text-muted mt-0.5" style="font-size: 0.68rem;">
+                      <span *ngIf="item.invoiceNo" class="text-truncate d-block" [title]="'Invoice: ' + item.invoiceNo">Inv: {{ item.invoiceNo }}</span>
+                      <span *ngIf="item.poWoNo" class="text-truncate d-block" [title]="'PO: ' + item.poWoNo">PO: {{ item.poWoNo }}</span>
+                    </div>
+                  </ng-container>
+
+                  <select *ngIf="(item.procurementStatus || '').toLowerCase() !== 'dispatched'"
+                          class="form-select form-select-sm status-dropdown-compact fw-semibold shadow-xs" 
+                          style="font-size: 0.72rem !important; height: 26px !important; min-height: 26px !important; padding: 2px 20px 2px 6px;"
+                          [ngModel]="item.procurementStatus" 
+                          (ngModelChange)="onRowStatusChange(item, $event)">
+                    <option *ngFor="let st of statusOptions" [value]="st" style="font-size: 0.72rem !important;">{{ st }}</option>
+                  </select>
                 </td>
 
                 <!-- Actions: Strictly DELETE button only (no icons) -->
@@ -663,6 +669,123 @@
         <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDeleteModal()">Cancel</button>
         <button type="button" *ngIf="canDelete()" class="btn btn-sm btn-danger px-4 fw-bold shadow-sm" (click)="deleteCartItem()">Delete</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: DISPATCH POPUP (DATE, INVOICE NO, PO/WO NO)       -->
+<!-- ======================================================== -->
+<div class="modal fade show d-block modal-backdrop-custom" *ngIf="isDispatchModalOpen" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
+    <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="modal-header bg-success text-white py-3 px-4">
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-truck"></i>
+          Material Dispatched & Inward Registration
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" (click)="closeDispatchModal()"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <form (ngSubmit)="confirmDispatch()">
+        <div class="modal-body p-4 bg-light">
+          <!-- Material summary banner -->
+          <div class="bg-white p-3 rounded-3 border mb-3 shadow-xs">
+            <div class="d-flex align-items-start justify-content-between">
+              <div>
+                <span *ngIf="dispatchItemRef?.categoryType && dispatchItemRef?.categoryType !== 'Standard'" 
+                      class="badge bg-primary-subtle text-primary border px-2 py-0.5 rounded-1 shadow-xs mb-1" 
+                      style="font-size: 0.72rem; font-weight: 600;">
+                  {{ dispatchItemRef?.categoryType }}
+                </span>
+                <div class="fw-bold text-dark fs-6">
+                  {{ dispatchItemRef?.specification || dispatchItemRef?.material }}
+                </div>
+              </div>
+              <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold px-2 py-1">
+                Dispatched
+              </span>
+            </div>
+
+            <div class="row g-2 mt-2 pt-2 border-top text-secondary small">
+              <div class="col-6">
+                <span class="text-muted">Quantity:</span> 
+                <strong class="text-dark font-mono ms-1">{{ dispatchItemRef?.quantity }} {{ dispatchItemRef?.unit }}</strong>
+              </div>
+              <div class="col-6 text-end">
+                <span class="text-muted">Total:</span> 
+                <strong class="text-success font-mono ms-1">₹ {{ (dispatchItemRef?.totalAmount || 0) | number:'1.2-2' }}</strong>
+              </div>
+              <div class="col-12" *ngIf="dispatchItemRef?.clientLocation">
+                <i class="bi bi-geo-alt me-1 text-danger"></i>
+                <span class="text-dark fw-medium">{{ dispatchItemRef?.clientLocation }}</span>
+              </div>
+              <div class="col-12" *ngIf="dispatchItemRef?.vendorName">
+                <i class="bi bi-shop me-1 text-secondary"></i>
+                <span class="text-dark fw-medium">{{ dispatchItemRef?.vendorName }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Prompted Form: Date, Invoice No., PO/WO No. -->
+          <div class="bg-white p-3 rounded-3 border shadow-xs">
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-dark mb-1">
+                Date <span class="text-danger">*</span>
+              </label>
+              <input type="date" 
+                     class="form-control form-control-sm font-mono shadow-xs rounded-2" 
+                     [(ngModel)]="dispatchForm.date" 
+                     name="dispDate" 
+                     required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-dark mb-1">
+                Invoice No. <span class="text-danger">*</span>
+              </label>
+              <input type="text" 
+                     class="form-control form-control-sm font-mono shadow-xs rounded-2" 
+                     placeholder="e.g. INV-2024-001" 
+                     [(ngModel)]="dispatchForm.invoiceNo" 
+                     name="dispInvoiceNo" 
+                     required>
+              <div class="form-text fs-8 text-muted mt-1">
+                <i class="bi bi-arrow-right-circle me-1 text-primary"></i>Moves automatically to <strong>Inventory Inwards</strong> and increments warehouse stock.
+              </div>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label small fw-bold text-dark mb-1">
+                PO / WO No. <span class="text-danger">*</span>
+              </label>
+              <input type="text" 
+                     class="form-control form-control-sm font-mono shadow-xs rounded-2" 
+                     placeholder="e.g. PO-2024-001" 
+                     [(ngModel)]="dispatchForm.poWoNo" 
+                     name="dispPoWoNo" 
+                     required>
+              <div class="form-text fs-8 text-muted mt-1">
+                <i class="bi bi-arrow-right-circle me-1 text-success"></i>Auto-registers in <strong>Client Site Expenses</strong> & <strong>Vendor Ledger</strong>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer bg-white border-top py-2 px-4 d-flex justify-content-between">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="closeDispatchModal()">Cancel</button>
+          <button type="submit" 
+                  class="btn btn-sm btn-success text-white px-4 fw-bold shadow-sm d-flex align-items-center gap-1.5" 
+                  [disabled]="submittingDispatch || !dispatchForm.invoiceNo || !dispatchForm.poWoNo">
+            <span *ngIf="submittingDispatch" class="spinner-border spinner-border-sm"></span>
+            <i *ngIf="!submittingDispatch" class="bi bi-check-circle-fill"></i>
+            <span>Confirm & Move to Inward</span>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

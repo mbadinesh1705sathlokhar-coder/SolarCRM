@@ -226,6 +226,11 @@ const GatePass = conDb.define('GatePass', {
         allowNull: true,
         defaultValue: 0,
         field: 'transport_cost'
+    },
+    poWoNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'po_wo_no'
     }
 }, {
     tableName: 'inventory_gate_passes',
@@ -310,6 +315,11 @@ const GatePassItem = conDb.define('GatePassItem', {
         allowNull: false,
         defaultValue: 0,
         field: 'amount'
+    },
+    poWoNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'po_wo_no'
     }
 }, {
     tableName: 'inventory_gate_pass_items',
@@ -550,6 +560,16 @@ const CartItem = conDb.define('CartItem', {
         allowNull: true,
         defaultValue: 0.00,
         field: 'total_amount'
+    },
+    invoiceNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'invoice_no'
+    },
+    poWoNo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'po_wo_no'
     }
 }, {
     tableName: 'inventory_cart_items',

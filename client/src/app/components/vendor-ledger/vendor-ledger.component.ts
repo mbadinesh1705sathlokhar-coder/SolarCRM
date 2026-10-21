@@ -203,6 +203,11 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     gstNo: string;
     creditDays: string;
     description: string;
+    accountNumber: string;
+    ccAccNo: string;
+    bankName: string;
+    ifscCode: string;
+    branch: string;
     materials: { [mat: string]: boolean };
     subcategories: { [sub: string]: boolean };
     materialRates: { [mat: string]: number | null };
@@ -214,6 +219,11 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
     gstNo: '',
     creditDays: '30 Days',
     description: '',
+    accountNumber: '',
+    ccAccNo: '',
+    bankName: '',
+    ifscCode: '',
+    branch: '',
     materials: {},
     subcategories: {},
     materialRates: {}
@@ -501,6 +511,11 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       gstNo: vendor.gstNo || '',
       creditDays: vendor.creditDays || '30 Days',
       description: vendor.description || '',
+      accountNumber: vendor.accountNumber || '',
+      ccAccNo: vendor.ccAccNo || '',
+      bankName: vendor.bankName || '',
+      ifscCode: vendor.ifscCode || '',
+      branch: vendor.branch || '',
       materials: matMap,
       subcategories: subMap,
       materialRates: ratesMap
@@ -768,6 +783,11 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       gstNo: this.vendorDetailsForm.gstNo?.trim() || '',
       creditDays: this.vendorDetailsForm.creditDays,
       description: this.vendorDetailsForm.description,
+      accountNumber: this.vendorDetailsForm.accountNumber?.trim() || '',
+      ccAccNo: this.vendorDetailsForm.ccAccNo?.trim() || '',
+      bankName: this.vendorDetailsForm.bankName?.trim() || '',
+      ifscCode: this.vendorDetailsForm.ifscCode?.trim() || '',
+      branch: this.vendorDetailsForm.branch?.trim() || '',
       materialsSpec: selectedMats.join(', '),
       materialRates: cleanRates
     };
@@ -1219,7 +1239,12 @@ export class VendorLedgerComponent implements OnInit, OnDestroy {
       gstNo: '',
       materialsSpec: '',
       creditDays: '30 Days',
-      description: ''
+      description: '',
+      accountNumber: '',
+      ccAccNo: '',
+      bankName: '',
+      ifscCode: '',
+      branch: ''
     };
   }
 

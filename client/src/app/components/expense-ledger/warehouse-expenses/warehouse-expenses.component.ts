@@ -11,11 +11,12 @@ import { InventoryService } from '../../../services/inventory.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { PoWoLetterheadModalComponent } from '../../shared/po-wo-letterhead-modal/po-wo-letterhead-modal.component';
 
 @Component({
   selector: 'app-warehouse-expenses',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, PoWoLetterheadModalComponent],
   templateUrl: './warehouse-expenses.component.html',
   styleUrls: ['./warehouse-expenses.component.css']
 })
@@ -230,8 +231,15 @@ export class WarehouseExpensesComponent implements OnInit {
         const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
         if (!isNaN(jsDate.getTime())) {
           const yyyy = jsDate.getUTCFullYear();
-          const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-          const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+          let m = jsDate.getUTCMonth() + 1;
+          let d = jsDate.getUTCDate();
+          if (d <= 12) {
+            const temp = m;
+            m = d;
+            d = temp;
+          }
+          const mm = String(m).padStart(2, '0');
+          const dd = String(d).padStart(2, '0');
           return `${yyyy}-${mm}-${dd}`;
         }
       }
@@ -245,7 +253,6 @@ export class WarehouseExpensesComponent implements OnInit {
     }
 
     if (str.includes('-') || str.includes('/') || str.includes('.')) {
-      const isSlash = str.includes('/');
       const parts = str.split(/[-/.]/).map(p => p.trim());
 
       if (parts.length === 3) {
@@ -265,24 +272,13 @@ export class WarehouseExpensesComponent implements OnInit {
           } else {
             if (year < 100) year += 2000;
 
-            if (isSlash) {
-              // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
-              if (p0 > 12 && p1 <= 12) {
-                day = p0;
-                month = p1;
-              } else {
-                month = p0;
-                day = p1;
-              }
+            // Always default to DD-MM-YYYY / DD/MM/YYYY (Indian format)
+            if (p1 > 12 && p0 <= 12) {
+              month = p0;
+              day = p1;
             } else {
-              // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
-              if (p1 > 12 && p0 <= 12) {
-                month = p0;
-                day = p1;
-              } else {
-                day = p0;
-                month = p1;
-              }
+              day = p0;
+              month = p1;
             }
           }
 
@@ -605,14 +601,55 @@ export class WarehouseExpensesComponent implements OnInit {
     return this.expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }
 
+  // --- EXPENSE TYPE SELECTOR (PO / WO / Petty Cash) & PO/WO LETTERHEAD MODAL STATE ---
+  isExpenseTypeSelectorOpen = false;
+  isPoWoLetterheadOpen = false;
+  poWoLetterheadType: 'P.O' | 'W.O' = 'P.O';
+  poWoEditingExpense: SiteExpense | null = null;
+
   // --- MODAL ACTIONS ---
   openAddModal(): void {
+    this.isExpenseTypeSelectorOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  selectWarehouseExpenseType(chosenType: 'P.O' | 'W.O' | 'Petty Cash'): void {
+    this.isExpenseTypeSelectorOpen = false;
+    if (chosenType === 'P.O' || chosenType === 'W.O') {
+      this.openPoWoLetterheadModal(chosenType, null);
+      return;
+    }
+    this.openStandardWarehouseExpenseForm(chosenType);
+  }
+
+  openPoWoLetterheadModal(type: 'P.O' | 'W.O', expenseToEdit: SiteExpense | null = null): void {
+    this.poWoLetterheadType = type;
+    this.poWoEditingExpense = expenseToEdit;
+    this.isPoWoLetterheadOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  openPoWoLetterheadForExpense(e: SiteExpense): void {
+    const src = this.getSource(e);
+    const type: 'P.O' | 'W.O' = src === 'W.O' ? 'W.O' : 'P.O';
+    this.openPoWoLetterheadModal(type, e);
+  }
+
+  onPoWoLetterheadSaved(savedExpense: SiteExpense): void {
+    this.showToast(
+      `${savedExpense.paymentThrough || 'P.O'} (${savedExpense.referenceNo}) for ₹ ${Number(savedExpense.amount).toLocaleString('en-IN')} generated & synced with Warehouse & Vendor Ledgers!`,
+      'success'
+    );
+    this.loadExpenses();
+  }
+
+  openStandardWarehouseExpenseForm(initialPaymentThrough: string = 'Petty Cash'): void {
     this.isEditMode = false;
     this.isLegacyPurpose = false;
     this.editingId = null;
     this.formData = {
       dateInput: this.getTodayDisplayDate(),
-      paymentThrough: 'P.O',
+      paymentThrough: initialPaymentThrough,
       purpose: 'Inverters - 3kW Ongrid',
       selectedBomGroup: 'Inverters',
       selectedBomSpec: '3kW Ongrid',

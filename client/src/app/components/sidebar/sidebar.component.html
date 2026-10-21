@@ -131,6 +131,30 @@
         </ul>
       </li>
 
+      <!-- Billing Dropdown Group -->
+      <li class="nav-item has-submenu">
+        <button type="button"
+                class="sidebar-nav-item dropdown-trigger-btn w-100 text-start border-0 bg-transparent"
+                (click)="toggleBilling()"
+                title="Toggle Billing">
+          <div class="d-flex align-items-center gap-2">
+            <span class="color-square" style="background-color: #e11d48;"></span>
+            <span class="nav-text">Billing</span>
+          </div>
+          <i class="bi bi-chevron-down dropdown-chevron" [class.rotated]="isBillingOpen"></i>
+        </button>
+
+        <!-- Submenu links: Invoice Billing -->
+        <ul class="submenu-list list-unstyled" *ngIf="isBillingOpen">
+          <li class="submenu-item">
+            <a routerLink="/billing/invoice-billing" routerLinkActive="active" class="submenu-link">
+              <i class="bi bi-receipt-cutoff text-danger"></i>
+              <span>Invoice Billing</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+
       <!-- Activity Dropdown Group -->
       <li class="nav-item has-submenu" *ngIf="authService.canViewAnyNav(['meetings', 'calls', 'tasks', 'site-plan'])">
         <button type="button"

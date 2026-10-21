@@ -78,6 +78,7 @@ export class GatePassComponent implements OnInit {
   vendorOptions: string[] = [];
   inwardsList: any[] = [];
   availableInwardInvoices: string[] = [];
+  clientPosList: any[] = [];
 
   // View Descriptions Modal State (User clicks Unit to view all descriptions)
   isViewDescriptionsOpen = false;
@@ -205,6 +206,8 @@ export class GatePassComponent implements OnInit {
       this.updateClientOptions();
     }
 
+    this.loadClientPos(clientName);
+
     if (this.hasProjectBomItems()) {
       this.populateFromProjectBom(false);
     } else {
@@ -217,6 +220,72 @@ export class GatePassComponent implements OnInit {
     this.passForm.clientName = '';
     this.clientDropdownOpen = true;
     this.dispatchMaterials = [];
+    this.clientPosList = [];
+    this.passForm.poWoNo = '';
+    this.cdr.markForCheck();
+  }
+
+  loadClientPos(clientName?: string): void {
+    if (!clientName || !clientName.trim()) {
+      this.clientPosList = [];
+      return;
+    }
+    const proj = this.getSelectedProject();
+    const siteId = proj?.siteId || '';
+    this.inventoryService.getClientPos(clientName, siteId).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.clientPosList = res.data;
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {
+        this.clientPosList = [];
+      }
+    });
+  }
+
+  onHeaderPoSelect(poNo: string): void {
+    this.passForm.poWoNo = poNo;
+    const rawPo = (poNo || '').trim().toLowerCase();
+    if (!rawPo) return;
+    const matchingPo = this.clientPosList.find(p =>
+      (p.poWoNo && p.poWoNo.trim().toLowerCase() === rawPo) ||
+      (p.invoiceNo && p.invoiceNo.trim().toLowerCase() === rawPo) ||
+      (p.referenceNo && p.referenceNo.trim().toLowerCase() === rawPo)
+    );
+    if (matchingPo) {
+      this.dispatchMaterials.forEach(m => {
+        if (!m.poWoNo) {
+          m.poWoNo = matchingPo.poWoNo;
+          if (matchingPo.invoiceNo && !m.invoiceNo) m.invoiceNo = matchingPo.invoiceNo;
+          if (matchingPo.vendorName && !m.vendorName) m.vendorName = matchingPo.vendorName;
+        }
+      });
+    }
+    this.cdr.markForCheck();
+  }
+
+  onRowPoSelect(m: GatePassItem): void {
+    const rawPo = (m.poWoNo || '').trim().toLowerCase();
+    if (!rawPo) return;
+    const matchingPo = this.clientPosList.find(p =>
+      (p.poWoNo && p.poWoNo.trim().toLowerCase() === rawPo) ||
+      (p.invoiceNo && p.invoiceNo.trim().toLowerCase() === rawPo) ||
+      (p.referenceNo && p.referenceNo.trim().toLowerCase() === rawPo)
+    );
+    if (matchingPo) {
+      if (matchingPo.invoiceNo && !m.invoiceNo) {
+        m.invoiceNo = matchingPo.invoiceNo;
+      }
+      if (matchingPo.vendorName) {
+        m.vendorName = matchingPo.vendorName;
+      }
+      if (matchingPo.amount && (!m.rate || m.rate === 0) && (m.quantity && m.quantity > 0)) {
+        m.rate = Math.round((matchingPo.amount / m.quantity) * 100) / 100;
+        this.calculateRowAmount(m);
+      }
+    }
     this.cdr.markForCheck();
   }
 
@@ -434,6 +503,7 @@ export class GatePassComponent implements OnInit {
       return {
         dispatchDate: defaultDate,
         invoiceNo: b.invoiceRef || '',
+        poWoNo: this.passForm.poWoNo || '',
         materialName: autoName,
         materialGroup: grp,
         categoryType: cat,
@@ -708,6 +778,7 @@ export class GatePassComponent implements OnInit {
       return;
     }
     this.isEditMode = false;
+    this.clientPosList = [];
     this.passForm = this.getEmptyGatePass();
     const today = new Date().toISOString().substring(0, 10);
     const groups = this.getAvailableMaterialGroups();
@@ -721,6 +792,7 @@ export class GatePassComponent implements OnInit {
     const row: GatePassItem = {
       dispatchDate: today,
       invoiceNo: '',
+      poWoNo: '',
       materialName: autoName,
       materialGroup: grp,
       categoryType: cat,
@@ -739,6 +811,11 @@ export class GatePassComponent implements OnInit {
   openEditModal(gp: GatePass): void {
     this.isEditMode = true;
     this.passForm = { ...gp };
+    if (gp.clientName) {
+      this.loadClientPos(gp.clientName);
+    } else {
+      this.clientPosList = [];
+    }
     const defaultDate = gp.gatePassDate || new Date().toISOString().substring(0, 10);
     if (gp.items && gp.items.length > 0) {
       this.dispatchMaterials = gp.items.map(m => {
@@ -779,6 +856,7 @@ export class GatePassComponent implements OnInit {
         return {
           ...m,
           invoiceNo: m.invoiceNo || '',
+          poWoNo: m.poWoNo || gp.poWoNo || '',
           materialGroup: grp,
           categoryType: cat || 'Standard',
           specification: spec || m.materialName,
@@ -799,6 +877,7 @@ export class GatePassComponent implements OnInit {
       this.dispatchMaterials = [{
         dispatchDate: defaultDate,
         invoiceNo: '',
+        poWoNo: gp.poWoNo || '',
         materialName: gp.descriptions,
         materialGroup: grp,
         categoryType: cat,
@@ -821,6 +900,7 @@ export class GatePassComponent implements OnInit {
       const row: GatePassItem = {
         dispatchDate: defaultDate,
         invoiceNo: '',
+        poWoNo: gp.poWoNo || '',
         materialName: autoName,
         materialGroup: grp,
         categoryType: cat,
@@ -840,6 +920,7 @@ export class GatePassComponent implements OnInit {
   closeModal(): void {
     this.isModalOpen = false;
     this.clientDropdownOpen = false;
+    this.clientPosList = [];
     this.passForm = this.getEmptyGatePass();
     this.dispatchMaterials = [];
   }
@@ -874,6 +955,7 @@ export class GatePassComponent implements OnInit {
     const newRow: GatePassItem = {
       dispatchDate: defaultDate,
       invoiceNo: '',
+      poWoNo: this.passForm.poWoNo || '',
       materialName: autoName,
       materialGroup: grp,
       categoryType: cat,
@@ -959,8 +1041,13 @@ export class GatePassComponent implements OnInit {
       return;
     }
 
-    // Ensure amount is calculated for all rows
-    validMaterials.forEach(m => this.calculateRowAmount(m));
+    // Ensure amount is calculated for all rows and PO is inherited
+    validMaterials.forEach(m => {
+      this.calculateRowAmount(m);
+      if (!m.poWoNo && this.passForm.poWoNo) {
+        m.poWoNo = this.passForm.poWoNo;
+      }
+    });
 
     // Auto calculate summary fields (Do not sum quantities across different units)
     const descriptions = validMaterials.map(m => `${m.materialName} (${m.quantity} ${m.unit})`).join(', ');
@@ -1045,6 +1132,7 @@ export class GatePassComponent implements OnInit {
   getEmptyGatePass(): Partial<GatePass> {
     return {
       gatePassNo: '',
+      poWoNo: '',
       gatePassDate: new Date().toISOString().substring(0, 10),
       descriptions: '',
       unit: 'Nos',
@@ -1196,8 +1284,8 @@ export class GatePassComponent implements OnInit {
     // 2. Overview Meta Card
     const overviewData = [
       ['Client / Site Name:', gp.clientName || '—', 'Dispatch Date:', this.formatDate(gp.gatePassDate)],
-      ['Site Engineer:', gp.siteEngineer || '—', 'Total Materials:', `${gp.items?.length || (gp.descriptions ? 1 : 0)} Item(s)`],
-      ['Remarks / Dispatch:', gp.remarks || 'Site Material Dispatch', '', '']
+      ['Site Engineer:', gp.siteEngineer || '—', 'PO / WO No.:', gp.poWoNo || '—'],
+      ['Remarks / Dispatch:', gp.remarks || 'Site Material Dispatch', 'Total Materials:', `${gp.items?.length || (gp.descriptions ? 1 : 0)} Item(s)`]
     ];
 
     autoTable(doc, {
@@ -1225,8 +1313,8 @@ export class GatePassComponent implements OnInit {
 
     const showPrice = this.canViewPricing();
     const tableHeaders = showPrice
-      ? [['#', 'Date', 'Invoice No', 'Material / Description', 'Unit', 'Qty', 'Rate (Rs.)', 'Vendor Name', 'Amount (Rs.)']]
-      : [['#', 'Date', 'Invoice No', 'Material / Description', 'Unit', 'Qty']];
+      ? [['#', 'Date', 'PO/WO No', 'Invoice No', 'Material / Description', 'Unit', 'Qty', 'Rate (Rs.)', 'Vendor Name', 'Amount (Rs.)']]
+      : [['#', 'Date', 'PO/WO No', 'Invoice No', 'Material / Description', 'Unit', 'Qty']];
 
     const tableBody: any[] = [];
     if (gp.items && gp.items.length > 0) {
@@ -1235,6 +1323,7 @@ export class GatePassComponent implements OnInit {
           tableBody.push([
             idx + 1,
             this.formatDate(it.dispatchDate || gp.gatePassDate),
+            it.poWoNo || gp.poWoNo || '—',
             it.invoiceNo || '—',
             this.cleanMaterialName(it.materialName) || '—',
             it.unit || 'Nos',
@@ -1249,6 +1338,7 @@ export class GatePassComponent implements OnInit {
           tableBody.push([
             idx + 1,
             this.formatDate(it.dispatchDate || gp.gatePassDate),
+            it.poWoNo || gp.poWoNo || '—',
             it.invoiceNo || '—',
             this.cleanMaterialName(it.materialName) || '—',
             it.unit || 'Nos',
@@ -1261,6 +1351,7 @@ export class GatePassComponent implements OnInit {
         tableBody.push([
           1,
           this.formatDate(gp.gatePassDate),
+          gp.poWoNo || '—',
           '—',
           this.cleanDescription(gp.descriptions) || '—',
           gp.unit || 'Nos',
@@ -1273,6 +1364,7 @@ export class GatePassComponent implements OnInit {
         tableBody.push([
           1,
           this.formatDate(gp.gatePassDate),
+          gp.poWoNo || '—',
           '—',
           this.cleanDescription(gp.descriptions) || '—',
           gp.unit || 'Nos',
@@ -1285,7 +1377,7 @@ export class GatePassComponent implements OnInit {
     if (showPrice) {
       const totalAmount = this.getGatePassTotal(gp);
       tableFooters.push([
-        { content: 'Total Dispatch Value:', colSpan: 8, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
+        { content: 'Total Dispatch Value:', colSpan: 9, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
         { content: `Rs. ${Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fontSize: 9, textColor: [22, 101, 52] } }
       ]);
     }
@@ -1300,22 +1392,24 @@ export class GatePassComponent implements OnInit {
       footStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42] },
       alternateRowStyles: { fillColor: [254, 252, 232] },
       columnStyles: showPrice ? {
-        0: { halign: 'center', cellWidth: 8 },
-        1: { cellWidth: 19 },
-        2: { cellWidth: 20 },
-        3: { fontStyle: 'bold', cellWidth: 42 },
-        4: { halign: 'center', cellWidth: 12 },
-        5: { halign: 'center', cellWidth: 12 },
-        6: { halign: 'right', cellWidth: 22 },
-        7: { cellWidth: 24 },
-        8: { halign: 'right', cellWidth: 21 }
+        0: { halign: 'center', cellWidth: 7 },
+        1: { cellWidth: 17 },
+        2: { cellWidth: 18 },
+        3: { cellWidth: 18 },
+        4: { fontStyle: 'bold', cellWidth: 38 },
+        5: { halign: 'center', cellWidth: 11 },
+        6: { halign: 'center', cellWidth: 11 },
+        7: { halign: 'right', cellWidth: 20 },
+        8: { cellWidth: 22 },
+        9: { halign: 'right', cellWidth: 20 }
       } : {
         0: { halign: 'center', cellWidth: 10 },
-        1: { cellWidth: 26 },
-        2: { cellWidth: 28 },
-        3: { fontStyle: 'bold', cellWidth: 72 },
-        4: { halign: 'center', cellWidth: 22 },
-        5: { halign: 'center', cellWidth: 22 }
+        1: { cellWidth: 24 },
+        2: { cellWidth: 24 },
+        3: { cellWidth: 24 },
+        4: { fontStyle: 'bold', cellWidth: 56 },
+        5: { halign: 'center', cellWidth: 22 },
+        6: { halign: 'center', cellWidth: 22 }
       }
     });
 

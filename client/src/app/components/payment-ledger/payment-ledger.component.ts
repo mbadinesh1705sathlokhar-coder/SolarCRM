@@ -180,8 +180,15 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
         const jsDate = new Date(Math.round((num - 25569) * 86400 * 1000));
         if (!isNaN(jsDate.getTime())) {
           const yyyy = jsDate.getUTCFullYear();
-          const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-          const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+          let m = jsDate.getUTCMonth() + 1;
+          let d = jsDate.getUTCDate();
+          if (d <= 12) {
+            const temp = m;
+            m = d;
+            d = temp;
+          }
+          const mm = String(m).padStart(2, '0');
+          const dd = String(d).padStart(2, '0');
           return `${yyyy}-${mm}-${dd}`;
         }
       }
@@ -195,7 +202,6 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     }
 
     if (str.includes('-') || str.includes('/') || str.includes('.')) {
-      const isSlash = str.includes('/');
       const parts = str.split(/[-/.]/).map(p => p.trim());
 
       if (parts.length === 3) {
@@ -215,24 +221,13 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
           } else {
             if (year < 100) year += 2000;
 
-            if (isSlash) {
-              // Slash format default: MM/DD/YYYY (US format e.g. 7/31/2026, 4/13/2026)
-              if (p0 > 12 && p1 <= 12) {
-                day = p0;
-                month = p1;
-              } else {
-                month = p0;
-                day = p1;
-              }
+            // Always default to DD-MM-YYYY / DD/MM/YYYY (Indian format)
+            if (p1 > 12 && p0 <= 12) {
+              month = p0;
+              day = p1;
             } else {
-              // Dash / Dot format default: DD-MM-YYYY (Indian format e.g. 04-10-2026, 04-09-2026)
-              if (p1 > 12 && p0 <= 12) {
-                month = p0;
-                day = p1;
-              } else {
-                day = p0;
-                month = p1;
-              }
+              day = p0;
+              month = p1;
             }
           }
 
@@ -276,9 +271,14 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
         }
 
         let headerRowIndex = -1;
-        for (let i = 0; i < Math.min(10, rawArrayRows.length); i++) {
-          const rowStr = rawArrayRows[i].join(' ').toLowerCase();
-          if (rowStr.includes('date') || rowStr.includes('site') || rowStr.includes('client') || rowStr.includes('payment') || rowStr.includes('amount') || rowStr.includes('received')) {
+        for (let i = 0; i < Math.min(15, rawArrayRows.length); i++) {
+          const cells = (rawArrayRows[i] || []).map((c: any) => String(c || '').toLowerCase().trim());
+          let matchCount = 0;
+          if (cells.some((c: string) => c.includes('date'))) matchCount++;
+          if (cells.some((c: string) => c.includes('site') || c.includes('client'))) matchCount++;
+          if (cells.some((c: string) => c.includes('mode') || c.includes('remarks'))) matchCount++;
+          if (cells.some((c: string) => c.includes('received') || c.includes('amount') || c.includes('paid'))) matchCount++;
+          if (matchCount >= 2) {
             headerRowIndex = i;
             break;
           }
@@ -290,6 +290,10 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
         const findColIndex = (keywords: string[]) => {
           if (headerCells.length === 0) return -1;
           for (const kw of keywords) {
+            const exactIdx = headerCells.findIndex((h: string) => h === kw);
+            if (exactIdx !== -1) return exactIdx;
+          }
+          for (const kw of keywords) {
             const idx = headerCells.findIndex((h: string) => h.includes(kw));
             if (idx !== -1) return idx;
           }
@@ -297,18 +301,21 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
         };
 
         const colIdx = {
+          sNo: findColIndex(['sno', 'slno', 'serialno']),
+          mop: findColIndex(['mop', 'monthofpayment']),
           date: findColIndex(['date', 'paymentdate']),
-          clientSiteName: findColIndex(['clientsitename', 'sitename', 'client']),
-          siteId: findColIndex(['siteid', 'projectid', 'site', 'id']),
+          clientSiteName: findColIndex(['clientsitename', 'sitename', 'clientname', 'client']),
+          siteId: findColIndex(['siteid', 'projectid']),
           paymentMode: findColIndex(['paymentmode', 'mode', 'type', 'channel']),
           remarks: findColIndex(['remarks', 'installment', 'notes', 'comments']),
           amount: findColIndex(['paymentreceived', 'received', 'amount', 'paid'])
         };
 
         const parseNumStr = (valStr: any) => {
-          if (!valStr) return 0;
+          if (valStr === undefined || valStr === null) return 0;
+          if (typeof valStr === 'number') return valStr;
           const str = String(valStr).trim();
-          if (!str) return 0;
+          if (!str || str.startsWith('#')) return 0;
           return parseFloat(str.replace(/[^0-9.-]/g, '')) || 0;
         };
 
@@ -320,60 +327,66 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
             continue;
           }
 
-          const getValByCol = (cIndex: number, fallbacks: number[]) => {
-            if (cIndex !== -1 && arrRow[cIndex] !== undefined && arrRow[cIndex] !== null && String(arrRow[cIndex]).trim() !== '') {
-              return String(arrRow[cIndex]).trim();
-            }
-            for (const fb of fallbacks) {
-              if (arrRow[fb] !== undefined && arrRow[fb] !== null && String(arrRow[fb]).trim() !== '') {
-                return String(arrRow[fb]).trim();
+          const rowJoined = arrRow.map((c: any) => String(c || '').trim()).join(' ').toLowerCase();
+          if (rowJoined.includes('total :') || rowJoined.startsWith('total ')) {
+            continue;
+          }
+
+          const getValByCol = (cIndex: number, fallbackIfNoHeader: number) => {
+            if (headerRowIndex !== -1) {
+              if (cIndex !== -1 && arrRow[cIndex] !== undefined && arrRow[cIndex] !== null) {
+                return String(arrRow[cIndex]).trim();
               }
+              return '';
+            }
+            if (fallbackIfNoHeader !== -1 && arrRow[fallbackIfNoHeader] !== undefined && arrRow[fallbackIfNoHeader] !== null) {
+              return String(arrRow[fallbackIfNoHeader]).trim();
             }
             return '';
           };
 
-          let rawDate = getValByCol(colIdx.date, [0]);
-          let clientSiteName = getValByCol(colIdx.clientSiteName, [1]);
-          let siteId = getValByCol(colIdx.siteId, [2, 1]);
-          let paymentMode = getValByCol(colIdx.paymentMode, [3]);
-          let remarks = getValByCol(colIdx.remarks, [4]);
-          let amountStr = getValByCol(colIdx.amount, [5]);
+          let rawDate = getValByCol(colIdx.date, 2);
+          let clientSiteName = getValByCol(colIdx.clientSiteName, 3);
+          let siteId = getValByCol(colIdx.siteId, 4);
+          let paymentMode = getValByCol(colIdx.paymentMode, 5);
+          let remarks = getValByCol(colIdx.remarks, 6);
+          let amountStr = getValByCol(colIdx.amount, 7);
 
-          for (let c = 0; c < arrRow.length; c++) {
-            const cellStr = String(arrRow[c] || '').trim();
-            if (!cellStr) continue;
-
-            if (!siteId && /^SP\d+/i.test(cellStr)) {
-              siteId = cellStr.toUpperCase();
-            }
-            if (!rawDate && (/^\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}$/.test(cellStr) || /^\d{5}$/.test(cellStr))) {
-              rawDate = cellStr;
-            }
+          if (siteId.startsWith('#') || /^\d{5}$/.test(siteId)) {
+            siteId = '';
+          }
+          if (clientSiteName.startsWith('#') || /^\d{5}$/.test(clientSiteName)) {
+            clientSiteName = '';
           }
 
-          if (siteId && /^SP\d+/i.test(siteId)) {
-            const m = siteId.match(/^SP\d+/i);
-            if (m) siteId = m[0].toUpperCase();
+          // Extract SPxxx from siteId or clientSiteName
+          const spFromSiteId = siteId.match(/SP[-_\s]*(\d+)/i);
+          const spFromClientSite = clientSiteName.match(/SP[-_\s]*(\d+)/i);
+          if (spFromSiteId) {
+            siteId = `SP${spFromSiteId[1]}`;
+          } else if (spFromClientSite) {
+            siteId = `SP${spFromClientSite[1]}`;
+          } else if (!siteId && clientSiteName.includes(':')) {
+            siteId = clientSiteName.split(':')[0].trim().toUpperCase();
           }
 
           const amount = parseNumStr(amountStr);
           if (!siteId && !clientSiteName) continue;
           if (amount <= 0) continue;
 
-          if (siteId.toLowerCase().includes('site') || clientSiteName.toLowerCase().includes('client') || remarks.toLowerCase().includes('remarks')) {
+          if (siteId.toLowerCase() === 'site id' || clientSiteName.toLowerCase().includes('client / site') || remarks.toLowerCase() === 'remarks') {
             continue;
           }
 
-          if (!siteId) siteId = `SP${400 + r}`;
-
           const isoDate = this.normalizeToIsoDate(rawDate);
-          const mop = this.deriveMoPFromDate(rawDate);
-          const clientName = this.formatClientName(clientSiteName) || `Client ${siteId}`;
+          const mop = this.deriveMoPFromDate(isoDate);
+          const clientName = this.formatClientName(clientSiteName) || siteId;
 
           paymentsBatch.push({
+            sNo: paymentsBatch.length + 1,
             paymentDate: isoDate,
             mop: mop || 'Current',
-            siteId: siteId.toUpperCase(),
+            siteId: (siteId || 'UNASSIGNED').toUpperCase(),
             clientName: clientName,
             clientSiteName: clientSiteName || `${siteId} : ${clientName}`,
             amount: amount,
@@ -387,7 +400,13 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
           return;
         }
 
-        this.showAlert(`Importing ${paymentsBatch.length} client payment records from Excel...`, 'success');
+        this.showAlert(`Syncing ${paymentsBatch.length} client payment records from Excel...`, 'success');
+
+        try {
+          await lastValueFrom(this.projectService.deletePaymentsBySite('ALL_PAYMENTS'));
+        } catch (clearErr) {
+          console.error('Error clearing old payments before import:', clearErr);
+        }
 
         let successCount = 0;
         for (const pay of paymentsBatch) {
@@ -401,7 +420,7 @@ export class PaymentLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
 
         this.loadProjects();
         this.loadPayments();
-        this.showAlert(`Successfully uploaded all ${successCount} client payment transaction records from Excel!`, 'success');
+        this.showAlert(`Successfully synced all ${successCount} client payment transaction records from Excel!`, 'success');
         event.target.value = '';
       } catch (err: any) {
         console.error('Error parsing Excel payment file:', err);

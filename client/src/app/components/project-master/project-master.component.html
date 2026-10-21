@@ -486,8 +486,21 @@
             <!-- TAB 1: Site & Client Info -->
             <div *ngIf="modalTab === 'basic'" class="row g-3">
               <div class="col-md-4">
-                <label class="form-label small fw-bold">Awarded Date</label>
-                <input type="date" class="form-control" [(ngModel)]="projectForm.awardedDate" name="awardedDate">
+                <label class="form-label small fw-bold">Awarded Date (dd-mm-yyyy)</label>
+                <div class="input-group position-relative">
+                  <input type="text" class="form-control font-mono" placeholder="dd-mm-yyyy" [(ngModel)]="awardedDateInput" (ngModelChange)="onAwardedDateInputChange($event)" name="awardedDateInput">
+                  <button type="button" class="btn btn-outline-secondary bg-light border px-2.5" (click)="openAwardedDatePicker(awardedDatePicker)" title="Choose date from calendar">
+                    <i class="bi bi-calendar-date-fill text-primary"></i>
+                  </button>
+                  <input #awardedDatePicker
+                         type="date"
+                         tabindex="-1"
+                         aria-hidden="true"
+                         class="position-absolute"
+                         style="opacity: 0; width: 1px; height: 1px; border: 0; padding: 0; margin: 0; clip: rect(0,0,0,0); overflow: hidden; left: 0; bottom: 0;"
+                         [value]="projectForm.awardedDate"
+                         (change)="onAwardedDatePickerChange($any($event.target).value)">
+                </div>
               </div>
 
               <div class="col-md-4">
