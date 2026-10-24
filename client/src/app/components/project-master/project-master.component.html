@@ -1148,9 +1148,9 @@
 
                             <div *ngIf="getBomDispatchStatus(rowEntry.item) === 'part'" 
                                  class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1.5 rounded-2 shadow-xs" 
-                                 style="background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; font-size: 0.75rem;" 
+                                 style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.75rem;" 
                                  title="Partially Dispatched ({{ getBomDispatchedQty(rowEntry.item) }}/{{ rowEntry.item.plannedQty }} {{ rowEntry.item.uom }} - {{ getBomRemainingQty(rowEntry.item) }} {{ rowEntry.item.uom }} to be dispatched)">
-                              <i class="bi bi-hourglass-split"></i> {{ getBomDispatchedQty(rowEntry.item) }}/{{ rowEntry.item.plannedQty }} {{ rowEntry.item.uom }} ({{ getBomRemainingQty(rowEntry.item) }} {{ rowEntry.item.uom }} left)
+                              <i class="bi bi-check2-circle-fill"></i> ✓ Dispatched {{ getBomDispatchedQty(rowEntry.item) }}/{{ rowEntry.item.plannedQty }} {{ rowEntry.item.uom }} ({{ getBomRemainingQty(rowEntry.item) }} {{ rowEntry.item.uom }} left)
                             </div>
 
                             <div *ngIf="getBomDispatchStatus(rowEntry.item) === 'none'" class="d-flex align-items-center justify-content-center">
@@ -1216,6 +1216,9 @@
                                    (input)="recalculateBomItem(rowEntry.item)" 
                                    [name]="'qty_' + rowEntry.originalIndex" 
                                    min="0">
+                            <div *ngIf="getBomDispatchedQty(rowEntry.item) > 0" class="text-muted small text-end font-mono mt-0.5" style="font-size: 0.7rem;">
+                              Rem: <span class="fw-bold text-success">{{ getBomRemainingQty(rowEntry.item) }}</span> {{ rowEntry.item.uom }}
+                            </div>
                           </td>
 
                           <!-- Unit Rate (No ₹ symbol) -->

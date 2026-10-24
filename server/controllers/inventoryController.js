@@ -389,11 +389,32 @@ async function findMatchingWarehouseMaterial(it) {
     const grp = (it.materialGroup || '').trim();
     const cat = (it.categoryType || '').trim();
     const spec = (it.specification || '').trim();
-    if (!name && !spec && !grp) return null;
+    if (!name && !spec && !grp && !cat) return null;
 
     let mat = null;
+    // 0. Match by group, category, and specification
+    if (grp && cat && spec) {
+        mat = await WarehouseMaterial.findOne({
+            where: {
+                materialGroup: grp,
+                categoryType: cat,
+                specification: spec
+            }
+        });
+    }
+
+    // 0b. Match by category and specification (e.g. DC Cable + 4Sqmm)
+    if (!mat && cat && spec) {
+        mat = await WarehouseMaterial.findOne({
+            where: {
+                categoryType: cat,
+                specification: spec
+            }
+        });
+    }
+
     // 1. Match by group and specification
-    if (grp && spec) {
+    if (!mat && grp && spec) {
         mat = await WarehouseMaterial.findOne({
             where: {
                 materialGroup: grp,
@@ -638,17 +659,52 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
             const itSpec = (it.specification || '').toLowerCase().trim();
             const matName = (it.materialName || '').toLowerCase().trim();
 
-            // Find matching BOM item
-            let matched = bomItems.find(b => {
-                const grp = (b.materialGroup || '').toLowerCase().trim();
-                const cat = (b.categoryType || '').toLowerCase().trim();
-                const spec = (b.specification || '').toLowerCase().trim();
-
-                if (itGrp && itSpec && grp === itGrp && spec === itSpec) return true;
-                if (itSpec && spec === itSpec) return true;
-                return matName.includes(grp) || grp.includes(matName) || 
-                       matName.includes(spec) || spec.includes(matName);
-            });
+            // Find matching BOM item with tiered prioritization
+            let matched = null;
+            if (itGrp && itCat && itSpec) {
+                matched = bomItems.find(b =>
+                    (b.materialGroup || '').toLowerCase().trim() === itGrp &&
+                    (b.categoryType || '').toLowerCase().trim() === itCat &&
+                    (b.specification || '').toLowerCase().trim() === itSpec
+                );
+            }
+            if (!matched && itCat && itSpec) {
+                matched = bomItems.find(b =>
+                    (b.categoryType || '').toLowerCase().trim() === itCat &&
+                    (b.specification || '').toLowerCase().trim() === itSpec
+                );
+            }
+            if (!matched && itCat) {
+                matched = bomItems.find(b =>
+                    (b.categoryType || '').toLowerCase().trim() === itCat ||
+                    (b.specification || '').toLowerCase().trim() === itCat
+                );
+            }
+            if (!matched && itGrp && itSpec) {
+                matched = bomItems.find(b =>
+                    (b.materialGroup || '').toLowerCase().trim() === itGrp &&
+                    (b.specification || '').toLowerCase().trim() === itSpec
+                );
+            }
+            if (!matched && itSpec) {
+                matched = bomItems.find(b =>
+                    (b.specification || '').toLowerCase().trim() === itSpec
+                );
+            }
+            if (!matched && matName) {
+                matched = bomItems.find(b => {
+                    const grp = (b.materialGroup || '').toLowerCase().trim();
+                    const cat = (b.categoryType || '').toLowerCase().trim();
+                    const spec = (b.specification || '').toLowerCase().trim();
+                    if (cat && matName.includes(cat)) return true;
+                    if (spec && matName.includes(spec)) return true;
+                    if (grp && matName.includes(grp)) return true;
+                    return false;
+                });
+            }
+            if (!matched && itGrp) {
+                matched = bomItems.find(b => (b.materialGroup || '').toLowerCase().trim() === itGrp);
+            }
 
             // Calculate cumulative dispatched for this material across all gate passes for this client
             let cumulativeDispatched = 0;
@@ -691,9 +747,12 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
             const targetPo = (it.poWoNo || gatePass.poWoNo || '').trim();
             const invRef = (it.invoiceNo || '').trim();
 
-            // Check if there is an existing PO for this client / site in SiteExpenseLedger
+            // Check if there is an existing PO for this client or in Central Warehouse
             let matchedPoExpense = null;
+            let matchedWarehousePo = null;
+
             if (targetPo) {
+                // 1. Look in client's own site expenses
                 matchedPoExpense = await SiteExpenseLedger.findOne({
                     where: {
                         siteId: siteId,
@@ -704,6 +763,27 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
                         ]
                     }
                 });
+
+                // 2. Look in Warehouse POs
+                if (!matchedPoExpense) {
+                    matchedWarehousePo = await SiteExpenseLedger.findOne({
+                        where: {
+                            [Op.or]: [
+                                { siteId: 'WAREHOUSE' },
+                                { siteId: { [Op.like]: '%WAREHOUSE%' } }
+                            ],
+                            [Op.and]: [
+                                {
+                                    [Op.or]: [
+                                        { referenceNo: targetPo },
+                                        { referenceNo: { [Op.like]: `%${targetPo}%` } },
+                                        { invoiceNo: targetPo }
+                                    ]
+                                }
+                            ]
+                        }
+                    });
+                }
             }
 
             if (!matchedPoExpense && invRef && (invRef.toUpperCase().includes('PO') || invRef.toUpperCase().includes('SOLAR'))) {
@@ -716,7 +796,7 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
             }
 
             // Fallback match: PO expense for this site matching the material/spec
-            if (!matchedPoExpense) {
+            if (!matchedPoExpense && !matchedWarehousePo) {
                 const candidatePos = await SiteExpenseLedger.findAll({
                     where: {
                         siteId: siteId,
@@ -737,8 +817,7 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
             }
 
             if (matchedPoExpense) {
-                // DO NOT CREATE A DUPLICATE EXPENSE IN SITE EXPENSE LEDGER!
-                // Instead, mark the existing PO expense as Dispatched
+                // Client PO matched: Mark as Dispatched with tick mark in ledger
                 let cleanRem = matchedPoExpense.remarks || '';
                 cleanRem = cleanRem.replace(new RegExp(`\\s*\\[Dispatched[^\\]]*GP-${gpId}[^\\]]*\\]`, 'gi'), '').trim();
 
@@ -755,25 +834,40 @@ async function syncGatePassToExpensesAndBom(gatePass, items) {
                     invoiceNo: matchedPoExpense.invoiceNo || it.invoiceNo || gpNo
                 });
             } else {
-                // No existing PO found: create a direct warehouse issue expense entry
+                // Warehouse PO matched or direct Warehouse issue:
+                // Annotate the warehouse PO if matched
+                if (matchedWarehousePo) {
+                    let whRem = matchedWarehousePo.remarks || '';
+                    const whNote = `[Dispatched ${qty} ${uom} to ${project.clientName} (${siteId}) via Gate Pass ${gpNo}]`;
+                    if (!whRem.includes(`GP-${gpId}`)) {
+                        await matchedWarehousePo.update({
+                            remarks: whRem ? `${whRem} ${whNote}` : whNote
+                        });
+                    }
+                }
+
+                // Create an expense record under the client's expenses ledger for this dispatch
+                const vendorVal = (it.vendorName || (matchedWarehousePo ? matchedWarehousePo.vendorName : '') || '').trim();
+                const purposeVal = it.materialName || (matchedWarehousePo ? matchedWarehousePo.purpose : 'Material');
+
                 await SiteExpenseLedger.create({
                     expenseDate: it.dispatchDate || gatePass.gatePassDate || new Date().toISOString().substring(0, 10),
                     siteId: siteId,
                     clientName: project.clientName,
                     clientSiteName: project.location || project.clientName,
-                    mop: 'Warehouse',
-                    category: 'Warehouse',
+                    mop: matchedWarehousePo ? 'Warehouse' : 'Gatepass',
+                    category: it.materialGroup || (matchedWarehousePo ? matchedWarehousePo.category : 'Warehouse'),
                     paymentThrough: 'Gatepass',
                     paidBy: gatePass.siteEngineer || 'Warehouse Dispatch',
                     billVoucher: 'Submitted',
                     invoiceNo: invNo,
                     referenceNo: targetPo || (it.invoiceNo ? it.invoiceNo.trim() : gpNo),
-                    vendorName: (it.vendorName || '').trim(),
-                    purpose: it.materialName || 'Material',
+                    vendorName: vendorVal,
+                    purpose: purposeVal,
                     amount: amt,
                     paymentNote: `GATEPASS-${gpId}`,
                     remarks: movementRemarks,
-                    claimStatus: remaining <= 0 ? 'Dispatched' : 'Active'
+                    claimStatus: 'Dispatched'
                 });
             }
 
@@ -1596,23 +1690,36 @@ async function getClientPos(req, res) {
             }
         }
 
-        if (!targetSiteId) {
-            return res.json({ success: true, data: [] });
-        }
-
-        const rawClean = String(targetSiteId).replace(/:/g, '').trim();
-        const spMatch = rawClean.match(/SP[-_\s]*(\d+)/i);
+        const rawClean = targetSiteId ? String(targetSiteId).replace(/:/g, '').trim() : '';
+        const spMatch = rawClean ? rawClean.match(/SP[-_\s]*(\d+)/i) : null;
         const cleanSiteId = spMatch ? `SP${spMatch[1]}` : rawClean;
+
+        const siteFilters = [
+            { siteId: 'WAREHOUSE' },
+            { siteId: { [Op.like]: '%WAREHOUSE%' } }
+        ];
+
+        if (targetSiteId) {
+            siteFilters.push(
+                { siteId: targetSiteId },
+                { siteId: rawClean }
+            );
+            if (cleanSiteId) {
+                siteFilters.push(
+                    { siteId: cleanSiteId },
+                    { siteId: { [Op.like]: `${cleanSiteId} %` } }
+                );
+            }
+            if (clientName) {
+                siteFilters.push(
+                    { clientName: { [Op.like]: `%${clientName}%` } }
+                );
+            }
+        }
 
         const pos = await SiteExpenseLedger.findAll({
             where: {
-                [Op.or]: [
-                    { siteId: targetSiteId },
-                    { siteId: rawClean },
-                    { siteId: cleanSiteId },
-                    { siteId: { [Op.like]: `${cleanSiteId} %` } },
-                    { clientName: { [Op.like]: `%${clientName || targetSiteId}%` } }
-                ],
+                [Op.or]: siteFilters,
                 paymentThrough: {
                     [Op.in]: ['P.O', 'W.O', 'PO', 'WO', 'p.o', 'w.o', 'po', 'wo']
                 }
@@ -1620,17 +1727,25 @@ async function getClientPos(req, res) {
             order: [['expenseDate', 'DESC'], ['id', 'DESC']]
         });
 
-        const formatted = pos.map(p => ({
-            id: p.id,
-            date: p.expenseDate,
-            poWoNo: p.referenceNo || `PO-${p.id}`,
-            invoiceNo: p.invoiceNo || '',
-            vendorName: p.vendorName || '',
-            purpose: p.purpose || '',
-            amount: parseFloat(p.amount) || 0,
-            remarks: p.remarks || '',
-            claimStatus: p.claimStatus || 'Active'
-        }));
+        const formatted = pos.map(p => {
+            const isWh = (p.siteId || '').toUpperCase().includes('WAREHOUSE');
+            const poNo = (p.referenceNo || '').trim() || `PO-${p.id}`;
+            return {
+                id: p.id,
+                siteId: p.siteId,
+                clientName: p.clientName,
+                isWarehouse: isWh,
+                date: p.expenseDate,
+                poWoNo: poNo,
+                invoiceNo: p.invoiceNo || '',
+                vendorName: p.vendorName || '',
+                purpose: p.purpose || '',
+                amount: parseFloat(p.amount) || 0,
+                remarks: p.remarks || '',
+                claimStatus: p.claimStatus || 'Active',
+                label: `${poNo} - ${p.purpose || 'Material'} (₹${(parseFloat(p.amount) || 0).toLocaleString('en-IN')}) [${isWh ? 'Warehouse PO' : (p.clientName || p.siteId)}]`
+            };
+        });
 
         res.json({ success: true, data: formatted });
     } catch (err) {
@@ -1876,6 +1991,9 @@ module.exports = {
     deleteCartItem,
     deleteAllCartItems,
     dispatchCartItem,
+    // Stock Helpers
+    addWarehouseStock,
+    deductWarehouseStock,
     // Seed
     seedInventoryIfEmpty
 };

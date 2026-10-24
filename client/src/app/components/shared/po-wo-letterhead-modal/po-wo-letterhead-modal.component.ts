@@ -6,6 +6,7 @@ import { OfficeService, OfficeVendor } from '../../../services/office.service';
 import { Project, SiteExpense } from '../../../models/project.model';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { SATHLOKHAR_HEADER_BASE64, SATHLOKHAR_FOOTER_BASE64 } from './sathlokhar-letterhead-defaults';
 
 export interface PoWoLineItem {
   sNo: number;
@@ -158,13 +159,14 @@ export interface PoWoTermRow {
             <!-- ========================================================= -->
             <div *ngIf="activePageTab === 'page1'" class="po-sheet-container bg-white mx-auto shadow-lg">
 
-              <!-- Optional Uploaded Letterhead Header Image Banner -->
-              <div *ngIf="currentTypeConfig?.headerImageBase64" class="letterhead-banner-box text-center border-bottom p-2 position-relative">
-                <img [src]="currentTypeConfig.headerImageBase64" alt="Company Letterhead" style="max-height: 95px; max-width: 100%; object-fit: contain;">
+              <!-- Sathlokhar Letterhead Header Banner -->
+              <div class="letterhead-header-banner w-100">
+                <img [src]="getHeaderImage()" alt="Sathlokhar Letterhead Header" class="w-100 d-block letterhead-header-img">
               </div>
 
-              <!-- MAIN BORDERED PO/WO TABLE (Exact Match to Screenshot 2) -->
-              <div class="po-grid-border">
+              <!-- MAIN BORDERED PO/WO TABLE (Centered in Page Body) -->
+              <div class="po-sheet-content-wrapper flex-grow-1 d-flex flex-column justify-content-center">
+                <div class="po-grid-border w-100">
 
                 <!-- TITLE ROW -->
                 <div class="po-title-bar text-center fw-bold py-1.5 border-bottom">
@@ -499,7 +501,14 @@ export interface PoWoTermRow {
                   </div>
                 </div>
 
+                </div>
               </div>
+
+              <!-- Sathlokhar Letterhead Footer Banner -->
+              <div class="letterhead-footer-banner w-100 mt-auto">
+                <img [src]="getFooterImage()" alt="Sathlokhar Letterhead Footer" class="w-100 d-block letterhead-footer-img">
+              </div>
+
             </div>
 
             <!-- ========================================================= -->
@@ -527,21 +536,30 @@ export interface PoWoTermRow {
               </div>
 
               <div *ngFor="let pageText of docData.termsPages; let pIdx = index; trackBy: trackByIndex"
-                   class="po-sheet-container bg-white mx-auto shadow-sm mb-4 p-4 position-relative">
-                <!-- Optional Letterhead Header on each Terms Page -->
-                <div *ngIf="currentTypeConfig?.headerImageBase64" class="text-center border-bottom pb-2 mb-3">
-                  <img [src]="currentTypeConfig.headerImageBase64" alt="Header" style="max-height: 75px; max-width: 100%; object-fit: contain;">
+                   class="po-sheet-container bg-white mx-auto shadow-sm mb-4 position-relative">
+                <!-- Sathlokhar Letterhead Header Banner -->
+                <div class="letterhead-header-banner w-100">
+                  <img [src]="getHeaderImage()" alt="Sathlokhar Letterhead Header" class="w-100 d-block letterhead-header-img">
                 </div>
-                <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
-                  <span class="badge bg-dark font-mono">Page {{ pIdx + 2 }} of {{ docData.termsPages.length + 1 }} ({{ orderType }} Terms & Conditions)</span>
-                  <button *ngIf="docData.termsPages.length > 1" type="button" class="btn btn-xs btn-outline-danger py-0 px-2"
-                          (click)="removeTermsPage(pIdx)">
-                    Remove Page
-                  </button>
+
+                <!-- Centered Terms Content Area -->
+                <div class="po-sheet-content-wrapper flex-grow-1 d-flex flex-column justify-content-center p-3 p-md-4">
+                  <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                    <span class="badge bg-dark font-mono">Page {{ pIdx + 2 }} of {{ docData.termsPages.length + 1 }} ({{ orderType }} Terms & Conditions)</span>
+                    <button *ngIf="docData.termsPages.length > 1" type="button" class="btn btn-xs btn-outline-danger py-0 px-2"
+                            (click)="removeTermsPage(pIdx)">
+                      Remove Page
+                    </button>
+                  </div>
+                  <textarea class="form-control font-mono" rows="18" style="font-size: 0.82rem; line-height: 1.55;"
+                            [(ngModel)]="docData.termsPages[pIdx]"
+                            placeholder="Paste or type Terms & Conditions for this page..."></textarea>
                 </div>
-                <textarea class="form-control font-mono" rows="16" style="font-size: 0.82rem; line-height: 1.55;"
-                          [(ngModel)]="docData.termsPages[pIdx]"
-                          placeholder="Paste or type Terms & Conditions for this page..."></textarea>
+
+                <!-- Sathlokhar Letterhead Footer Banner -->
+                <div class="letterhead-footer-banner w-100 mt-auto">
+                  <img [src]="getFooterImage()" alt="Sathlokhar Letterhead Footer" class="w-100 d-block letterhead-footer-img">
+                </div>
               </div>
             </div>
 
@@ -593,14 +611,54 @@ export interface PoWoTermRow {
       max-width: 1040px;
     }
     .po-sheet-container {
-      max-width: 880px;
+      width: 100%;
+      max-width: 860px;
+      min-height: 1140px;
+      margin: 0 auto;
+      background: #ffffff;
       border: 1px solid #cbd5e1;
       color: #000;
       font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .letterhead-header-banner {
+      width: 100%;
+      background: #ffffff;
+    }
+    .letterhead-header-banner img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+    .po-sheet-content-wrapper {
+      padding: 18px 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .letterhead-footer-banner {
+      width: 100%;
+      background: #ffffff;
+    }
+    .letterhead-footer-banner img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
     }
     .po-grid-border {
       border: 2px solid #000;
-      margin: 10px;
+      margin: 0;
+      width: 100%;
     }
     .po-grid-border .border-bottom {
       border-bottom: 1px solid #000 !important;
@@ -674,11 +732,19 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
   statusBanner: { text: string; type: 'success' | 'danger' } | null = null;
 
   poWoConfig: any = {
-    po: { fileName: '', headerImageBase64: '', footerImageBase64: '', headerTextLines: [], defaultTermsTable: [], termsPages: [] },
-    wo: { fileName: '', headerImageBase64: '', footerImageBase64: '', headerTextLines: [], defaultTermsTable: [], termsPages: [] },
+    po: { fileName: 'Sathlokhar_PO_Letterhead.png', headerImageBase64: SATHLOKHAR_HEADER_BASE64, footerImageBase64: SATHLOKHAR_FOOTER_BASE64, headerTextLines: [], defaultTermsTable: [], termsPages: [] },
+    wo: { fileName: 'Sathlokhar_WO_Letterhead.png', headerImageBase64: SATHLOKHAR_HEADER_BASE64, footerImageBase64: SATHLOKHAR_FOOTER_BASE64, headerTextLines: [], defaultTermsTable: [], termsPages: [] },
     bomMaterialDescriptions: {},
     savedPoWoDocs: {}
   };
+
+  getHeaderImage(): string {
+    return this.currentTypeConfig?.headerImageBase64 || SATHLOKHAR_HEADER_BASE64;
+  }
+
+  getFooterImage(): string {
+    return this.currentTypeConfig?.footerImageBase64 || SATHLOKHAR_FOOTER_BASE64;
+  }
 
   docData = {
     documentTitle: 'PURCHASE ORDER',
@@ -1353,6 +1419,73 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
   }
 
   // Save to Expense Ledger (Client or Warehouse) & Sync to Vendor Ledger
+  // Helpers to get project BOM list and find matching BOM item for PO/WO validation
+  getProjectBomList(): any[] {
+    if (!this.project || !this.project.bomItems) return [];
+    if (Array.isArray(this.project.bomItems)) return this.project.bomItems;
+    if (typeof this.project.bomItems === 'string') {
+      try {
+        const parsed = JSON.parse(this.project.bomItems);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  findMatchingBomItem(item: PoWoLineItem): any | null {
+    const bomList = this.getProjectBomList();
+    if (!bomList || bomList.length === 0) return null;
+
+    const grp = (item.materialGroup || '').toLowerCase().trim();
+    const desc = (item.description || '').toLowerCase().trim();
+
+    // 1. Check exact group + spec in description
+    for (const b of bomList) {
+      const bGrp = (b.materialGroup || '').toLowerCase().trim();
+      const bSpec = (b.specification || '').toLowerCase().trim();
+      const bCat = (b.categoryType || '').toLowerCase().trim();
+      if (grp && bGrp === grp) {
+        if ((bSpec && desc.includes(bSpec)) || (bCat && desc.includes(bCat))) {
+          return b;
+        }
+      }
+    }
+
+    // 2. Exact material group match
+    if (grp) {
+      const grpMatches = bomList.filter(b => (b.materialGroup || '').toLowerCase().trim() === grp);
+      if (grpMatches.length === 1) return grpMatches[0];
+      if (grpMatches.length > 1) {
+        const specMatch = grpMatches.find(b => {
+          const s = (b.specification || '').toLowerCase().trim();
+          return s && desc.includes(s);
+        });
+        if (specMatch) return specMatch;
+        return grpMatches[0];
+      }
+    }
+
+    // 3. Fallback: Check if description contains any BOM group or spec
+    for (const b of bomList) {
+      const bGrp = (b.materialGroup || '').toLowerCase().trim();
+      const bSpec = (b.specification || '').toLowerCase().trim();
+      const bCat = (b.categoryType || '').toLowerCase().trim();
+      if (bSpec && desc.includes(bSpec)) return b;
+      if (bCat && desc.includes(bCat)) return b;
+      if (bGrp && desc.includes(bGrp)) return b;
+    }
+
+    // 4. Default to selectedBomGroup if idx == 0
+    if (this.selectedBomGroup) {
+      const bSel = bomList.find(b => (b.materialGroup || '').toLowerCase().trim() === this.selectedBomGroup.toLowerCase().trim());
+      if (bSel) return bSel;
+    }
+
+    return null;
+  }
+
   saveAndGenerate(alsoDownloadPdf: boolean): void {
     if (!this.selectedVendorName && !this.docData.vendorTitleLine) {
       this.statusBanner = { text: 'Please select or enter a Vendor Name.', type: 'danger' };
@@ -1362,6 +1495,71 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
       this.statusBanner = { text: 'Grand Total must be greater than ₹0.', type: 'danger' };
       return;
     }
+
+    // --- BOM VALIDATION FOR CLIENT PO / WO (Requirement: BOM must exist & qty/rate/amount cannot exceed quoted BOM) ---
+    if (!this.isWarehouse) {
+      const bomList = this.getProjectBomList();
+      const clientName = this.project?.clientName || 'Selected Client';
+
+      if (!bomList || bomList.length === 0) {
+        const noBomMsg = `Cannot create ${this.orderType}: No Bill of Materials (BOM) found for client "${clientName}". PO/WO can only be created if BOM is configured in Awarded Sites first.`;
+        this.statusBanner = { text: noBomMsg, type: 'danger' };
+        alert(noBomMsg);
+        this.saving = false;
+        return;
+      }
+
+      // Validate each line item against quoted BOM values
+      for (const item of this.docData.items) {
+        const bomMatch = this.findMatchingBomItem(item);
+        const itemLabel = item.materialGroup || item.description || `Item #${item.sNo}`;
+
+        if (!bomMatch) {
+          const notFoundMsg = `Cannot create ${this.orderType}: Material "${itemLabel}" is not found in the quoted BOM for client "${clientName}". Only materials quoted in the BOM are allowed.`;
+          this.statusBanner = { text: notFoundMsg, type: 'danger' };
+          alert(notFoundMsg);
+          this.saving = false;
+          return;
+        }
+
+        const bomPlannedQty = Number(bomMatch.plannedQty) || 0;
+        const bomUnitRate = Number(bomMatch.unitRate) || 0;
+        const bomEstCost = Number(bomMatch.estimatedTotalCost || bomMatch.estAmount) || (bomPlannedQty * bomUnitRate);
+
+        const enteredQty = Number(item.qty) || 0;
+        const enteredRate = Number(item.rate) || 0;
+        const enteredAmount = Number(item.amount) || (enteredQty * enteredRate);
+        const matName = `${bomMatch.materialGroup}${bomMatch.specification ? ' (' + bomMatch.specification + ')' : ''}`;
+
+        // 1. Qty check: entered qty cannot exceed quoted BOM qty
+        if (bomPlannedQty > 0 && enteredQty > bomPlannedQty) {
+          const qtyErrMsg = `The entered quantity (${enteredQty} ${bomMatch.uom || item.unit || ''}) for "${matName}" is higher than the quoted BOM quantity (${bomPlannedQty} ${bomMatch.uom || item.unit || ''}).\n\nThe value is higher, cannot be applied here. Only equal or lesser values are allowed.`;
+          this.statusBanner = { text: qtyErrMsg, type: 'danger' };
+          alert(qtyErrMsg);
+          this.saving = false;
+          return;
+        }
+
+        // 2. Unit Rate check: entered rate cannot exceed quoted BOM unit rate
+        if (bomUnitRate > 0 && enteredRate > bomUnitRate) {
+          const rateErrMsg = `The entered rate (₹ ${enteredRate.toLocaleString('en-IN')}) for "${matName}" is higher than the quoted BOM unit rate (₹ ${bomUnitRate.toLocaleString('en-IN')}).\n\nThe value is higher, cannot be applied here. Only equal or lesser values are allowed.`;
+          this.statusBanner = { text: rateErrMsg, type: 'danger' };
+          alert(rateErrMsg);
+          this.saving = false;
+          return;
+        }
+
+        // 3. Total Amount check: entered amount cannot exceed quoted BOM total cost
+        if (bomEstCost > 0 && enteredAmount > bomEstCost) {
+          const amtErrMsg = `The entered total amount (₹ ${enteredAmount.toLocaleString('en-IN')}) for "${matName}" is higher than the quoted BOM estimated total cost (₹ ${bomEstCost.toLocaleString('en-IN')}).\n\nThe value is higher, cannot be applied here. Only equal or lesser values are allowed.`;
+          this.statusBanner = { text: amtErrMsg, type: 'danger' };
+          alert(amtErrMsg);
+          this.saving = false;
+          return;
+        }
+      }
+    }
+
 
     // Ensure amountInWords starts with Rupees and ends with Only
     let words = (this.docData.amountInWords || '').trim();
@@ -1441,7 +1639,7 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
     });
   }
 
-  // Generate multi-page A4 PDF matching Screenshot 2 on Page 1 + Uploaded Word Terms on Pages 2..N
+  // Generate multi-page A4 PDF matching Screenshot with Header & Footer + Centered Content
   downloadPoWoPdf(): void {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = 210;
@@ -1450,28 +1648,59 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
     const contentWidth = pageWidth - margin * 2;
     const halfWidth = contentWidth / 2;
 
+    const headerH = 41.6;
+    const footerH = 33.8;
+    const headerBottomY = headerH;
+    const footerTopY = pageHeight - footerH;
+    const availableMiddleHeight = footerTopY - headerBottomY;
+
+    const headerImg = this.getHeaderImage();
+    const footerImg = this.getFooterImage();
+
     const addLetterheadHeaderAndFooter = (pageNum: number) => {
-      let startY = 12;
-      const cfg = this.currentTypeConfig;
-      if (cfg?.headerImageBase64) {
+      if (headerImg) {
         try {
-          const fmt = cfg.headerImageBase64.includes('image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(cfg.headerImageBase64, fmt, margin, 6, contentWidth, 24);
-          startY = 33;
+          const fmt = headerImg.includes('image/png') ? 'PNG' : 'JPEG';
+          doc.addImage(headerImg, fmt, 0, 0, pageWidth, headerH);
         } catch (e) {
-          startY = 12;
+          console.warn('Error adding header to PDF:', e);
         }
       }
-      if (cfg?.footerImageBase64) {
+      if (footerImg) {
         try {
-          const fmt = cfg.footerImageBase64.includes('image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(cfg.footerImageBase64, fmt, margin, pageHeight - 20, contentWidth, 14);
-        } catch (e) {}
+          const fmt = footerImg.includes('image/png') ? 'PNG' : 'JPEG';
+          doc.addImage(footerImg, fmt, 0, footerTopY, pageWidth, footerH);
+        } catch (e) {
+          console.warn('Error adding footer to PDF:', e);
+        }
       }
-      return startY;
     };
 
-    let y = addLetterheadHeaderAndFooter(1);
+    addLetterheadHeaderAndFooter(1);
+
+    // Calculate dynamic vertical centering
+    const numItems = this.docData.items?.length || 1;
+    const numSummaryRows = this.isMixedGst ? 6 : 4;
+    const numTerms = this.docData.termsTable?.length || 6;
+
+    const titleBarH = 6.5;
+    const vendorOrderHeaderH = 5.5;
+    const contactRowH = 10;
+    const addressBlockH = 38;
+    const gstinPanRowH = 10;
+    const itemsTableEstH = 6 + numItems * 6.5;
+    const summaryRowsH = numSummaryRows * 5.0;
+    const wordsBannerH = 6.0;
+    const termsHeaderH = 5.5;
+    const termsRowsH = numTerms * 4.8;
+    const signatureBlockH = 20;
+
+    const totalTableH = titleBarH + vendorOrderHeaderH + contactRowH + addressBlockH + gstinPanRowH +
+                        itemsTableEstH + summaryRowsH + wordsBannerH + termsHeaderH + termsRowsH + signatureBlockH;
+
+    const remainingGap = availableMiddleHeight - totalTableH;
+    const topOffset = remainingGap > 0 ? (remainingGap / 2) : 3;
+    let y = headerBottomY + topOffset;
     const topStartY = y;
 
     doc.setDrawColor(0, 0, 0);
@@ -1479,106 +1708,105 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
     doc.setLineWidth(0.35);
 
     // 1. TITLE BAR ("PURCHASE ORDER" / "WORK ORDER")
-    doc.rect(margin, y, contentWidth, 7);
+    doc.rect(margin, y, contentWidth, titleBarH);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
-    doc.text(this.docData.documentTitle || 'PURCHASE ORDER', pageWidth / 2, y + 4.8, { align: 'center' });
-    y += 7;
+    doc.text(this.docData.documentTitle || (this.orderType === 'W.O' ? 'WORK ORDER' : 'PURCHASE ORDER'), pageWidth / 2, y + 4.6, { align: 'center' });
+    y += titleBarH;
 
     // 2. VENDOR DETAILS | ORDER DETAILS HEADER
-    doc.rect(margin, y, halfWidth, 6);
-    doc.rect(margin + halfWidth, y, halfWidth, 6);
+    doc.rect(margin, y, halfWidth, vendorOrderHeaderH);
+    doc.rect(margin + halfWidth, y, halfWidth, vendorOrderHeaderH);
     doc.setFontSize(8.5);
-    doc.text('VENDOR DETAILS', margin + 2, y + 4.2);
-    doc.text('ORDER DETAILS', margin + halfWidth + 2, y + 4.2);
-    y += 6;
+    doc.text('VENDOR DETAILS', margin + 2, y + 3.8);
+    doc.text('ORDER DETAILS', margin + halfWidth + 2, y + 3.8);
+    y += vendorOrderHeaderH;
 
     // 3. CONTACT NAME/NUMBER | PO NO / DATE
-    doc.rect(margin, y, halfWidth, 11);
-    doc.rect(margin + halfWidth, y, halfWidth, 11);
+    doc.rect(margin, y, halfWidth, contactRowH);
+    doc.rect(margin + halfWidth, y, halfWidth, contactRowH);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text('Contact Name :', margin + 2, y + 4.2);
-    doc.text('Contact Number :-', margin + 2, y + 8.8);
+    doc.text('Contact Name :', margin + 2, y + 3.8);
+    doc.text('Contact Number :-', margin + 2, y + 8.0);
     doc.setFont('helvetica', 'normal');
-    doc.text(this.docData.vendorContactName || '', margin + 26, y + 4.2);
-    doc.text(this.docData.vendorContactPhone || '', margin + 28, y + 8.8);
+    doc.text(this.docData.vendorContactName || '', margin + 26, y + 3.8);
+    doc.text(this.docData.vendorContactPhone || '', margin + 28, y + 8.0);
 
     doc.setFont('helvetica', 'bold');
-    doc.text(this.orderType === 'W.O' ? 'WO NO :' : 'PO NO :', margin + halfWidth + 2, y + 4.2);
-    doc.text('DATE :', margin + halfWidth + 2, y + 8.8);
+    doc.text(this.orderType === 'W.O' ? 'WO NO :' : 'PO NO :', margin + halfWidth + 2, y + 3.8);
+    doc.text('DATE :', margin + halfWidth + 2, y + 8.0);
     doc.setFont('helvetica', 'normal');
-    doc.text(this.docData.poWoNo || '', margin + halfWidth + 18, y + 4.2);
-    doc.text(this.docData.orderDate || '', margin + halfWidth + 18, y + 8.8);
-    y += 11;
+    doc.text(this.docData.poWoNo || '', margin + halfWidth + 18, y + 3.8);
+    doc.text(this.docData.orderDate || '', margin + halfWidth + 18, y + 8.0);
+    y += contactRowH;
 
     // 4. VENDOR NAME & ADDRESS (Left) | GSTIN + BILLING ADDRESS + DELIVERY ADDRESS (Right)
-    const addrBlockH = 44;
-    doc.rect(margin, y, halfWidth, addrBlockH);
-    doc.rect(margin + halfWidth, y, halfWidth, 6);
-    doc.rect(margin + halfWidth, y + 6, halfWidth, 21);
-    doc.rect(margin + halfWidth, y + 27, halfWidth, 17);
+    doc.rect(margin, y, halfWidth, addressBlockH);
+    doc.rect(margin + halfWidth, y, halfWidth, 5.5);
+    doc.rect(margin + halfWidth, y + 5.5, halfWidth, 18);
+    doc.rect(margin + halfWidth, y + 23.5, halfWidth, 14.5);
 
     // Left: Vendor Name & Address
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text('Vendor Name & Address :', margin + 2, y + 4.5);
-    doc.text(this.docData.vendorTitleLine || '', margin + 2, y + 11);
+    doc.text('Vendor Name & Address :', margin + 2, y + 4.2);
+    doc.text(this.docData.vendorTitleLine || '', margin + 2, y + 9.5);
     doc.setFont('helvetica', 'normal');
     const vAddrLines = doc.splitTextToSize(this.docData.vendorAddress || '', halfWidth - 4);
-    doc.text(vAddrLines.slice(0, 6), margin + 2, y + 15.5);
+    doc.text(vAddrLines.slice(0, 5), margin + 2, y + 14);
 
     // Right 1: Company GSTIN
     doc.setFont('helvetica', 'bold');
-    doc.text(`GSTIN :-  ${this.docData.companyGstin || '33AACCL5566B1ZT'}`, margin + halfWidth + 2, y + 4.2);
+    doc.text(`GSTIN :-  ${this.docData.companyGstin || '33AACCL5566B1ZT'}`, margin + halfWidth + 2, y + 3.8);
 
     // Right 2: Billing address
     doc.setFont('helvetica', 'bold');
-    doc.text('Billing address', margin + halfWidth + 2, y + 10);
+    doc.text('Billing address', margin + halfWidth + 2, y + 9.5);
     doc.setFontSize(7.5);
-    doc.text(this.docData.billingCompany || '', margin + halfWidth + 2, y + 14);
+    doc.text(this.docData.billingCompany || '', margin + halfWidth + 2, y + 13.5);
     doc.setFont('helvetica', 'normal');
     const billLines = doc.splitTextToSize(this.docData.billingAddress || '', halfWidth - 4);
-    doc.text(billLines.slice(0, 4), margin + halfWidth + 2, y + 18);
+    doc.text(billLines.slice(0, 3), margin + halfWidth + 2, y + 17.5);
 
     // Right 3: Delivery address
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text('Delivery address :', margin + halfWidth + 2, y + 31);
+    doc.text('Delivery address :', margin + halfWidth + 2, y + 27.5);
     doc.setFontSize(7.5);
-    doc.text(this.docData.deliveryTitleLine || '', margin + halfWidth + 2, y + 35);
+    doc.text(this.docData.deliveryTitleLine || '', margin + halfWidth + 2, y + 31.5);
     doc.setFont('helvetica', 'normal');
     const delivLines = doc.splitTextToSize(this.docData.deliveryAddress || '', halfWidth - 4);
-    doc.text(delivLines.slice(0, 2), margin + halfWidth + 2, y + 39);
-    y += addrBlockH;
+    doc.text(delivLines.slice(0, 2), margin + halfWidth + 2, y + 35.5);
+    y += addressBlockH;
 
     // 5. VENDOR GSTIN & PAN | CONTACT & PH. NO ROW
-    doc.rect(margin, y, 16, 5.5);
-    doc.rect(margin + 16, y, halfWidth - 16, 5.5);
-    doc.rect(margin + halfWidth, y, halfWidth, 5.5);
+    doc.rect(margin, y, 16, 5);
+    doc.rect(margin + 16, y, halfWidth - 16, 5);
+    doc.rect(margin + halfWidth, y, halfWidth, 5);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text('GSTIN :', margin + 2, y + 3.8);
-    doc.text(this.docData.vendorGstin || '', margin + 18, y + 3.8);
-    y += 5.5;
+    doc.text('GSTIN :', margin + 2, y + 3.6);
+    doc.text(this.docData.vendorGstin || '', margin + 18, y + 3.6);
+    y += 5;
 
-    doc.rect(margin, y, 16, 5.5);
-    doc.rect(margin + 16, y, halfWidth - 16, 5.5);
-    doc.rect(margin + halfWidth, y, 16, 5.5);
-    doc.rect(margin + halfWidth + 16, y, 32, 5.5);
-    doc.rect(margin + halfWidth + 48, y, 15, 5.5);
-    doc.rect(margin + halfWidth + 63, y, halfWidth - 63, 5.5);
+    doc.rect(margin, y, 16, 5);
+    doc.rect(margin + 16, y, halfWidth - 16, 5);
+    doc.rect(margin + halfWidth, y, 16, 5);
+    doc.rect(margin + halfWidth + 16, y, 32, 5);
+    doc.rect(margin + halfWidth + 48, y, 15, 5);
+    doc.rect(margin + halfWidth + 63, y, halfWidth - 63, 5);
 
-    doc.text('PAN :', margin + 2, y + 3.8);
-    doc.text(this.docData.vendorPan || '', margin + 18, y + 3.8);
-    doc.text('Contact :', margin + halfWidth + 1.5, y + 3.8);
+    doc.text('PAN :', margin + 2, y + 3.6);
+    doc.text(this.docData.vendorPan || '', margin + 18, y + 3.6);
+    doc.text('Contact :', margin + halfWidth + 1.5, y + 3.6);
     doc.setFont('helvetica', 'normal');
-    doc.text(this.docData.siteContactName || '', margin + halfWidth + 17.5, y + 3.8);
+    doc.text(this.docData.siteContactName || '', margin + halfWidth + 17.5, y + 3.6);
     doc.setFont('helvetica', 'bold');
-    doc.text('Ph. No :', margin + halfWidth + 49.5, y + 3.8);
+    doc.text('Ph. No :', margin + halfWidth + 49.5, y + 3.6);
     doc.setFont('helvetica', 'normal');
-    doc.text(this.docData.siteContactPhone || '', margin + halfWidth + 64.5, y + 3.8);
-    y += 5.5;
+    doc.text(this.docData.siteContactPhone || '', margin + halfWidth + 64.5, y + 3.6);
+    y += 5;
 
     // 6. ITEMS TABLE USING AUTOTABLE
     const itemRows: any[] = this.docData.items.map((it, idx) => [
@@ -1599,11 +1827,11 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
       theme: 'grid',
       styles: {
         font: 'helvetica',
-        fontSize: 8,
+        fontSize: 7.8,
         textColor: [0, 0, 0],
         lineColor: [0, 0, 0],
         lineWidth: 0.3,
-        cellPadding: 2
+        cellPadding: 1.8
       },
       headStyles: {
         fillColor: [255, 255, 255],
@@ -1628,7 +1856,7 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
     const leftBoxW = 95;
     const rightLabelW = 67;
     const rightValW = 28;
-    const rowH = 5.5;
+    const rowH = 5.0;
 
     const summaryRows = this.isMixedGst
       ? [
@@ -1656,48 +1884,47 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
       doc.rect(margin + leftBoxW, ry, rightLabelW, rowH);
       doc.rect(margin + leftBoxW + rightLabelW, ry, rightValW, rowH);
       doc.setFont('helvetica', 'bold');
-      doc.text(sr.label, margin + leftBoxW + rightLabelW - 2, ry + 3.8, { align: 'right' });
+      doc.text(sr.label, margin + leftBoxW + rightLabelW - 2, ry + 3.6, { align: 'right' });
       const formattedVal = Number(sr.val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      doc.text(formattedVal, margin + contentWidth - 2, ry + 3.8, { align: 'right' });
+      doc.text(formattedVal, margin + contentWidth - 2, ry + 3.6, { align: 'right' });
     });
     y += rowH * summaryRows.length;
 
     // 8. AMOUNT IN WORDS BANNER
-    doc.rect(margin, y, contentWidth, 6.5);
+    doc.rect(margin, y, contentWidth, wordsBannerH);
     doc.setFont('helvetica', 'bolditalic');
     doc.setFontSize(8.5);
-    doc.text(this.docData.amountInWords || 'Rupees Zero Only', pageWidth / 2, y + 4.5, { align: 'center' });
-    y += 6.5;
+    doc.text(this.docData.amountInWords || 'Rupees Zero Only', pageWidth / 2, y + 4.2, { align: 'center' });
+    y += wordsBannerH;
 
     // 9. TERMS & CONDITIONS TABLE ON PAGE 1
-    doc.rect(margin, y, contentWidth, 6);
+    doc.rect(margin, y, contentWidth, termsHeaderH);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text('TERMS & CONDITIONS', margin + 2, y + 4.2);
+    doc.text('TERMS & CONDITIONS', margin + 2, y + 3.8);
     const tcWidth = doc.getTextWidth('TERMS & CONDITIONS');
-    doc.line(margin + 2, y + 4.6, margin + 2 + tcWidth, y + 4.6);
-    y += 6;
+    doc.line(margin + 2, y + 4.2, margin + 2 + tcWidth, y + 4.2);
+    y += termsHeaderH;
 
     for (const term of this.docData.termsTable) {
-      doc.rect(margin, y, leftBoxW, 5.2);
-      doc.rect(margin + leftBoxW, y, contentWidth - leftBoxW, 5.2);
+      doc.rect(margin, y, leftBoxW, 4.8);
+      doc.rect(margin + leftBoxW, y, contentWidth - leftBoxW, 4.8);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.text(term.label || '', margin + 2, y + 3.7);
-      doc.text(term.value || '', margin + leftBoxW + 2, y + 3.7);
-      y += 5.2;
+      doc.text(term.label || '', margin + 2, y + 3.5);
+      doc.text(term.value || '', margin + leftBoxW + 2, y + 3.5);
+      y += 4.8;
     }
 
     // 10. SIGNATURE BLOCK
-    const sigH = 24;
-    doc.rect(margin, y, leftBoxW, sigH);
-    doc.rect(margin + leftBoxW, y, contentWidth - leftBoxW, sigH);
+    doc.rect(margin, y, leftBoxW, signatureBlockH);
+    doc.rect(margin + leftBoxW, y, contentWidth - leftBoxW, signatureBlockH);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.text(this.docData.forCompanySignText || 'For SATHLOKHAR SYNERGYS E&C GLOBAL LTD,', margin + 2, y + 4.5);
     doc.text('Suppliers Signature with Seal', margin + leftBoxW + 2, y + 4.5);
-    doc.text(this.docData.supplierSignName || '', margin + leftBoxW + 2, y + sigH - 2.5);
-    y += sigH;
+    doc.text(this.docData.supplierSignName || '', margin + leftBoxW + 2, y + signatureBlockH - 2.5);
+    y += signatureBlockH;
 
     // Outer thick border around Page 1 table
     doc.setLineWidth(0.6);
@@ -1708,20 +1935,25 @@ export class PoWoLetterheadModalComponent implements OnInit, OnChanges {
       this.docData.termsPages.forEach((pageContent, idx) => {
         if (!pageContent || !pageContent.trim()) return;
         doc.addPage();
-        let ty = addLetterheadHeaderAndFooter(idx + 2);
+        addLetterheadHeaderAndFooter(idx + 2);
 
+        const termsBoxTop = headerH + 6;
+        const termsBoxBottom = footerTopY - 6;
+        const termsBoxHeight = termsBoxBottom - termsBoxTop;
+
+        doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.4);
-        doc.rect(margin, ty, contentWidth, pageHeight - ty - 18);
+        doc.rect(margin, termsBoxTop, contentWidth, termsBoxHeight);
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9.5);
-        doc.text(`${this.docData.documentTitle} - TERMS & CONDITIONS (${this.docData.poWoNo})`, margin + 4, ty + 7);
-        doc.line(margin, ty + 10, margin + contentWidth, ty + 10);
+        doc.text(`${this.docData.documentTitle} - TERMS & CONDITIONS (${this.docData.poWoNo})`, margin + 4, termsBoxTop + 6.5);
+        doc.line(margin, termsBoxTop + 9.5, margin + contentWidth, termsBoxTop + 9.5);
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
+        doc.setFontSize(8.2);
         const wrappedLines = doc.splitTextToSize(pageContent.trim(), contentWidth - 8);
-        doc.text(wrappedLines, margin + 4, ty + 16);
+        doc.text(wrappedLines, margin + 4, termsBoxTop + 15);
       });
     }
 

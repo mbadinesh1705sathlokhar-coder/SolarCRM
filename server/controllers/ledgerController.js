@@ -833,7 +833,20 @@ function ensureLetterheadDir() {
     }
 }
 
+function getLetterheadBase64(fileName) {
+    try {
+        const filePath = path.join(LETTERHEAD_DIR, fileName);
+        if (fs.existsSync(filePath)) {
+            const buf = fs.readFileSync(filePath);
+            return 'data:image/png;base64,' + buf.toString('base64');
+        }
+    } catch (e) {}
+    return '';
+}
+
 function getDefaultPoWoConfig() {
+    const defaultHeaderB64 = getLetterheadBase64('header.png');
+    const defaultFooterB64 = getLetterheadBase64('footer.png');
     return {
         po: {
             fileName: '',
@@ -956,8 +969,18 @@ function readPoWoConfig() {
             }
         }
         return {
-            po: { ...defaults.po, ...(parsed.po || {}) },
-            wo: { ...defaults.wo, ...(parsed.wo || {}) },
+            po: {
+                ...defaults.po,
+                ...(parsed.po || {}),
+                headerImageBase64: (parsed.po && parsed.po.headerImageBase64) ? parsed.po.headerImageBase64 : (defaults.po.headerImageBase64 || getLetterheadBase64('header.png')),
+                footerImageBase64: (parsed.po && parsed.po.footerImageBase64) ? parsed.po.footerImageBase64 : (defaults.po.footerImageBase64 || getLetterheadBase64('footer.png'))
+            },
+            wo: {
+                ...defaults.wo,
+                ...(parsed.wo || {}),
+                headerImageBase64: (parsed.wo && parsed.wo.headerImageBase64) ? parsed.wo.headerImageBase64 : (defaults.wo.headerImageBase64 || getLetterheadBase64('header.png')),
+                footerImageBase64: (parsed.wo && parsed.wo.footerImageBase64) ? parsed.wo.footerImageBase64 : (defaults.wo.footerImageBase64 || getLetterheadBase64('footer.png'))
+            },
             bomMaterialDescriptions: mergedBom,
             savedPoWoDocs: parsed.savedPoWoDocs || {}
         };
@@ -1258,6 +1281,27 @@ exports.createExpense = async (req, res) => {
                 writePoWoConfig(cfg);
             } catch (cfgErr) {
                 console.warn('Error saving poWoDoc config:', cfgErr.message);
+            }
+        }
+
+        // If this is a Warehouse PO with items, automatically add those items to Warehouse stock
+        if (cleanSiteId === 'WAREHOUSE' && poWoDoc && Array.isArray(poWoDoc.items) && poWoDoc.items.length > 0) {
+            try {
+                const { addWarehouseStock } = require('./inventoryController');
+                if (typeof addWarehouseStock === 'function') {
+                    const whItems = poWoDoc.items.map(it => ({
+                        materialName: it.description || it.materialGroup || 'Material',
+                        materialGroup: it.materialGroup || null,
+                        specification: it.specification || null,
+                        quantity: parseFloat(it.qty) || 0,
+                        unit: it.unit || 'Nos',
+                        rate: parseFloat(it.rate) || 0,
+                        amount: parseFloat(it.amount) || 0
+                    }));
+                    await addWarehouseStock(whItems);
+                }
+            } catch (whErr) {
+                console.warn('Error adding warehouse stock from PO:', whErr.message);
             }
         }
 

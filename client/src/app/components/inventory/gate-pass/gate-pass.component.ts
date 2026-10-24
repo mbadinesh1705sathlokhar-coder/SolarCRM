@@ -226,13 +226,9 @@ export class GatePassComponent implements OnInit {
   }
 
   loadClientPos(clientName?: string): void {
-    if (!clientName || !clientName.trim()) {
-      this.clientPosList = [];
-      return;
-    }
     const proj = this.getSelectedProject();
     const siteId = proj?.siteId || '';
-    this.inventoryService.getClientPos(clientName, siteId).subscribe({
+    this.inventoryService.getClientPos(clientName || '', siteId).subscribe({
       next: (res) => {
         if (res.success && res.data) {
           this.clientPosList = res.data;

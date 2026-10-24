@@ -1379,6 +1379,16 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     this.isExpenseTypeSelectorOpen = false;
 
     if (chosenType === 'P.O' || chosenType === 'W.O') {
+      const isWh = this.selectedProjectRef.siteId.toUpperCase() === 'WAREHOUSE';
+      if (!isWh) {
+        const bomList = this.parseProjectBom(this.selectedProjectRef);
+        if (!bomList || bomList.length === 0) {
+          const noBomMsg = `Cannot create ${chosenType}: No Bill of Materials (BOM) found for client "${this.selectedProjectRef.clientName}". Please configure the BOM in Awarded Sites (Project Master) first.`;
+          this.showAlert(noBomMsg, 'danger');
+          alert(noBomMsg);
+          return;
+        }
+      }
       this.openPoWoLetterheadModal(chosenType, null);
       return;
     }
@@ -1388,6 +1398,16 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
 
   openPoWoLetterheadModal(type: 'P.O' | 'W.O', expenseToEdit: SiteExpense | null = null): void {
     if (!this.selectedProjectRef) return;
+    const isWh = this.selectedProjectRef.siteId.toUpperCase() === 'WAREHOUSE';
+    if (!isWh && !expenseToEdit) {
+      const bomList = this.parseProjectBom(this.selectedProjectRef);
+      if (!bomList || bomList.length === 0) {
+        const noBomMsg = `Cannot create ${type}: No Bill of Materials (BOM) found for client "${this.selectedProjectRef.clientName}". Please configure the BOM in Awarded Sites (Project Master) first.`;
+        this.showAlert(noBomMsg, 'danger');
+        alert(noBomMsg);
+        return;
+      }
+    }
     this.extractProjectBomOptions(this.selectedProjectRef);
     this.poWoLetterheadType = type;
     this.poWoEditingExpense = expenseToEdit;
@@ -1640,6 +1660,27 @@ export class ExpenseLedgerComponent implements OnInit, AfterViewInit, OnDestroy 
     const isoDate = this.toIsoDate(this.formData.dateInput);
     const mop = this.deriveMoPFromDate(this.formData.dateInput);
     const isWh = this.selectedProjectRef.siteId.toUpperCase() === 'WAREHOUSE';
+
+    // --- BOM VALIDATION FOR PO / WO IN EXPENSE FORM ---
+    if ((this.formData.paymentThrough === 'P.O' || this.formData.paymentThrough === 'W.O') && !isWh) {
+      const bomList = this.parseProjectBom(this.selectedProjectRef);
+      if (!bomList || bomList.length === 0) {
+        const noBomMsg = `Cannot create ${this.formData.paymentThrough}: No Bill of Materials (BOM) found for client "${this.selectedProjectRef.clientName}". Please configure the BOM in Awarded Sites first.`;
+        this.showAlert(noBomMsg, 'danger');
+        alert(noBomMsg);
+        return;
+      }
+      const bomMatch = this.findMatchingBomItem(this.formData.selectedBomGroup, this.formData.selectedBomSpec);
+      if (bomMatch) {
+        const bomEst = Number(bomMatch.estimatedTotalCost || bomMatch.estAmount) || (Number(bomMatch.plannedQty || 0) * Number(bomMatch.unitRate || 0));
+        if (bomEst > 0 && Number(this.formData.amount) > bomEst) {
+          const errMsg = `The entered amount (₹ ${Number(this.formData.amount).toLocaleString('en-IN')}) for "${bomMatch.materialGroup} (${bomMatch.specification || ''})" is higher than the quoted BOM estimated amount (₹ ${bomEst.toLocaleString('en-IN')}).\n\nThe value is higher, cannot be applied here. Only equal or lesser values are allowed.`;
+          this.showAlert(errMsg, 'danger');
+          alert(errMsg);
+          return;
+        }
+      }
+    }
 
     if (this.formData.billVoucher === 'Submitted' && !this.formData.invoiceNo?.trim()) {
       const entered = prompt('Please enter the Invoice Number for this Submitted Bill Voucher:');
