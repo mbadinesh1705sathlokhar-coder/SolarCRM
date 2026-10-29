@@ -72,6 +72,7 @@ export class InwardComponent implements OnInit {
   toastType: 'success' | 'danger' | 'info' = 'success';
 
   unitOptions: string[] = ['Nos', 'Meter', 'Set', 'Kg', 'Roll', 'Box', 'Lot'];
+  materialGroupOptions: string[] = [];
   engineers: string[] = ['Soundarajan', 'Sathish', 'V Sharath', 'K Karthikeyen', 'S Karthikeyen', 'Rahul', 'Vairamani'];
   vendorOptions: string[] = [];
 
@@ -123,6 +124,8 @@ export class InwardComponent implements OnInit {
     this.loadWarehouseStockOptions();
     this.loadMasterMaterials();
     this.loadBomMaterialsMaster();
+    this.loadMaterialGroupMaster();
+    this.loadUomOptions();
     this.loadVendorsFromAddList();
     this.loadEngineersFromOffice();
   }
@@ -221,6 +224,37 @@ export class InwardComponent implements OnInit {
     return map;
   }
 
+  loadMaterialGroupMaster(): void {
+    this.masterListService.getList('Material Group').subscribe({
+      next: (res: any) => {
+        if (res?.data?.items && res.data.items.length > 0) {
+          this.materialGroupOptions = Array.from(new Set([...this.materialGroupOptions, ...res.data.items]));
+          this.cdr.markForCheck();
+        }
+      }
+    });
+
+    this.masterListService.getList('BOM').subscribe({
+      next: (res: any) => {
+        if (res?.data?.items && res.data.items.length > 0) {
+          this.materialGroupOptions = Array.from(new Set([...this.materialGroupOptions, ...res.data.items]));
+          this.cdr.markForCheck();
+        }
+      }
+    });
+  }
+
+  loadUomOptions(): void {
+    this.masterListService.getList('UOM measurements').subscribe({
+      next: (res: any) => {
+        if (res?.data?.items && res.data.items.length > 0) {
+          this.unitOptions = Array.from(new Set([...this.unitOptions, ...res.data.items]));
+          this.cdr.markForCheck();
+        }
+      }
+    });
+  }
+
   loadEngineersFromOffice(): void {
     this.masterListService.getList('Engineer').subscribe({
       next: (res: any) => {
@@ -302,10 +336,12 @@ export class InwardComponent implements OnInit {
   }
 
   getAvailableMaterialGroups(): string[] {
-    const masterGroups = this.bomGroupKeys.length > 0
-      ? this.bomGroupKeys
-      : ['Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree'];
-    return masterGroups;
+    const combined = Array.from(new Set([
+      ...this.bomGroupKeys,
+      ...this.materialGroupOptions,
+      'Cables', 'Panels', 'Inverters', 'Civil & Miscellaneous', 'Consumables', 'Earthing Protection', 'Module Mounting Structures', 'Tata SPG Package', 'Waree'
+    ])).filter(Boolean);
+    return combined;
   }
 
   getAvailableCategoryTypes(groupName?: string): string[] {
@@ -314,11 +350,11 @@ export class InwardComponent implements OnInit {
 
     const matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
     if (matches.length > 0) {
-      const types = Array.from(new Set(matches.map(m => m.categoryType || 'Standard')));
+      const types = Array.from(new Set(matches.map(m => m.categoryType || 'Standard'))).filter(Boolean);
       return types.length > 0 ? types : ['Standard'];
     }
     if (normGrp === 'cables') return ['AC Cable', 'DC Cable'];
-    if (normGrp === 'panels') return ['Mono PERC', 'TOPCon', 'Polycrystalline'];
+    if (normGrp === 'panels') return ['Mono PERC - DCR', 'Mono PERC - NON DCR', 'TOPCon - DCR', 'Polycrystalline'];
     if (normGrp === 'inverters') return ['On Grid', 'Hybrid'];
     return ['Standard'];
   }
@@ -328,15 +364,16 @@ export class InwardComponent implements OnInit {
     const normType = (categoryType || '').toLowerCase().trim();
     if (!normGrp) return [];
 
-    let matches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    const groupMatches = this.bomMaterialsMasterList.filter(b => (b.groupName || '').toLowerCase().trim() === normGrp);
+    if (groupMatches.length === 0) return [];
+
     if (normType && normType !== 'standard') {
-      const filtered = matches.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
-      if (filtered.length > 0) matches = filtered;
+      const typeMatches = groupMatches.filter(b => (b.categoryType || '').toLowerCase().trim() === normType);
+      if (typeMatches.length > 0) {
+        return Array.from(new Set(typeMatches.map(m => m.specification).filter(Boolean)));
+      }
     }
-    if (matches.length > 0) {
-      return Array.from(new Set(matches.map(m => m.specification).filter(Boolean)));
-    }
-    return [];
+    return Array.from(new Set(groupMatches.map(m => m.specification).filter(Boolean)));
   }
 
   onMaterialGroupChange(m: InwardItem): void {
@@ -348,32 +385,57 @@ export class InwardComponent implements OnInit {
     this.updateMaterialRowFromSpec(m);
   }
 
+  onCategoryTypeChange(m: InwardItem): void {
+    const grp = m.materialGroup || '';
+    const cat = m.categoryType || 'Standard';
+    const specs = this.getAvailableSpecs(grp, cat);
+    if (!m.specification || !specs.includes(m.specification)) {
+      m.specification = specs[0] || '';
+    }
+    this.updateMaterialRowFromSpec(m);
+  }
+
   onSpecificationChange(m: InwardItem): void {
     this.updateMaterialRowFromSpec(m);
   }
 
   updateMaterialRowFromSpec(m: InwardItem): void {
-    const grp = m.materialGroup || '';
-    const cat = m.categoryType || 'Standard';
-    const spec = m.specification || '';
+    const grp = (m.materialGroup || '').trim();
+    const cat = (m.categoryType || 'Standard').trim();
+    const spec = (m.specification || '').trim();
     m.materialName = this.formatBomMaterialName(grp, cat, spec);
 
-    if (grp.toLowerCase() === 'cables') {
+    const grpNorm = grp.toLowerCase();
+    const catNorm = cat.toLowerCase();
+    const specNorm = spec.toLowerCase();
+
+    const match = this.bomMaterialsMasterList.find(b =>
+      (b.groupName || '').toLowerCase().trim() === grpNorm &&
+      (b.categoryType || '').toLowerCase().trim() === catNorm &&
+      (b.specification || '').toLowerCase().trim() === specNorm
+    ) || this.bomMaterialsMasterList.find(b =>
+      (b.groupName || '').toLowerCase().trim() === grpNorm &&
+      (b.specification || '').toLowerCase().trim() === specNorm
+    ) || this.bomMaterialsMasterList.find(b =>
+      (b.specification || '').toLowerCase().trim() === specNorm
+    );
+
+    if (match && (match.defaultUom || match.uom)) {
+      m.unit = match.defaultUom || match.uom;
+    } else if (grpNorm === 'cables') {
       m.unit = 'Meter';
-    } else if (!m.unit) {
+    } else if (!m.unit || m.unit === 'Meter') {
       m.unit = 'Nos';
     }
 
-    const match = this.bomMaterialsMasterList.find(b =>
-      (b.specification || '').toLowerCase().trim() === spec.toLowerCase().trim()
-    );
     if (match) {
-      if (match.uom && !m.unit) m.unit = match.uom;
-      if (match.rate && (!m.rate || m.rate === 0)) {
-        m.rate = Number(match.rate);
+      const uRate = Number(match.unitRate !== undefined ? match.unitRate : match.rate);
+      if (uRate && (!m.rate || m.rate === 0)) {
+        m.rate = uRate;
       }
     }
     this.calculateRowAmount(m);
+    this.cdr.markForCheck();
   }
 
   openAddModal(): void {

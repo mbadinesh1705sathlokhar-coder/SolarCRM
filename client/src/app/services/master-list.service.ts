@@ -97,8 +97,8 @@ export class MasterListService {
     return this.http.get<{ success: boolean; data: any[]; grouped: { [key: string]: any[] } }>('http://localhost:2000/api/bom-materials');
   }
 
-  saveBomMaterialGroupSpecs(groupName: string, items: any[], groupGstPercent?: number): Observable<{ success: boolean; message: string; data: any[] }> {
-    return this.http.post<{ success: boolean; message: string; data: any[] }>('http://localhost:2000/api/bom-materials/bulk-save', { groupName, items, groupGstPercent });
+  saveBomMaterialGroupSpecs(groupName: string, items: any[], groupGstPercent?: number, allGroups?: { [key: string]: any[] }): Observable<{ success: boolean; message: string; data: any[] }> {
+    return this.http.post<{ success: boolean; message: string; data: any[] }>('http://localhost:2000/api/bom-materials/bulk-save', { groupName, items, groupGstPercent, allGroups });
   }
 
   syncMaterialGroupsWithUom(groups: { groupName: string; defaultUom: string }[]): Observable<{ success: boolean; message: string; data: any[]; grouped: { [key: string]: any[] } }> {

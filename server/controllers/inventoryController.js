@@ -462,8 +462,8 @@ async function findMatchingWarehouseMaterial(it) {
         });
     }
 
-    // 6. Match by group alone or group substring
-    if (!mat && grp) {
+    // 6. Match by group alone or group substring - ONLY if neither spec nor specific material name is specified!
+    if (!mat && grp && !spec && (!name || name.toLowerCase() === grp.toLowerCase())) {
         mat = await WarehouseMaterial.findOne({
             where: {
                 [Op.or]: [
@@ -552,7 +552,7 @@ async function addWarehouseStock(items) {
                 inStock: newStock,
                 status: autoStatus,
                 materialGroup: mat.materialGroup || grp || null,
-                categoryType: cat || null,
+                categoryType: mat.categoryType || cat || null,
                 specification: mat.specification || spec || null
             });
         } else {

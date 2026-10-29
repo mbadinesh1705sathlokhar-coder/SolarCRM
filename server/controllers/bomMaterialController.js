@@ -61,6 +61,26 @@ async function seedBomMaterialsIfEmpty() {
             await BomMaterialMaster.bulkCreate(initialBomMaterialsSeed);
             console.log('Successfully seeded BOM Material Master specifications!');
         }
+
+        // Ensure TOPCon - DCR 585W exists for Panels
+        const topCon585 = await BomMaterialMaster.findOne({
+            where: {
+                groupName: 'Panels',
+                categoryType: 'TOPCon - DCR',
+                specification: '585W'
+            }
+        });
+        if (!topCon585) {
+            await BomMaterialMaster.create({
+                groupName: 'Panels',
+                categoryType: 'TOPCon - DCR',
+                specification: '585W',
+                defaultUom: 'Nos',
+                unitRate: 13500,
+                gstPercent: 5.0,
+                sortOrder: 8
+            });
+        }
     } catch (err) {
         console.error('Error seeding BOM Material Master:', err);
     }
@@ -107,24 +127,60 @@ async function getAllBomMaterials(req, res) {
     }
 }
 
-// BULK SAVE / UPDATE for a specific Material Group (from Add List UI)
+// BULK SAVE / UPDATE for Material Group Specs (from Add List UI)
 async function saveMaterialGroupSpecs(req, res) {
     try {
-        const { groupName, items, groupGstPercent } = req.body;
+        const { groupName, items, groupGstPercent, allGroups } = req.body;
+
+        if (allGroups && typeof allGroups === 'object' && Object.keys(allGroups).length > 0) {
+            for (const [grp, grpItems] of Object.entries(allGroups)) {
+                if (!grp) continue;
+                await BomMaterialMaster.destroy({ where: { groupName: grp.trim() } });
+                if (Array.isArray(grpItems) && grpItems.length > 0) {
+                    const defaultGroupUom = grp.trim().toLowerCase() === 'cables' ? 'Meter' : 'Nos';
+                    const defaultGst = grp.trim().toLowerCase() === 'panels' ? 5 : 18;
+                    const rows = grpItems.map((it, idx) => ({
+                        groupName: grp.trim(),
+                        categoryType: (it.categoryType || 'Standard').trim(),
+                        specification: (it.specification || '').trim(),
+                        defaultUom: (it.defaultUom || defaultGroupUom).trim(),
+                        unitRate: Number(it.unitRate) || 0,
+                        gstPercent: it.gstPercent !== undefined ? Number(it.gstPercent) : defaultGst,
+                        sortOrder: idx + 1
+                    })).filter(r => r.specification.length > 0);
+
+                    if (rows.length > 0) {
+                        await BomMaterialMaster.bulkCreate(rows);
+                    }
+                }
+            }
+
+            const allUpdated = await BomMaterialMaster.findAll({
+                order: [['groupName', 'ASC'], ['categoryType', 'ASC'], ['sortOrder', 'ASC'], ['id', 'ASC']]
+            });
+
+            return res.json({
+                success: true,
+                message: 'All material group specifications updated successfully.',
+                data: allUpdated
+            });
+        }
+
         if (!groupName) {
-            return res.status(400).json({ success: false, message: 'groupName is required' });
+            return res.status(400).json({ success: false, message: 'groupName or allGroups is required' });
         }
 
         // Delete existing items for this group
         await BomMaterialMaster.destroy({ where: { groupName: groupName.trim() } });
 
         if (Array.isArray(items) && items.length > 0) {
-            const defaultGst = groupGstPercent !== undefined ? Number(groupGstPercent) : (groupName.trim() === 'Panels' ? 12 : 18);
+            const defaultGroupUom = groupName.trim().toLowerCase() === 'cables' ? 'Meter' : 'Nos';
+            const defaultGst = groupGstPercent !== undefined ? Number(groupGstPercent) : (groupName.trim().toLowerCase() === 'panels' ? 5 : 18);
             const rows = items.map((it, idx) => ({
                 groupName: groupName.trim(),
                 categoryType: (it.categoryType || 'Standard').trim(),
                 specification: (it.specification || '').trim(),
-                defaultUom: (it.defaultUom || 'Meter').trim(),
+                defaultUom: (it.defaultUom || defaultGroupUom).trim(),
                 unitRate: Number(it.unitRate) || 0,
                 gstPercent: it.gstPercent !== undefined ? Number(it.gstPercent) : defaultGst,
                 sortOrder: idx + 1

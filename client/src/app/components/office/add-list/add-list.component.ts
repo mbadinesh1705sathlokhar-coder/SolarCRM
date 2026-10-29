@@ -1518,12 +1518,15 @@ export class AddListComponent implements OnInit {
 
     if (this.isBomMaterialsMode) {
       const cleanSpecs = this.bomGroupSpecRows.filter(r => r.specification && r.specification.trim().length > 0);
+      if (this.selectedBomGroup) {
+        this.allBomGroupItems[this.selectedBomGroup] = cleanSpecs.map(r => ({ ...r }));
+      }
       const cleanItems = this.formRows
         .map(r => r.value.trim())
         .filter(Boolean);
 
-      // Save specs for currently selected group
-      this.masterListService.saveBomMaterialGroupSpecs(this.selectedBomGroup, cleanSpecs, this.groupGstPercent).subscribe({
+      // Save specs for all configured groups & active group
+      this.masterListService.saveBomMaterialGroupSpecs(this.selectedBomGroup, cleanSpecs, this.groupGstPercent, this.allBomGroupItems).subscribe({
         next: (res) => {
           if (res.success && res.data) {
             this.allBomGroupItems[this.selectedBomGroup] = res.data;
